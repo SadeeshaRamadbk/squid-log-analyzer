@@ -14,9 +14,10 @@ interface TopDomainsTableProps {
     percentage: number;
   }>;
   onViewDomain?: (domain: string) => void;
+  onBlockDomain?: (domain: string) => void;
 }
 
-export function TopDomainsTable({ domains, onViewDomain }: TopDomainsTableProps) {
+export function TopDomainsTable({ domains, onViewDomain, onBlockDomain }: TopDomainsTableProps) {
   const handleExportCsv = () => {
     exportToCsv('top_domains', domains, [
       { key: 'domain', header: 'Domain' },
@@ -70,16 +71,28 @@ export function TopDomainsTable({ domains, onViewDomain }: TopDomainsTableProps)
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {domains.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-2.5 pl-1 font-mono font-medium text-slate-200 truncate max-w-[180px]">
-                    <button
-                      type="button"
-                      onClick={() => onViewDomain?.(item.domain)}
-                      className="hover:text-cyan-300 hover:underline cursor-pointer truncate text-left"
-                      title={`Inspect ${item.domain}`}
-                    >
-                      {item.domain}
-                    </button>
+                <tr key={idx} className="hover:bg-slate-800/40 transition-colors group">
+                  <td className="py-2.5 pl-1 font-mono font-medium text-slate-200 truncate max-w-[200px]">
+                    <div className="flex items-center justify-between gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onViewDomain?.(item.domain)}
+                        className="hover:text-cyan-300 hover:underline cursor-pointer truncate text-left"
+                        title={`Inspect ${item.domain}`}
+                      >
+                        {item.domain}
+                      </button>
+                      {onBlockDomain && (
+                        <button
+                          type="button"
+                          onClick={() => onBlockDomain(item.domain)}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-300 transition-opacity px-1 py-0.5 rounded bg-rose-950/60 border border-rose-800/40 shrink-0 cursor-pointer"
+                          title="Block this domain"
+                        >
+                          + Block
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2.5 text-right font-semibold text-slate-100">
                     {formatNumber(item.requestCount)}

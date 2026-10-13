@@ -104,5 +104,75 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_netflow_daily_src ON netflow_daily_summaries(src_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_daily_dst ON netflow_daily_summaries(dst_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_daily_port ON netflow_daily_summaries(dst_port);
+
+    -- Domain Categories table for URL classification & noise reduction
+    CREATE TABLE IF NOT EXISTS domain_categories (
+      domain TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      is_custom INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_domain_cat ON domain_categories(category);
+
+    -- Security alerts & anomaly detections
+    CREATE TABLE IF NOT EXISTS security_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      source_ip TEXT,
+      target TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      acknowledged_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_alerts_time ON security_alerts(timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_alerts_status ON security_alerts(status);
+
+    -- Reverse DNS & GeoIP/ASN enrichment cache with TTL
+    CREATE TABLE IF NOT EXISTS ip_enrichment (
+      ip TEXT PRIMARY KEY,
+      hostname TEXT,
+      org TEXT,
+      country TEXT,
+      city TEXT,
+      asn TEXT,
+      updated_at INTEGER NOT NULL,
+      ttl_seconds INTEGER NOT NULL DEFAULT 86400
+    );
+
+    -- Blocklist & Full Access policy management
+    CREATE TABLE IF NOT EXISTS access_control_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      target TEXT NOT NULL UNIQUE,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      comment TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    -- Access Control Audit Log
+    CREATE TABLE IF NOT EXISTS access_control_audit (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT NOT NULL,
+      operator TEXT NOT NULL DEFAULT 'admin',
+      reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_time ON access_control_audit(timestamp DESC);
+
+    -- Scheduled Report configurations & history
+    CREATE TABLE IF NOT EXISTS scheduled_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      schedule TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      last_run INTEGER,
+      last_report_path TEXT,
+      updated_at INTEGER NOT NULL
+    );
   `);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   X,
   User,
@@ -233,6 +234,15 @@ export function IpProfileModal({
                 Filter View
               </button>
             )}
+
+            <Link
+              href={`/user/${encodeURIComponent(ip)}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition-colors cursor-pointer"
+              title="Open full user dossier page"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Full Dossier ➔
+            </Link>
 
             <button
               type="button"

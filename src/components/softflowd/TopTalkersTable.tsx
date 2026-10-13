@@ -20,6 +20,8 @@ interface TopTalkersTableProps {
   onSelectIp?: (ip: string) => void;
   onEditAlias?: (ip: string) => void;
   onViewProfile?: (ip: string) => void;
+  correlatedIp?: string | null;
+  onHoverIp?: (ip: string | null) => void;
 }
 
 export function TopTalkersTable({
@@ -27,6 +29,8 @@ export function TopTalkersTable({
   onSelectIp,
   onEditAlias,
   onViewProfile,
+  correlatedIp,
+  onHoverIp,
 }: TopTalkersTableProps) {
   const handleExportCsv = () => {
     exportToCsv('top_softflowd_talkers', talkers, [
@@ -87,8 +91,17 @@ export function TopTalkersTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {talkers.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40 transition-colors group">
+              {talkers.map((item, idx) => {
+                const isCorrelated = Boolean(correlatedIp && correlatedIp === item.srcIp);
+                return (
+                  <tr
+                    key={idx}
+                    onMouseEnter={() => onHoverIp?.(item.srcIp)}
+                    onMouseLeave={() => onHoverIp?.(null)}
+                    className={`transition-colors group ${
+                      isCorrelated ? 'bg-indigo-950/70 ring-2 ring-indigo-400' : 'hover:bg-slate-800/40'
+                    }`}
+                  >
                   <td className="py-2.5 pl-1">
                     <div>
                       {item.userName ? (
@@ -155,7 +168,8 @@ export function TopTalkersTable({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

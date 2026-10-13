@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Network, Shield, Database, Users, HelpCircle, Columns2, Link2, FileCode } from 'lucide-react';
+import { Network, Shield, Database, Users, HelpCircle, Columns2, Link2, FileCode, FileText } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
 import { ThemeToggle } from '../common/ThemeToggle';
@@ -15,6 +15,7 @@ interface AppHeaderProps {
   onOpenBackupModal: () => void;
   onOpenConfigModal?: () => void;
   onOpenSquidConfig?: () => void;
+  onOpenReportsModal?: () => void;
   onSelectProfile?: (ip: string) => void;
   onSelectDomain?: (domain: string) => void;
   onSelectPort?: (port: number, protocol?: string) => void;
@@ -29,6 +30,7 @@ export function AppHeader({
   onOpenBackupModal,
   onOpenConfigModal,
   onOpenSquidConfig,
+  onOpenReportsModal,
   onSelectProfile,
   onSelectDomain,
   onSelectPort,
@@ -230,6 +232,18 @@ export function AppHeader({
               <Users className="w-3.5 h-3.5" />
               IP Aliases
             </button>
+
+            {onOpenReportsModal && (
+              <button
+                type="button"
+                onClick={onOpenReportsModal}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition-colors font-medium cursor-pointer"
+                title="Generate scheduled Word reports with NIM AI summary"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Reports (AI)
+              </button>
+            )}
 
             <button
               type="button"

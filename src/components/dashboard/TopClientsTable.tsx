@@ -20,6 +20,8 @@ interface TopClientsTableProps {
   onSelectIp?: (ip: string) => void;
   onEditAlias?: (ip: string) => void;
   onViewProfile?: (ip: string) => void;
+  correlatedIp?: string | null;
+  onHoverIp?: (ip: string | null) => void;
 }
 
 export function TopClientsTable({
@@ -27,6 +29,8 @@ export function TopClientsTable({
   onSelectIp,
   onEditAlias,
   onViewProfile,
+  correlatedIp,
+  onHoverIp,
 }: TopClientsTableProps) {
   const handleExportCsv = () => {
     exportToCsv('top_squid_clients', clients, [
@@ -91,8 +95,16 @@ export function TopClientsTable({
               {clients.map((item, idx) => {
                 const dl = item.downloadBytes ?? Math.round(item.bytes * 0.85);
                 const ul = item.uploadBytes ?? Math.max(0, item.bytes - dl);
+                const isCorrelated = Boolean(correlatedIp && correlatedIp === item.clientIp);
                 return (
-                  <tr key={idx} className="hover:bg-slate-800/40 transition-colors group">
+                  <tr
+                    key={idx}
+                    onMouseEnter={() => onHoverIp?.(item.clientIp)}
+                    onMouseLeave={() => onHoverIp?.(null)}
+                    className={`transition-colors group ${
+                      isCorrelated ? 'bg-indigo-950/70 ring-2 ring-indigo-400' : 'hover:bg-slate-800/40'
+                    }`}
+                  >
                     <td className="py-2.5 pl-1">
                       <div>
                         {item.userName ? (

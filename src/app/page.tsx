@@ -26,6 +26,10 @@ import { LiveFlowsTable, FlowRecord } from '@/components/softflowd/LiveFlowsTabl
 import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
 import { PortDetailModal } from '@/components/profile/PortDetailModal';
 import { GlobalFilterBar, GlobalFilterState } from '@/components/navigation/GlobalFilterBar';
+import { FailedRequestsCard } from '@/components/dashboard/FailedRequestsCard';
+import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
+import { BlockDomainModal } from '@/components/dashboard/BlockDomainModal';
+import { ScheduledReportsModal } from '@/components/dashboard/ScheduledReportsModal';
 import { Radio, ShieldAlert, Network, Shield, Columns2 } from 'lucide-react';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 
@@ -80,6 +84,9 @@ function DashboardContent() {
   const [profileModalIp, setProfileModalIp] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedPort, setSelectedPort] = useState<{ port: number; protocol?: string } | null>(null);
+  const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+  const [blockModalDomain, setBlockModalDomain] = useState<string | null>(null);
+  const [correlatedIp, setCorrelatedIp] = useState<string | null>(null);
   const [liveReqLimit, setLiveReqLimit] = useState(25);
   const [blockedLimit, setBlockedLimit] = useState(25);
   const [flowLimit, setFlowLimit] = useState(25);
@@ -517,6 +524,7 @@ function DashboardContent() {
         onSelectProfile={(ip) => setProfileModalIp(ip)}
         onSelectDomain={(domain) => setSelectedDomain(domain)}
         onSelectPort={(port, protocol) => setSelectedPort({ port, protocol })}
+        onOpenReportsModal={() => setIsReportsModalOpen(true)}
         isFilterSynced={isFilterSynced}
         onToggleFilterSync={() => setIsFilterSynced((prev) => !prev)}
       />
@@ -525,6 +533,9 @@ function DashboardContent() {
       <main className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Retention & DB Status Banner */}
         <RetentionBanner onRetentionTriggered={handleRefresh} />
+
+        {/* Security Alerts & Anomalies Feed */}
+        <AlertsPanel onSelectIp={(ip) => setProfileModalIp(ip)} />
 
         {/* Global Time Range & Unified Filter Bar with Removable Chips */}
         <GlobalFilterBar
@@ -579,11 +590,22 @@ function DashboardContent() {
             {/* Requests Over Time Chart */}
             <RequestsChart data={squidStats.requestsOverTime} />
 
+            {/* Failed Requests / Error Rate Card & Breakdown */}
+            <FailedRequestsCard
+              startDate={squidFilters.startDate}
+              endDate={squidFilters.endDate}
+              clientIp={squidFilters.clientIp}
+              timeWindow={squidFilters.timeWindow}
+              onSelectIp={handleSelectClientIp}
+              onSelectDomain={(domain) => setSelectedDomain(domain)}
+            />
+
             {/* Top Domains & Top Client IPs Side-by-Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TopDomainsTable
                 domains={squidStats.topDomains}
                 onViewDomain={(domain) => setSelectedDomain(domain)}
+                onBlockDomain={(domain) => setBlockModalDomain(domain)}
               />
               <TopClientsTable
                 clients={squidStats.topClients}
@@ -790,6 +812,8 @@ function DashboardContent() {
                   onSelectIp={handleSelectClientIp}
                   onEditAlias={handleOpenIpAliasModal}
                   onViewProfile={(ip) => setProfileModalIp(ip)}
+                  correlatedIp={correlatedIp}
+                  onHoverIp={setCorrelatedIp}
                 />
 
                 <LiveRequestsTable
@@ -823,6 +847,8 @@ function DashboardContent() {
                   onSelectIp={(ip) => handleSoftflowdFilterChange({ ...softflowdFilters, srcIp: ip })}
                   onEditAlias={handleOpenIpAliasModal}
                   onViewProfile={(ip) => setProfileModalIp(ip)}
+                  correlatedIp={correlatedIp}
+                  onHoverIp={setCorrelatedIp}
                 />
 
                 <LiveFlowsTable
@@ -895,6 +921,18 @@ function DashboardContent() {
         isOpen={!!selectedPort}
         onClose={() => setSelectedPort(null)}
         onViewIpProfile={(ip) => setProfileModalIp(ip)}
+      />
+
+      <BlockDomainModal
+        domain={blockModalDomain}
+        isOpen={!!blockModalDomain}
+        onClose={() => setBlockModalDomain(null)}
+        onSuccess={handleRefresh}
+      />
+
+      <ScheduledReportsModal
+        isOpen={isReportsModalOpen}
+        onClose={() => setIsReportsModalOpen(false)}
       />
     </div>
   );

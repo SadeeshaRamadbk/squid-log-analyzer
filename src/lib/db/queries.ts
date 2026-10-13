@@ -617,3 +617,105 @@ export function getLiveRequests(
   return { records, total };
 }
 
+export interface FailedRequestSummary {
+  totalFailed: number;
+  totalRequests: number;
+  failureRate: number;
+  byResultCode: Array<{
+    resultCode: string;
+    count: number;
+    percentage: number;
+  }>;
+  topFailedDomains: Array<{
+    domain: string;
+    count: number;
+    sampleResultCode: string;
+  }>;
+  topFailedClients: Array<{
+    clientIp: string;
+    userName?: string | null;
+    department?: string | null;
+    count: number;
+  }>;
+}
+
+export function getFailedRequestsSummary(filters: DashboardFilters = {}): FailedRequestSummary {
+  const db = getDatabase();
+  const { conditions, params } = buildRawLogsFilterClause(filters);
+
+  // Failed codes: 503, 403, 407, 504, DENIED
+  const failClause = `(result_code LIKE '%/503%' OR result_code LIKE '%/403%' OR result_code LIKE '%/407%' OR result_code LIKE '%/504%' OR result_code LIKE '%DENIED%')`;
+
+  const baseWhere = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const failedWhere = conditions.length > 0
+    ? `WHERE ${conditions.join(' AND ')} AND ${failClause}`
+    : `WHERE ${failClause}`;
+
+  const totalReqRow = db.prepare(`SELECT COUNT(*) as cnt FROM raw_logs ${baseWhere}`).get(...params) as any;
+  const totalRequests = Number(totalReqRow?.cnt || 0);
+
+  const totalFailRow = db.prepare(`SELECT COUNT(*) as cnt FROM raw_logs ${failedWhere}`).get(...params) as any;
+  const totalFailed = Number(totalFailRow?.cnt || 0);
+  const failureRate = totalRequests > 0 ? Number(((totalFailed / totalRequests) * 100).toFixed(1)) : 0;
+
+  // Breakdown by result code
+  const codeRows = db.prepare(`
+    SELECT result_code, COUNT(*) as cnt
+    FROM raw_logs
+    ${failedWhere}
+    GROUP BY result_code
+    ORDER BY cnt DESC
+    LIMIT 6
+  `).all(...params) as any[];
+
+  const byResultCode = codeRows.map((r) => ({
+    resultCode: r.result_code,
+    count: Number(r.cnt),
+    percentage: totalFailed > 0 ? Number(((r.cnt / totalFailed) * 100).toFixed(1)) : 0,
+  }));
+
+  // Top failed domains
+  const domainRows = db.prepare(`
+    SELECT domain, COUNT(*) as cnt, MAX(result_code) as sampleCode
+    FROM raw_logs
+    ${failedWhere}
+    GROUP BY domain
+    ORDER BY cnt DESC
+    LIMIT 8
+  `).all(...params) as any[];
+
+  const topFailedDomains = domainRows.map((r) => ({
+    domain: r.domain,
+    count: Number(r.cnt),
+    sampleResultCode: r.sampleCode,
+  }));
+
+  // Top failed clients
+  const clientRows = db.prepare(`
+    SELECT r.client_ip, COUNT(*) as cnt, m.user_name, m.department
+    FROM raw_logs r
+    LEFT JOIN ip_mappings m ON r.client_ip = m.client_ip
+    ${failedWhere.replace(/client_ip/g, 'r.client_ip')}
+    GROUP BY r.client_ip
+    ORDER BY cnt DESC
+    LIMIT 8
+  `).all(...params) as any[];
+
+  const topFailedClients = clientRows.map((r) => ({
+    clientIp: r.client_ip,
+    userName: r.user_name || null,
+    department: r.department || null,
+    count: Number(r.cnt),
+  }));
+
+  return {
+    totalFailed,
+    totalRequests,
+    failureRate,
+    byResultCode,
+    topFailedDomains,
+    topFailedClients,
+  };
+}
+
+
