@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Server, User, Tag, UserCheck } from 'lucide-react';
+import { Server, User, Tag, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { exportToCsv } from '@/lib/exportCsv';
 
 interface TopTalkersTableProps {
   talkers: Array<{
@@ -27,6 +28,20 @@ export function TopTalkersTable({
   onEditAlias,
   onViewProfile,
 }: TopTalkersTableProps) {
+  const handleExportCsv = () => {
+    exportToCsv('top_softflowd_talkers', talkers, [
+      { key: 'srcIp', header: 'Source IP' },
+      { key: 'userName', header: 'User Name' },
+      { key: 'department', header: 'Department' },
+      { key: 'flowCount', header: 'Flow Count' },
+      { key: 'downloadBytes', header: 'Download Bytes' },
+      { key: 'uploadBytes', header: 'Upload Bytes' },
+      { key: 'bytes', header: 'Total Bytes' },
+      { key: 'packets', header: 'Packets' },
+      { key: 'percentage', header: 'Share (%)' },
+    ]);
+  };
+
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
@@ -39,6 +54,19 @@ export function TopTalkersTable({
             Internal hosts broken down by Download, Upload, and Total Volume
           </p>
         </div>
+
+        {talkers.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            aria-label="Export top talkers to CSV"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer"
+            title="Export to CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>CSV</span>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto flex-1">
@@ -47,10 +75,10 @@ export function TopTalkersTable({
             No source host traffic recorded.
           </div>
         ) : (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[620px]">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 font-medium">
-                <th className="pb-2.5 pl-1">Host / User</th>
+                <th className="pb-2.5 pl-1">Host / Employee</th>
                 <th className="pb-2.5 text-right text-emerald-400">Download ⬇</th>
                 <th className="pb-2.5 text-right text-purple-400">Upload ⬆</th>
                 <th className="pb-2.5 text-right text-blue-300">Total</th>
@@ -62,62 +90,42 @@ export function TopTalkersTable({
               {talkers.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-800/40 transition-colors group">
                   <td className="py-2.5 pl-1">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
+                    <div>
+                      {item.userName ? (
+                        <div className="flex items-center gap-1.5 font-sans">
                           <button
                             type="button"
                             onClick={() => (onViewProfile ? onViewProfile(item.srcIp) : onSelectIp?.(item.srcIp))}
-                            title={`Inspect Dossier for ${item.srcIp}`}
-                            className="font-mono font-medium text-indigo-300 hover:text-indigo-200 hover:underline cursor-pointer"
+                            className="font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
                           >
-                            {item.srcIp}
+                            {item.userName}
                           </button>
-                          {item.userName ? (
-                            <button
-                              type="button"
-                              onClick={() => onViewProfile?.(item.srcIp)}
-                              className="text-[11px] font-medium text-slate-200 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
-                              title="View IP Profile Dossier"
-                            >
-                              &bull; <User className="w-3 h-3 text-indigo-400" /> {item.userName}
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => onEditAlias?.(item.srcIp)}
-                              className="opacity-0 group-hover:opacity-100 text-[10px] text-amber-400/80 hover:text-amber-300 hover:underline inline-flex items-center gap-0.5"
-                            >
-                              + Name
-                            </button>
+                          {item.department && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                              {item.department}
+                            </span>
                           )}
                         </div>
-                        {item.department && (
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {item.department}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                        {onViewProfile && (
-                          <button
-                            type="button"
-                            onClick={() => onViewProfile(item.srcIp)}
-                            className="p-1 rounded text-slate-400 hover:text-indigo-300 hover:bg-slate-800"
-                            title="Inspect IP Dossier Profile"
-                          >
-                            <UserCheck className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                      ) : null}
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => onEditAlias?.(item.srcIp)}
-                          className="p-1 rounded text-slate-400 hover:text-amber-300 hover:bg-slate-800"
-                          title="Edit IP User Mapping"
+                          onClick={() => (onViewProfile ? onViewProfile(item.srcIp) : onSelectIp?.(item.srcIp))}
+                          title={`Inspect Dossier for ${item.srcIp}`}
+                          className="font-mono text-[11px] font-medium text-indigo-300 hover:text-indigo-200 hover:underline cursor-pointer"
                         >
-                          <Tag className="w-3 h-3" />
+                          {item.srcIp}
                         </button>
+                        {!item.userName && onEditAlias && (
+                          <button
+                            type="button"
+                            onClick={() => onEditAlias(item.srcIp)}
+                            className="opacity-0 group-hover:opacity-100 text-[10px] text-amber-400 hover:text-amber-300 inline-flex items-center gap-0.5 cursor-pointer"
+                            title="Assign User Name to this IP"
+                          >
+                            + Name
+                          </button>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -127,10 +135,10 @@ export function TopTalkersTable({
                   <td className="py-2.5 text-right font-mono text-purple-400">
                     {formatBytes(item.uploadBytes ?? 0)}
                   </td>
-                  <td className="py-2.5 text-right font-semibold text-slate-100 font-mono">
+                  <td className="py-2.5 text-right font-mono font-semibold text-blue-300">
                     {formatBytes(item.bytes)}
                   </td>
-                  <td className="py-2.5 text-right text-slate-400 font-mono">
+                  <td className="py-2.5 text-right font-mono text-slate-200">
                     {formatNumber(item.flowCount)}
                   </td>
                   <td className="py-2.5 pl-4">

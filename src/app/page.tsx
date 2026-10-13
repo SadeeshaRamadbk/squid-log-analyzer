@@ -23,6 +23,9 @@ import { TopTalkersTable } from '@/components/softflowd/TopTalkersTable';
 import { TopDestinationsTable } from '@/components/softflowd/TopDestinationsTable';
 import { TopServicesTable } from '@/components/softflowd/TopServicesTable';
 import { LiveFlowsTable, FlowRecord } from '@/components/softflowd/LiveFlowsTable';
+import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
+import { PortDetailModal } from '@/components/profile/PortDetailModal';
+import { GlobalFilterBar, GlobalFilterState } from '@/components/navigation/GlobalFilterBar';
 import { Radio, ShieldAlert, Network, Shield, Columns2 } from 'lucide-react';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 
@@ -75,6 +78,11 @@ function DashboardContent() {
   const [isPfSenseConfigOpen, setIsPfSenseConfigOpen] = useState(false);
   const [targetIpForModal, setTargetIpForModal] = useState<string | undefined>(undefined);
   const [profileModalIp, setProfileModalIp] = useState<string | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [selectedPort, setSelectedPort] = useState<{ port: number; protocol?: string } | null>(null);
+  const [liveReqLimit, setLiveReqLimit] = useState(25);
+  const [blockedLimit, setBlockedLimit] = useState(25);
+  const [flowLimit, setFlowLimit] = useState(25);
 
   // Squid Stats state
   const [loadingSquid, setLoadingSquid] = useState(true);
@@ -466,6 +474,31 @@ function DashboardContent() {
     handleSquidFilterChange({ ...squidFilters, clientIp: ip });
   };
 
+  const handleGlobalFilterChange = (newFilters: GlobalFilterState) => {
+    setSquidFilters((prev) => ({
+      ...prev,
+      startDate: newFilters.startDate,
+      endDate: newFilters.endDate,
+      clientIp: newFilters.clientIp,
+      timeWindow: newFilters.timeWindow,
+    }));
+    setSoftflowdFilters((prev) => ({
+      ...prev,
+      startDate: newFilters.startDate,
+      endDate: newFilters.endDate,
+      srcIp: newFilters.clientIp,
+      protocol: newFilters.protocol,
+      serviceName: newFilters.serviceName,
+      timeWindow: newFilters.timeWindow,
+      trafficType: newFilters.trafficType ?? prev.trafficType,
+      hideFirewallTraffic: newFilters.hideFirewallTraffic ?? prev.hideFirewallTraffic,
+      hideProxyHop: newFilters.hideProxyHop ?? prev.hideProxyHop,
+    }));
+    setLiveReqPage(1);
+    setBlockedPage(1);
+    setFlowPage(1);
+  };
+
   const handleOpenIpAliasModal = (ip?: string) => {
     setTargetIpForModal(ip);
     setIsIpModalOpen(true);
@@ -482,6 +515,8 @@ function DashboardContent() {
         onOpenConfigModal={() => setIsPfSenseConfigOpen(true)}
         onOpenSquidConfig={() => setIsSquidConfigOpen(true)}
         onSelectProfile={(ip) => setProfileModalIp(ip)}
+        onSelectDomain={(domain) => setSelectedDomain(domain)}
+        onSelectPort={(port, protocol) => setSelectedPort({ port, protocol })}
         isFilterSynced={isFilterSynced}
         onToggleFilterSync={() => setIsFilterSynced((prev) => !prev)}
       />
@@ -490,6 +525,32 @@ function DashboardContent() {
       <main className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Retention & DB Status Banner */}
         <RetentionBanner onRetentionTriggered={handleRefresh} />
+
+        {/* Global Time Range & Unified Filter Bar with Removable Chips */}
+        <GlobalFilterBar
+          filters={{
+            startDate: isFilterSynced ? (squidFilters.startDate || softflowdFilters.startDate) : (activeView === 'softflowd' ? softflowdFilters.startDate : squidFilters.startDate),
+            endDate: isFilterSynced ? (squidFilters.endDate || softflowdFilters.endDate) : (activeView === 'softflowd' ? softflowdFilters.endDate : squidFilters.endDate),
+            timeWindow: isFilterSynced ? (squidFilters.timeWindow || softflowdFilters.timeWindow) : (activeView === 'softflowd' ? softflowdFilters.timeWindow : squidFilters.timeWindow),
+            clientIp: isFilterSynced ? (squidFilters.clientIp || softflowdFilters.srcIp) : (activeView === 'softflowd' ? softflowdFilters.srcIp : squidFilters.clientIp),
+            protocol: softflowdFilters.protocol,
+            serviceName: softflowdFilters.serviceName,
+            trafficType: softflowdFilters.trafficType,
+            hideFirewallTraffic: softflowdFilters.hideFirewallTraffic,
+            hideProxyHop: softflowdFilters.hideProxyHop,
+          }}
+          onFilterChange={handleGlobalFilterChange}
+          onRefresh={handleRefresh}
+          isRefreshing={refreshing}
+          isRealTime={isRealTime}
+          onToggleRealTime={() => setIsRealTime((prev) => !prev)}
+          isFilterSynced={isFilterSynced}
+          onToggleFilterSync={() => setIsFilterSynced((prev) => !prev)}
+          availableClientIps={netflowStats.filterOptions.availableClientIps || squidStats.filterOptions.availableClientIps}
+          availableProtocols={netflowStats.filterOptions.protocols}
+          availableServices={netflowStats.filterOptions.services}
+          activeView={activeView}
+        />
 
         {/* ========================================================
             VIEW MODE 1: SQUID PROXY (HTTP/S FOCUSED VIEW)
@@ -520,7 +581,10 @@ function DashboardContent() {
 
             {/* Top Domains & Top Client IPs Side-by-Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TopDomainsTable domains={squidStats.topDomains} />
+              <TopDomainsTable
+                domains={squidStats.topDomains}
+                onViewDomain={(domain) => setSelectedDomain(domain)}
+              />
               <TopClientsTable
                 clients={squidStats.topClients}
                 onSelectIp={handleSelectClientIp}
@@ -637,7 +701,10 @@ function DashboardContent() {
             </div>
 
             {/* Top Network Services Breakdown */}
-            <TopServicesTable services={netflowStats.topServices} />
+            <TopServicesTable
+              services={netflowStats.topServices}
+              onViewPort={(port, protocol) => setSelectedPort({ port, protocol })}
+            />
 
             {/* Live Flow Telemetry Stream */}
             <LiveFlowsTable
@@ -812,6 +879,22 @@ function DashboardContent() {
       <PfSenseConfigModal
         isOpen={isPfSenseConfigOpen}
         onClose={() => setIsPfSenseConfigOpen(false)}
+      />
+
+      <DomainDetailModal
+        domain={selectedDomain}
+        isOpen={!!selectedDomain}
+        onClose={() => setSelectedDomain(null)}
+        onFilterByDomain={(domain) => handleSquidFilterChange({ ...squidFilters, clientIp: undefined })}
+        onViewIpProfile={(ip) => setProfileModalIp(ip)}
+      />
+
+      <PortDetailModal
+        port={selectedPort?.port ?? null}
+        protocol={selectedPort?.protocol}
+        isOpen={!!selectedPort}
+        onClose={() => setSelectedPort(null)}
+        onViewIpProfile={(ip) => setProfileModalIp(ip)}
       />
     </div>
   );

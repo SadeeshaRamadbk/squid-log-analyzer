@@ -470,6 +470,48 @@ export function deleteIpMapping(clientIp: string): boolean {
   return info.changes > 0;
 }
 
+export interface UnassignedIpRecord {
+  clientIp: string;
+  lastSeen: number;
+  formattedLastSeen: string;
+  logSource: string;
+}
+
+/**
+ * Retrieve active internal IPs that do not have an assigned employee mapping
+ */
+export function getUnassignedIps(): UnassignedIpRecord[] {
+  const db = getDatabase();
+  const tz = getSystemSettings().timezone || 'Asia/Colombo';
+  const rows = db.prepare(`
+    WITH active_ips AS (
+      SELECT client_ip, MAX(timestamp) as lastSeen, 'Squid' as logSource
+      FROM raw_logs
+      WHERE client_ip NOT IN (SELECT client_ip FROM ip_mappings)
+        AND (client_ip LIKE '10.%' OR client_ip LIKE '192.168.%' OR client_ip LIKE '172.%')
+      GROUP BY client_ip
+      UNION ALL
+      SELECT src_ip as client_ip, MAX(timestamp) as lastSeen, 'NetFlow' as logSource
+      FROM netflow_logs
+      WHERE src_ip NOT IN (SELECT client_ip FROM ip_mappings)
+        AND (src_ip LIKE '10.%' OR src_ip LIKE '192.168.%' OR src_ip LIKE '172.%')
+      GROUP BY src_ip
+    )
+    SELECT client_ip as clientIp, MAX(lastSeen) as lastSeen, logSource
+    FROM active_ips
+    GROUP BY client_ip
+    ORDER BY lastSeen DESC
+    LIMIT 50
+  `).all() as any[];
+
+  return rows.map((r) => ({
+    clientIp: r.clientIp,
+    lastSeen: Number(r.lastSeen),
+    formattedLastSeen: formatTimestamp(Number(r.lastSeen), tz),
+    logSource: r.logSource,
+  }));
+}
+
 /**
  * Get date range available in the database
  */

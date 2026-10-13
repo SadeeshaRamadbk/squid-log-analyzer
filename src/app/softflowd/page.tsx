@@ -16,6 +16,8 @@ import { PfSenseConfigModal } from '@/components/softflowd/PfSenseConfigModal';
 import { SquidConfigModal } from '@/components/dashboard/SquidConfigModal';
 import { RetentionBanner } from '@/components/dashboard/RetentionBanner';
 import { IpProfileModal } from '@/components/profile/IpProfileModal';
+import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
+import { PortDetailModal } from '@/components/profile/PortDetailModal';
 
 export default function SoftflowdPage() {
   const router = useRouter();
@@ -42,6 +44,8 @@ export default function SoftflowdPage() {
   const [isSquidConfigOpen, setIsSquidConfigOpen] = useState(false);
   const [targetIpForModal, setTargetIpForModal] = useState<string | undefined>(undefined);
   const [profileModalIp, setProfileModalIp] = useState<string | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [selectedPort, setSelectedPort] = useState<{ port: number; protocol?: string } | null>(null);
 
   // Stats state
   const [stats, setStats] = useState<{
@@ -212,6 +216,8 @@ export default function SoftflowdPage() {
         onOpenConfigModal={() => setIsConfigModalOpen(true)}
         onOpenSquidConfig={() => setIsSquidConfigOpen(true)}
         onSelectProfile={(ip) => setProfileModalIp(ip)}
+        onSelectDomain={(domain) => setSelectedDomain(domain)}
+        onSelectPort={(port, protocol) => setSelectedPort({ port, protocol })}
       />
 
       {/* Main Content */}
@@ -264,6 +270,7 @@ export default function SoftflowdPage() {
         <TopServicesTable
           services={stats.topServices}
           onSelectService={(s) => handleFilterChange({ ...filters, serviceName: s })}
+          onViewPort={(port, protocol) => setSelectedPort({ port, protocol })}
         />
 
         {/* Live Flow Audit Table */}
@@ -316,6 +323,21 @@ export default function SoftflowdPage() {
       <SquidConfigModal
         isOpen={isSquidConfigOpen}
         onClose={() => setIsSquidConfigOpen(false)}
+      />
+
+      <DomainDetailModal
+        domain={selectedDomain}
+        isOpen={!!selectedDomain}
+        onClose={() => setSelectedDomain(null)}
+        onViewIpProfile={(ip) => setProfileModalIp(ip)}
+      />
+
+      <PortDetailModal
+        port={selectedPort?.port ?? null}
+        protocol={selectedPort?.protocol}
+        isOpen={!!selectedPort}
+        onClose={() => setSelectedPort(null)}
+        onViewIpProfile={(ip) => setProfileModalIp(ip)}
       />
     </div>
   );

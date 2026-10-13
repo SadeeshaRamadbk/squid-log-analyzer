@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIpMappings, upsertIpMapping, deleteIpMapping } from '@/lib/db/queries';
+import { getIpMappings, upsertIpMapping, deleteIpMapping, getUnassignedIps } from '@/lib/db/queries';
 
 export async function GET() {
   try {
     const mappings = getIpMappings();
-    return NextResponse.json({ success: true, data: mappings });
+    const unassignedIps = getUnassignedIps();
+    return NextResponse.json({ success: true, data: mappings, unassignedIps });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch IP mappings' },

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Network, Shield, Database, Users, HelpCircle, Columns2, Link2, FileCode } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
+import { CollectorHealthBadge } from './CollectorHealthBadge';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 interface AppHeaderProps {
   activeView?: 'squid' | 'softflowd' | 'split';
@@ -14,6 +16,8 @@ interface AppHeaderProps {
   onOpenConfigModal?: () => void;
   onOpenSquidConfig?: () => void;
   onSelectProfile?: (ip: string) => void;
+  onSelectDomain?: (domain: string) => void;
+  onSelectPort?: (port: number, protocol?: string) => void;
   isFilterSynced?: boolean;
   onToggleFilterSync?: () => void;
 }
@@ -26,6 +30,8 @@ export function AppHeader({
   onOpenConfigModal,
   onOpenSquidConfig,
   onSelectProfile,
+  onSelectDomain,
+  onSelectPort,
   isFilterSynced,
   onToggleFilterSync,
 }: AppHeaderProps) {
@@ -161,11 +167,17 @@ export function AppHeader({
           </nav>
         </div>
 
-        {/* Center/Right: Global Search & Tool Modals */}
+        {/* Center/Right: Health Indicator, Global Search & Tool Modals */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+          <CollectorHealthBadge />
+
           {onSelectProfile && (
             <div className="w-full sm:w-60 md:w-64">
-              <GlobalIpSearch onSelectProfile={onSelectProfile} />
+              <GlobalIpSearch
+                onSelectProfile={onSelectProfile}
+                onSelectDomain={onSelectDomain}
+                onSelectPort={onSelectPort}
+              />
             </div>
           )}
 
@@ -227,6 +239,8 @@ export function AppHeader({
               <Database className="w-3.5 h-3.5" />
               Backup
             </button>
+
+            <ThemeToggle />
           </div>
         </div>
       </div>

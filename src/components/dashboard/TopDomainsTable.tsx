@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Globe, ShieldAlert } from 'lucide-react';
+import { Globe, ShieldAlert, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { exportToCsv } from '@/lib/exportCsv';
 
 interface TopDomainsTableProps {
   domains: Array<{
@@ -12,9 +13,20 @@ interface TopDomainsTableProps {
     bytes: number;
     percentage: number;
   }>;
+  onViewDomain?: (domain: string) => void;
 }
 
-export function TopDomainsTable({ domains }: TopDomainsTableProps) {
+export function TopDomainsTable({ domains, onViewDomain }: TopDomainsTableProps) {
+  const handleExportCsv = () => {
+    exportToCsv('top_domains', domains, [
+      { key: 'domain', header: 'Domain' },
+      { key: 'requestCount', header: 'Requests' },
+      { key: 'bytes', header: 'Bytes' },
+      { key: 'blockedCount', header: 'Blocked Count' },
+      { key: 'percentage', header: 'Share (%)' },
+    ]);
+  };
+
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
@@ -25,6 +37,19 @@ export function TopDomainsTable({ domains }: TopDomainsTableProps) {
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">Most frequently requested destination hosts</p>
         </div>
+
+        {domains.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            aria-label="Export top domains to CSV"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer"
+            title="Export to CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>CSV</span>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto flex-1">
@@ -47,7 +72,14 @@ export function TopDomainsTable({ domains }: TopDomainsTableProps) {
               {domains.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
                   <td className="py-2.5 pl-1 font-mono font-medium text-slate-200 truncate max-w-[180px]">
-                    {item.domain}
+                    <button
+                      type="button"
+                      onClick={() => onViewDomain?.(item.domain)}
+                      className="hover:text-cyan-300 hover:underline cursor-pointer truncate text-left"
+                      title={`Inspect ${item.domain}`}
+                    >
+                      {item.domain}
+                    </button>
                   </td>
                   <td className="py-2.5 text-right font-semibold text-slate-100">
                     {formatNumber(item.requestCount)}

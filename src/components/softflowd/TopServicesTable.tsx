@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Tag } from 'lucide-react';
+import { Tag, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { exportToCsv } from '@/lib/exportCsv';
 
 interface TopServicesTableProps {
   services: Array<{
@@ -14,9 +15,25 @@ interface TopServicesTableProps {
     percentage: number;
   }>;
   onSelectService?: (serviceName: string) => void;
+  onViewPort?: (port: number, protocol?: string) => void;
 }
 
-export function TopServicesTable({ services, onSelectService }: TopServicesTableProps) {
+export function TopServicesTable({
+  services,
+  onSelectService,
+  onViewPort,
+}: TopServicesTableProps) {
+  const handleExportCsv = () => {
+    exportToCsv('top_services_ports', services, [
+      { key: 'serviceName', header: 'Service Name' },
+      { key: 'dstPort', header: 'Port' },
+      { key: 'protocol', header: 'Protocol' },
+      { key: 'flowCount', header: 'Flow Count' },
+      { key: 'bytes', header: 'Bytes' },
+      { key: 'percentage', header: 'Share (%)' },
+    ]);
+  };
+
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
@@ -29,6 +46,19 @@ export function TopServicesTable({ services, onSelectService }: TopServicesTable
             L4 port and protocol classification of network flows
           </p>
         </div>
+
+        {services.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            aria-label="Export top services to CSV"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer"
+            title="Export to CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>CSV</span>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto flex-1">
@@ -53,8 +83,11 @@ export function TopServicesTable({ services, onSelectService }: TopServicesTable
                   <td className="py-2.5 pl-1 font-medium text-slate-200">
                     <button
                       type="button"
-                      onClick={() => onSelectService?.(item.serviceName)}
-                      className="hover:text-purple-300 hover:underline flex items-center gap-1.5 cursor-pointer"
+                      onClick={() =>
+                        onViewPort ? onViewPort(item.dstPort, item.protocol) : onSelectService?.(item.serviceName)
+                      }
+                      className="hover:text-purple-300 hover:underline flex items-center gap-1.5 cursor-pointer text-left"
+                      title={`Inspect Port ${item.dstPort}`}
                     >
                       <span className="font-semibold text-purple-300">{item.serviceName}</span>
                       <span className="text-[10px] text-slate-500 font-mono">({item.dstPort})</span>

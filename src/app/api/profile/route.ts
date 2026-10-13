@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIpProfile, searchIps } from '@/lib/db/profile-queries';
+import { getIpProfile, searchIps, searchGlobal } from '@/lib/db/profile-queries';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,8 +8,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     if (search !== null) {
-      const results = searchIps(search);
-      return NextResponse.json({ success: true, results });
+      const globalData = searchGlobal(search);
+      return NextResponse.json({
+        success: true,
+        results: globalData.ips,
+        global: globalData,
+      });
     }
 
     if (!ip) {

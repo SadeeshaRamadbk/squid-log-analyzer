@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Globe, ArrowLeftRight } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { exportToCsv } from '@/lib/exportCsv';
 
 interface DestinationItem {
   dstIp: string;
@@ -70,6 +71,30 @@ export function TopDestinationsTable({
             Internal ↔ Internal
           </button>
         </div>
+
+        {items.length > 0 && (
+          <button
+            type="button"
+            onClick={() =>
+              exportToCsv(
+                tab === 'external' ? 'top_external_destinations' : 'top_internal_traffic',
+                items,
+                [
+                  { key: 'dstIp', header: 'Destination IP' },
+                  { key: 'bytes', header: 'Bytes' },
+                  { key: 'flowCount', header: 'Flow Count' },
+                  { key: 'packets', header: 'Packets' },
+                  { key: 'percentage', header: 'Share (%)' },
+                ]
+              )
+            }
+            aria-label="Export destinations to CSV"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer self-start sm:self-auto"
+            title="Export to CSV"
+          >
+            <span>Export CSV</span>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto flex-1">

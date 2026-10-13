@@ -1,0 +1,47 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Sun, Moon } from 'lucide-react';
+
+export function ThemeToggle() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('app-theme') as 'dark' | 'light' | null;
+    if (saved) {
+      setTheme(saved);
+      if (saved === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('app-theme', next);
+    if (next === 'light') {
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700/60"
+      title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+    >
+      {theme === 'dark' ? (
+        <Sun className="w-3.5 h-3.5 text-amber-400" />
+      ) : (
+        <Moon className="w-3.5 h-3.5 text-indigo-400" />
+      )}
+    </button>
+  );
+}

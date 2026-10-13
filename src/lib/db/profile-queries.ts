@@ -445,3 +445,116 @@ export function searchIps(term = ''): IpSearchResult[] {
 
   return results;
 }
+
+export interface GlobalSearchResult {
+  ips: IpSearchResult[];
+  domains: Array<{
+    domain: string;
+    totalRequests: number;
+    blockedCount: number;
+  }>;
+  ports: Array<{
+    port: number;
+    protocol: string;
+    serviceName: string;
+    totalBytes: number;
+    flowCount: number;
+  }>;
+}
+
+export function searchGlobal(term: string): GlobalSearchResult {
+  const db = getDatabase();
+  const q = term.trim();
+  const wildcard = `%${q}%`;
+
+  const ips = searchIps(q);
+
+  if (!q) {
+    return { ips, domains: [], ports: [] };
+  }
+
+  // 1. Domains search
+  let domains: Array<{ domain: string; totalRequests: number; blockedCount: number }> = [];
+  try {
+    const domainRows = db.prepare(`
+      SELECT domain, COALESCE(SUM(request_count), 0) as totalRequests, COALESCE(SUM(blocked_count), 0) as blockedCount
+      FROM daily_summaries
+      WHERE domain LIKE ?
+      GROUP BY domain
+      ORDER BY totalRequests DESC
+      LIMIT 8
+    `).all(wildcard) as any[];
+
+    if (domainRows.length > 0) {
+      domains = domainRows.map((r) => ({
+        domain: r.domain,
+        totalRequests: Number(r.totalRequests || 0),
+        blockedCount: Number(r.blockedCount || 0),
+      }));
+    } else {
+      const rawDomainRows = db.prepare(`
+        SELECT domain, COUNT(*) as totalRequests, COALESCE(SUM(is_blocked), 0) as blockedCount
+        FROM raw_logs
+        WHERE domain LIKE ?
+        GROUP BY domain
+        ORDER BY totalRequests DESC
+        LIMIT 8
+      `).all(wildcard) as any[];
+
+      domains = rawDomainRows.map((r) => ({
+        domain: r.domain,
+        totalRequests: Number(r.totalRequests || 0),
+        blockedCount: Number(r.blockedCount || 0),
+      }));
+    }
+  } catch (err) {
+    console.error('Domain search error:', err);
+  }
+
+  // 2. Ports and Services search
+  let ports: Array<{ port: number; protocol: string; serviceName: string; totalBytes: number; flowCount: number }> = [];
+  try {
+    const portRows = db.prepare(`
+      SELECT dst_port as port, protocol, COALESCE(service_name, 'Unknown') as serviceName,
+             COALESCE(SUM(bytes), 0) as totalBytes, COALESCE(SUM(flow_count), 0) as flowCount
+      FROM netflow_daily_summaries
+      WHERE service_name LIKE ? OR CAST(dst_port AS TEXT) LIKE ?
+      GROUP BY dst_port, protocol
+      ORDER BY totalBytes DESC
+      LIMIT 8
+    `).all(wildcard, wildcard) as any[];
+
+    if (portRows.length > 0) {
+      ports = portRows.map((r) => ({
+        port: Number(r.port),
+        protocol: r.protocol,
+        serviceName: r.serviceName,
+        totalBytes: Number(r.totalBytes || 0),
+        flowCount: Number(r.flowCount || 0),
+      }));
+    } else {
+      const rawPortRows = db.prepare(`
+        SELECT dst_port as port, protocol, COALESCE(service_name, 'Unknown') as serviceName,
+               COALESCE(SUM(bytes), 0) as totalBytes, COUNT(*) as flowCount
+        FROM netflow_logs
+        WHERE service_name LIKE ? OR CAST(dst_port AS TEXT) LIKE ?
+        GROUP BY dst_port, protocol
+        ORDER BY totalBytes DESC
+        LIMIT 8
+      `).all(wildcard, wildcard) as any[];
+
+      ports = rawPortRows.map((r) => ({
+        port: Number(r.port),
+        protocol: r.protocol,
+        serviceName: r.serviceName,
+        totalBytes: Number(r.totalBytes || 0),
+        flowCount: Number(r.flowCount || 0),
+      }));
+    }
+  } catch (err) {
+    console.error('Port search error:', err);
+  }
+
+  return { ips, domains, ports };
+}
+
