@@ -15,6 +15,8 @@ export async function GET() {
 
     // pfSense NetFlow counts
     const flowRaw = db.prepare('SELECT count(*) as count FROM netflow_logs').get() as any;
+    const flowMin = db.prepare('SELECT count(*) as count FROM netflow_minute_rollups').get() as any;
+    const flowHr = db.prepare('SELECT count(*) as count FROM netflow_hourly_rollups').get() as any;
     const flowSummary = db.prepare('SELECT count(*) as count FROM netflow_daily_summaries').get() as any;
 
     // Database file size on disk
@@ -42,6 +44,8 @@ export async function GET() {
       },
       netflow: {
         rawFlowCount: flowRaw?.count || 0,
+        minuteRollupCount: flowMin?.count || 0,
+        hourlyRollupCount: flowHr?.count || 0,
         summaryCount: flowSummary?.count || 0,
         retentionDays: 7,
       },
@@ -56,8 +60,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const retentionDays = Number(body.retentionDays) || 60;
-    const result = runRetentionJob(retentionDays);
+    const result = runRetentionJob({
+      squidDays: body.squidDays !== undefined ? Number(body.squidDays) : (body.retentionDays ? Number(body.retentionDays) : 60),
+      netflowDays: body.netflowDays !== undefined ? Number(body.netflowDays) : 7,
+      runVacuum: Boolean(body.runVacuum),
+    });
 
     return NextResponse.json({
       success: true,

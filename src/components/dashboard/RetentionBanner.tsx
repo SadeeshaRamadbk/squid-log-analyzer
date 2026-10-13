@@ -14,14 +14,18 @@ interface RetentionInfo {
   };
   netflow: {
     rawFlowCount: number;
+    minuteRollupCount?: number;
+    hourlyRollupCount?: number;
     summaryCount: number;
     retentionDays: number;
   };
   dbSizeFormatted?: string;
   lastRun: {
     deletedRows: number;
+    squidDeletedRows?: number;
+    netflowDeletedRows?: number;
     executedAt: string;
-    retentionDays: number;
+    retentionDays?: number;
   } | null;
 }
 
@@ -56,7 +60,11 @@ export function RetentionBanner({ activeView = 'squid', onRetentionTriggered }: 
       const res = await fetch('/api/retention', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ retentionDays: activeView === 'softflowd' ? 7 : 60 }),
+        body: JSON.stringify({
+          squidDays: 60,
+          netflowDays: 7,
+          runVacuum: true,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -99,20 +107,28 @@ export function RetentionBanner({ activeView = 'squid', onRetentionTriggered }: 
         {isPfSense ? (
           <>
             <div className="flex items-center gap-2">
-              <span>Raw Flow Records (7-day window):</span>
+              <span>Raw Flows (7d retention):</span>
               <span className="font-mono text-slate-200 font-semibold">
                 {info ? formatNumber(info.netflow.rawFlowCount) : '...'}
               </span>
             </div>
+            {info?.netflow.minuteRollupCount !== undefined && (
+              <div className="flex items-center gap-2">
+                <span>Roll-ups (Min / Hr):</span>
+                <span className="font-mono text-slate-200 font-semibold">
+                  {formatNumber(info.netflow.minuteRollupCount)} / {formatNumber(info.netflow.hourlyRollupCount || 0)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <span>Daily Flow Aggregates:</span>
+              <span>Daily Aggregates:</span>
               <span className="font-mono text-slate-200 font-semibold">
                 {info ? formatNumber(info.netflow.summaryCount) : '...'}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-slate-400">
               <Clock className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Retention: Flows &gt;7d pruned</span>
+              <span>Retention: Raw &gt;7d pruned (Roll-ups kept for reports)</span>
             </div>
           </>
         ) : isSplit ? (

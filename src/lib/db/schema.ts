@@ -174,5 +174,82 @@ export function initializeDatabase(db: Database.Database): void {
       last_report_path TEXT,
       updated_at INTEGER NOT NULL
     );
+
+    -- Performance: Minute roll-up tables for softflowd telemetry
+    CREATE TABLE IF NOT EXISTS netflow_minute_rollups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bucket_timestamp INTEGER NOT NULL,
+      src_ip TEXT NOT NULL,
+      dst_ip TEXT NOT NULL,
+      dst_port INTEGER NOT NULL,
+      protocol TEXT NOT NULL,
+      service_name TEXT,
+      flow_count INTEGER NOT NULL DEFAULT 0,
+      bytes INTEGER NOT NULL DEFAULT 0,
+      packets INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT uq_netflow_min UNIQUE(bucket_timestamp, src_ip, dst_ip, dst_port, protocol)
+    );
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_time ON netflow_minute_rollups(bucket_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_src ON netflow_minute_rollups(src_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_dst ON netflow_minute_rollups(dst_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_port ON netflow_minute_rollups(dst_port);
+
+    -- Performance: Hourly roll-up tables for long-term charts and reporting
+    CREATE TABLE IF NOT EXISTS netflow_hourly_rollups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bucket_timestamp INTEGER NOT NULL,
+      src_ip TEXT NOT NULL,
+      dst_ip TEXT NOT NULL,
+      dst_port INTEGER NOT NULL,
+      protocol TEXT NOT NULL,
+      service_name TEXT,
+      flow_count INTEGER NOT NULL DEFAULT 0,
+      bytes INTEGER NOT NULL DEFAULT 0,
+      packets INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT uq_netflow_hr UNIQUE(bucket_timestamp, src_ip, dst_ip, dst_port, protocol)
+    );
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_time ON netflow_hourly_rollups(bucket_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_src ON netflow_hourly_rollups(src_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_dst ON netflow_hourly_rollups(dst_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_port ON netflow_hourly_rollups(dst_port);
   `);
+
+  // Backfill minute and hourly rollups from existing raw logs if empty
+  try {
+    const minCount = db.prepare('SELECT count(*) as count FROM netflow_minute_rollups').get() as any;
+    if (!minCount || minCount.count === 0) {
+      const rawCount = db.prepare('SELECT count(*) as count FROM netflow_logs').get() as any;
+      if (rawCount && rawCount.count > 0) {
+        db.prepare(`
+          INSERT OR IGNORE INTO netflow_minute_rollups (
+            bucket_timestamp, src_ip, dst_ip, dst_port, protocol, service_name, flow_count, bytes, packets
+          )
+          SELECT
+            CAST((timestamp / 60000) AS INTEGER) * 60000 AS bucket_timestamp,
+            src_ip, dst_ip, dst_port, protocol, service_name,
+            COUNT(*) AS flow_count,
+            SUM(bytes) AS bytes,
+            SUM(packets) AS packets
+          FROM netflow_logs
+          GROUP BY CAST((timestamp / 60000) AS INTEGER) * 60000, src_ip, dst_ip, dst_port, protocol
+        `).run();
+
+        db.prepare(`
+          INSERT OR IGNORE INTO netflow_hourly_rollups (
+            bucket_timestamp, src_ip, dst_ip, dst_port, protocol, service_name, flow_count, bytes, packets
+          )
+          SELECT
+            CAST((timestamp / 3600000) AS INTEGER) * 3600000 AS bucket_timestamp,
+            src_ip, dst_ip, dst_port, protocol, service_name,
+            COUNT(*) AS flow_count,
+            SUM(bytes) AS bytes,
+            SUM(packets) AS packets
+          FROM netflow_logs
+          GROUP BY CAST((timestamp / 3600000) AS INTEGER) * 3600000, src_ip, dst_ip, dst_port, protocol
+        `).run();
+      }
+    }
+  } catch (e) {
+    console.warn('[Schema] Roll-up migration warning:', e);
+  }
 }

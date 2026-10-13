@@ -6,26 +6,88 @@ import { getDatabase } from './index';
 
 export interface RetentionResult {
   deletedRows: number;
-  retentionDays: number;
+  squidDeletedRows: number;
+  netflowDeletedRows: number;
+  minuteRollupsDeletedRows: number;
+  hourlyRollupsDeletedRows: number;
+  squidRetentionDays: number;
+  netflowRetentionDays: number;
   cutoffDate: string;
   cutoffTimestamp: number;
   executedAt: string;
+  walCheckpointResult?: any;
 }
 
-export function runRetentionJob(retentionDays = 60): RetentionResult {
+export interface RetentionOptions {
+  squidDays?: number;
+  netflowDays?: number;
+  minuteRollupDays?: number;
+  hourlyRollupDays?: number;
+  runVacuum?: boolean;
+}
+
+export function runRetentionJob(options: RetentionOptions | number = {}): RetentionResult {
   const db = getDatabase();
-  const configuredDays = Number(process.env.RETENTION_DAYS) || retentionDays;
   
-  // Calculate cutoff timestamp (X days ago in ms)
+  const opts: RetentionOptions = typeof options === 'number' 
+    ? { squidDays: options, netflowDays: 7 } 
+    : options;
+
+  const squidDays = opts.squidDays ?? Number(process.env.RETENTION_DAYS) ?? 60;
+  const netflowDays = opts.netflowDays ?? Number(process.env.NETFLOW_RETENTION_DAYS) ?? 7;
+  const minuteRollupDays = opts.minuteRollupDays ?? 14;
+  const hourlyRollupDays = opts.hourlyRollupDays ?? 90;
+
   const now = Date.now();
-  const cutoffTimestamp = now - configuredDays * 24 * 60 * 60 * 1000;
-  const cutoffDate = new Date(cutoffTimestamp).toISOString();
+  const squidCutoff = now - squidDays * 24 * 60 * 60 * 1000;
+  const netflowCutoff = now - netflowDays * 24 * 60 * 60 * 1000;
+  const minuteRollupCutoff = now - minuteRollupDays * 24 * 60 * 60 * 1000;
+  const hourlyRollupCutoff = now - hourlyRollupDays * 24 * 60 * 60 * 1000;
 
-  console.log(`[Retention Job] Deleting raw_logs older than ${configuredDays} days (prior to ${cutoffDate})...`);
+  console.log(`[Retention Job] Pruning logs (Squid > ${squidDays}d, NetFlow > ${netflowDays}d)...`);
 
-  const deleteStmt = db.prepare('DELETE FROM raw_logs WHERE timestamp < ?');
-  const info = deleteStmt.run(cutoffTimestamp);
-  const deletedRows = info.changes;
+  let squidDeleted = 0;
+  let netflowDeleted = 0;
+  let minRollupDeleted = 0;
+  let hrRollupDeleted = 0;
+
+  const runDeletes = db.transaction(() => {
+    // 1. Delete expired Squid raw logs
+    const infoSquid = db.prepare('DELETE FROM raw_logs WHERE timestamp < ?').run(squidCutoff);
+    squidDeleted = infoSquid.changes;
+
+    // 2. Delete expired NetFlow raw logs (short retention: default 7 days)
+    const infoNetflow = db.prepare('DELETE FROM netflow_logs WHERE timestamp < ?').run(netflowCutoff);
+    netflowDeleted = infoNetflow.changes;
+
+    // 3. Delete expired minute roll-ups (> 14 days)
+    const infoMin = db.prepare('DELETE FROM netflow_minute_rollups WHERE bucket_timestamp < ?').run(minuteRollupCutoff);
+    minRollupDeleted = infoMin.changes;
+
+    // 4. Delete expired hourly roll-ups (> 90 days)
+    const infoHr = db.prepare('DELETE FROM netflow_hourly_rollups WHERE bucket_timestamp < ?').run(hourlyRollupCutoff);
+    hrRollupDeleted = infoHr.changes;
+  });
+
+  runDeletes();
+  const totalDeleted = squidDeleted + netflowDeleted + minRollupDeleted + hrRollupDeleted;
+
+  // Run WAL checkpoint and optimize pragma
+  let walCheckpointResult = null;
+  try {
+    walCheckpointResult = db.pragma('wal_checkpoint(TRUNCATE)');
+  } catch (err) {
+    console.warn('[Retention Job] WAL checkpoint warning:', err);
+  }
+
+  try {
+    db.pragma('optimize');
+    if (opts.runVacuum) {
+      db.exec('VACUUM');
+    }
+  } catch (err) {
+    console.warn('[Retention Job] Optimize warning:', err);
+  }
 
   // Record retention execution in metadata
   const metaStmt = db.prepare(`
@@ -34,24 +96,35 @@ export function runRetentionJob(retentionDays = 60): RetentionResult {
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
   `);
 
-  metaStmt.run('last_retention_run', JSON.stringify({
-    deletedRows,
-    cutoffTimestamp,
-    cutoffDate,
-    executedAt: new Date().toISOString()
-  }), now);
+  const executionPayload = {
+    deletedRows: totalDeleted,
+    squidDeletedRows: squidDeleted,
+    netflowDeletedRows: netflowDeleted,
+    minuteRollupsDeletedRows: minRollupDeleted,
+    hourlyRollupsDeletedRows: hrRollupDeleted,
+    squidRetentionDays: squidDays,
+    netflowRetentionDays: netflowDays,
+    cutoffDate: new Date(netflowCutoff).toISOString(),
+    cutoffTimestamp: netflowCutoff,
+    executedAt: new Date().toISOString(),
+  };
 
-  // SQLite optimization pragma
-  db.pragma('optimize');
+  metaStmt.run('last_retention_run', JSON.stringify(executionPayload), now);
 
-  console.log(`[Retention Job] Successfully deleted ${deletedRows} old raw log records.`);
+  console.log(`[Retention Job] Cleaned ${totalDeleted} records total (Squid: ${squidDeleted}, NetFlow raw: ${netflowDeleted}, Minute rollups: ${minRollupDeleted}, Hourly rollups: ${hrRollupDeleted}).`);
 
   return {
-    deletedRows,
-    retentionDays: configuredDays,
-    cutoffDate,
-    cutoffTimestamp,
+    deletedRows: totalDeleted,
+    squidDeletedRows: squidDeleted,
+    netflowDeletedRows: netflowDeleted,
+    minuteRollupsDeletedRows: minRollupDeleted,
+    hourlyRollupsDeletedRows: hrRollupDeleted,
+    squidRetentionDays: squidDays,
+    netflowRetentionDays: netflowDays,
+    cutoffDate: new Date(netflowCutoff).toISOString(),
+    cutoffTimestamp: netflowCutoff,
     executedAt: new Date().toISOString(),
+    walCheckpointResult,
   };
 }
 

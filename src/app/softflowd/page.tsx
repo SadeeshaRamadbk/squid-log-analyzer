@@ -176,14 +176,78 @@ export default function SoftflowdPage() {
     };
   }, [fetchStats, fetchFlows]);
 
-  // Real-Time 3s Polling
+  // Real-Time Server-Sent Events (SSE) Effect with tab visibility pause & fallback
   useEffect(() => {
     if (!isRealTime) return;
-    const interval = setInterval(() => {
+
+    let eventSource: EventSource | null = null;
+    let fallbackInterval: NodeJS.Timeout | null = null;
+
+    const triggerRefresh = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchStats();
       fetchFlows(flowPage);
-    }, 3000);
-    return () => clearInterval(interval);
+    };
+
+    const startFallbackPolling = () => {
+      if (fallbackInterval) return;
+      fallbackInterval = setInterval(triggerRefresh, 3000);
+    };
+
+    const stopAll = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval);
+        fallbackInterval = null;
+      }
+    };
+
+    const startStreaming = () => {
+      if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+        startFallbackPolling();
+        return;
+      }
+
+      try {
+        eventSource = new EventSource('/api/live/stream');
+        eventSource.addEventListener('heartbeat', () => {
+          triggerRefresh();
+        });
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          startFallbackPolling();
+        };
+      } catch {
+        startFallbackPolling();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopAll();
+      } else {
+        triggerRefresh();
+        startStreaming();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    if (typeof document !== 'undefined' && !document.hidden) {
+      startStreaming();
+    }
+
+    return () => {
+      stopAll();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [isRealTime, fetchStats, fetchFlows, flowPage]);
 
   const handleRefresh = async () => {

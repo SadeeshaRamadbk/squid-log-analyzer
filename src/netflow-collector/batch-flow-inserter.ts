@@ -65,21 +65,41 @@ export class BatchFlowInserter {
         packets = packets + excluded.packets
     `);
 
+    const upsertMinuteStmt = db.prepare(`
+      INSERT INTO netflow_minute_rollups (
+        bucket_timestamp, src_ip, dst_ip, dst_port, protocol, service_name, flow_count, bytes, packets
+      ) VALUES (
+        @bucket_timestamp, @src_ip, @dst_ip, @dst_port, @protocol, @service_name, @flow_count, @bytes, @packets
+      )
+      ON CONFLICT(bucket_timestamp, src_ip, dst_ip, dst_port, protocol) DO UPDATE SET
+        flow_count = flow_count + excluded.flow_count,
+        bytes = bytes + excluded.bytes,
+        packets = packets + excluded.packets
+    `);
+
+    const upsertHourlyStmt = db.prepare(`
+      INSERT INTO netflow_hourly_rollups (
+        bucket_timestamp, src_ip, dst_ip, dst_port, protocol, service_name, flow_count, bytes, packets
+      ) VALUES (
+        @bucket_timestamp, @src_ip, @dst_ip, @dst_port, @protocol, @service_name, @flow_count, @bytes, @packets
+      )
+      ON CONFLICT(bucket_timestamp, src_ip, dst_ip, dst_port, protocol) DO UPDATE SET
+        flow_count = flow_count + excluded.flow_count,
+        bytes = bytes + excluded.bytes,
+        packets = packets + excluded.packets
+    `);
+
     // Aggregate in-memory
-    const aggregates = new Map<string, {
-      date: string;
-      src_ip: string;
-      dst_ip: string;
-      dst_port: number;
-      protocol: string;
-      service_name: string;
-      flow_count: number;
-      bytes: number;
-      packets: number;
-    }>();
+    const aggregates = new Map<string, any>();
+    const minuteAggregates = new Map<string, any>();
+    const hourlyAggregates = new Map<string, any>();
 
     for (const flow of flowsToInsert) {
       const date = new Date(flow.timestamp).toISOString().split('T')[0];
+      const minBucket = Math.floor(flow.timestamp / 60000) * 60000;
+      const hrBucket = Math.floor(flow.timestamp / 3600000) * 3600000;
+
+      // 1. Daily
       const key = `${date}__${flow.srcIp}__${flow.dstIp}__${flow.dstPort}__${flow.protocol}`;
       const existing = aggregates.get(key);
       if (existing) {
@@ -89,6 +109,48 @@ export class BatchFlowInserter {
       } else {
         aggregates.set(key, {
           date,
+          src_ip: flow.srcIp,
+          dst_ip: flow.dstIp,
+          dst_port: flow.dstPort,
+          protocol: flow.protocol,
+          service_name: flow.serviceName,
+          flow_count: 1,
+          bytes: flow.bytes,
+          packets: flow.packets,
+        });
+      }
+
+      // 2. Minute Roll-up
+      const minKey = `${minBucket}__${flow.srcIp}__${flow.dstIp}__${flow.dstPort}__${flow.protocol}`;
+      const existingMin = minuteAggregates.get(minKey);
+      if (existingMin) {
+        existingMin.flow_count += 1;
+        existingMin.bytes += flow.bytes;
+        existingMin.packets += flow.packets;
+      } else {
+        minuteAggregates.set(minKey, {
+          bucket_timestamp: minBucket,
+          src_ip: flow.srcIp,
+          dst_ip: flow.dstIp,
+          dst_port: flow.dstPort,
+          protocol: flow.protocol,
+          service_name: flow.serviceName,
+          flow_count: 1,
+          bytes: flow.bytes,
+          packets: flow.packets,
+        });
+      }
+
+      // 3. Hourly Roll-up
+      const hrKey = `${hrBucket}__${flow.srcIp}__${flow.dstIp}__${flow.dstPort}__${flow.protocol}`;
+      const existingHr = hourlyAggregates.get(hrKey);
+      if (existingHr) {
+        existingHr.flow_count += 1;
+        existingHr.bytes += flow.bytes;
+        existingHr.packets += flow.packets;
+      } else {
+        hourlyAggregates.set(hrKey, {
+          bucket_timestamp: hrBucket,
           src_ip: flow.srcIp,
           dst_ip: flow.dstIp,
           dst_port: flow.dstPort,
@@ -120,6 +182,12 @@ export class BatchFlowInserter {
 
       for (const agg of aggregates.values()) {
         upsertSummaryStmt.run(agg);
+      }
+      for (const agg of minuteAggregates.values()) {
+        upsertMinuteStmt.run(agg);
+      }
+      for (const agg of hourlyAggregates.values()) {
+        upsertHourlyStmt.run(agg);
       }
     });
 

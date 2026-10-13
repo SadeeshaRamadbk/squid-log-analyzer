@@ -95,7 +95,22 @@ const IS_DST_INTERNAL = `(dst_ip LIKE '10.%' OR dst_ip LIKE '192.168.%' OR dst_i
 /**
  * Build unified WHERE conditions for netflow queries
  */
-export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = '') {
+/**
+ * Select the most optimal table: hourly rollups for multi-day queries, minute rollups for short ranges
+ */
+export function getOptimizedRollupTable(filters: NetflowFilters): { table: string; timeCol: string } {
+  // If specific date range is larger than 2 days, use hourly rollups
+  if (filters.startDate && filters.endDate && filters.startDate !== filters.endDate) {
+    return { table: 'netflow_hourly_rollups', timeCol: 'bucket_timestamp' };
+  }
+  // Otherwise minute rollups are fastest and granular
+  return { table: 'netflow_minute_rollups', timeCol: 'bucket_timestamp' };
+}
+
+/**
+ * Build unified WHERE conditions for netflow queries
+ */
+export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = '', timeCol = 'timestamp') {
   const settings = getSystemSettings();
   const tz = settings.timezone || 'Asia/Colombo';
   const conditions: string[] = [];
@@ -103,20 +118,20 @@ export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = 
 
   // Time window / date bounds
   if (filters.timeWindow === '30m') {
-    conditions.push(`${prefix}timestamp >= ?`);
+    conditions.push(`${prefix}${timeCol} >= ?`);
     params.push(Date.now() - 30 * 60 * 1000);
   } else if (filters.timeWindow === '1h') {
-    conditions.push(`${prefix}timestamp >= ?`);
+    conditions.push(`${prefix}${timeCol} >= ?`);
     params.push(Date.now() - 60 * 60 * 1000);
   } else {
     if (filters.startDate) {
       const { startMs } = getTimezoneDayBounds(filters.startDate, tz);
-      conditions.push(`${prefix}timestamp >= ?`);
+      conditions.push(`${prefix}${timeCol} >= ?`);
       params.push(startMs);
     }
     if (filters.endDate) {
       const { endMs } = getTimezoneDayBounds(filters.endDate, tz);
-      conditions.push(`${prefix}timestamp <= ?`);
+      conditions.push(`${prefix}${timeCol} <= ?`);
       params.push(endMs);
     }
   }
@@ -154,8 +169,13 @@ export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = 
   // Hide proxy hop (Squid port 3128, defaults to true)
   const hideProxy = filters.hideProxyHop !== undefined ? filters.hideProxyHop : settings.hideProxyHop;
   if (hideProxy && settings.squidPort) {
-    conditions.push(`(${prefix}src_port != ? AND ${prefix}dst_port != ?)`);
-    params.push(settings.squidPort, settings.squidPort);
+    if (timeCol === 'bucket_timestamp') {
+      conditions.push(`${prefix}dst_port != ?`);
+      params.push(settings.squidPort);
+    } else {
+      conditions.push(`(${prefix}src_port != ? AND ${prefix}dst_port != ?)`);
+      params.push(settings.squidPort, settings.squidPort);
+    }
   }
 
   // Traffic Type filter
@@ -169,11 +189,12 @@ export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = 
 }
 
 /**
- * Get NetFlow Overview KPI Metrics (Total, Download, Upload)
+ * Get NetFlow Overview KPI Metrics (Total, Download, Upload) - served from roll-ups
  */
 export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryMetrics {
   const db = getDatabase();
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  const { table, timeCol } = getOptimizedRollupTable(filters);
+  const { conditions, params } = buildNetflowFilterClause(filters, '', timeCol);
 
   let uploadCase = `CASE WHEN ${IS_SRC_INTERNAL} AND NOT ${IS_DST_INTERNAL} THEN bytes ELSE 0 END`;
   let downloadCase = `CASE WHEN ${IS_DST_INTERNAL} AND NOT ${IS_SRC_INTERNAL} THEN bytes ELSE 0 END`;
@@ -187,19 +208,19 @@ export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryM
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const query = `
     SELECT
-      COUNT(*) AS totalFlows,
+      COALESCE(SUM(flow_count), 0) AS totalFlows,
       COALESCE(SUM(bytes), 0) AS totalBytes,
       COALESCE(SUM(${uploadCase}), 0) AS uploadBytes,
       COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
       COALESCE(SUM(packets), 0) AS totalPackets,
       COUNT(DISTINCT src_ip) AS uniqueSrcIps,
       COUNT(DISTINCT dst_ip) AS uniqueDstIps
-    FROM netflow_logs
+    FROM ${table}
     ${where}
   `;
   const row = db.prepare(query).get(...params) as any;
 
-  const protoRow = db.prepare(`SELECT protocol FROM netflow_logs ${where} GROUP BY protocol ORDER BY COUNT(*) DESC LIMIT 1`).get(...params) as any;
+  const protoRow = db.prepare(`SELECT protocol FROM ${table} ${where} GROUP BY protocol ORDER BY SUM(flow_count) DESC LIMIT 1`).get(...params) as any;
 
   return {
     totalFlows: Number(row?.totalFlows || 0),
@@ -214,18 +235,21 @@ export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryM
 }
 
 /**
- * Get NetFlow Throughput Time Series with Adaptive Bucketing & Zero-Filling
+ * Get NetFlow Throughput Time Series with Adaptive Bucketing & Zero-Filling - served from roll-ups
  */
 export function getNetflowThroughput(filters: NetflowFilters = {}): NetflowTimeSeriesPoint[] {
   const db = getDatabase();
   const settings = getSystemSettings();
   const tz = settings.timezone || 'Asia/Colombo';
 
-  // Determine bounds from raw table if no explicit filter is given
-  const rangeRow = db.prepare('SELECT MIN(timestamp) AS minMs, MAX(timestamp) AS maxMs FROM netflow_logs').get() as any;
+  // Determine bounds from rollup table
+  const rangeRow = db.prepare('SELECT MIN(bucket_timestamp) AS minMs, MAX(bucket_timestamp) AS maxMs FROM netflow_minute_rollups').get() as any;
   const config = getTimeBucketConfig(filters, rangeRow?.minMs, rangeRow?.maxMs, tz);
 
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  // If bucket size >= 1 hour (3600000ms), serve from hourly rollups for instant performance
+  const targetTable = config.bucketSizeMs >= 3600000 ? 'netflow_hourly_rollups' : 'netflow_minute_rollups';
+
+  const { conditions, params } = buildNetflowFilterClause(filters, '', 'bucket_timestamp');
 
   let uploadCase = `CASE WHEN ${IS_SRC_INTERNAL} AND NOT ${IS_DST_INTERNAL} THEN bytes ELSE 0 END`;
   let downloadCase = `CASE WHEN ${IS_DST_INTERNAL} AND NOT ${IS_SRC_INTERNAL} THEN bytes ELSE 0 END`;
@@ -237,20 +261,20 @@ export function getNetflowThroughput(filters: NetflowFilters = {}): NetflowTimeS
   }
 
   // Ensure query only looks inside [startMs, endMs]
-  conditions.push('timestamp >= ? AND timestamp <= ?');
+  conditions.push('bucket_timestamp >= ? AND bucket_timestamp <= ?');
   params.push(config.startMs, config.endMs);
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
   const query = `
     SELECT
-      CAST((timestamp - ?) / ? AS INTEGER) AS bucket_idx,
-      COUNT(*) AS flowCount,
+      CAST((bucket_timestamp - ?) / ? AS INTEGER) AS bucket_idx,
+      COALESCE(SUM(flow_count), 0) AS flowCount,
       COALESCE(SUM(bytes), 0) AS bytes,
       COALESCE(SUM(${uploadCase}), 0) AS uploadBytes,
       COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
       COALESCE(SUM(packets), 0) AS packets
-    FROM netflow_logs
+    FROM ${targetTable}
     ${whereClause}
     GROUP BY bucket_idx
     ORDER BY bucket_idx ASC
@@ -295,24 +319,25 @@ export function getNetflowThroughput(filters: NetflowFilters = {}): NetflowTimeS
 }
 
 /**
- * Get Top Talkers (Internal Hosts & Users) with Upload and Download breakdown
+ * Get Top Talkers (Internal Hosts & Users) - served from roll-ups
  */
 export function getTopTalkers(filters: NetflowFilters = {}, limit = 10): TopTalkerRecord[] {
   const db = getDatabase();
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  const { table, timeCol } = getOptimizedRollupTable(filters);
+  const { conditions, params } = buildNetflowFilterClause(filters, '', timeCol);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM ${table} ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
     WITH unified AS (
-      SELECT src_ip AS client_ip, bytes AS upload_bytes, 0 AS download_bytes, 1 AS flow_count, packets
-      FROM netflow_logs
+      SELECT src_ip AS client_ip, bytes AS upload_bytes, 0 AS download_bytes, flow_count, packets
+      FROM ${table}
       ${where ? where + ' AND' : 'WHERE'} ${IS_SRC_INTERNAL}
       UNION ALL
-      SELECT dst_ip AS client_ip, 0 AS upload_bytes, bytes AS download_bytes, 1 AS flow_count, packets
-      FROM netflow_logs
+      SELECT dst_ip AS client_ip, 0 AS upload_bytes, bytes AS download_bytes, flow_count, packets
+      FROM ${table}
       ${where ? where + ' AND' : 'WHERE'} ${IS_DST_INTERNAL}
     )
     SELECT
@@ -347,26 +372,27 @@ export function getTopTalkers(filters: NetflowFilters = {}, limit = 10): TopTalk
 }
 
 /**
- * Get Top Remote Endpoints (Exclusively External Destination IPs)
+ * Get Top Remote Endpoints (Exclusively External Destination IPs) - served from roll-ups
  */
 export function getTopDestinations(filters: NetflowFilters = {}, limit = 10): TopDestinationRecord[] {
   const db = getDatabase();
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  const { table, timeCol } = getOptimizedRollupTable(filters);
+  const { conditions, params } = buildNetflowFilterClause(filters, '', timeCol);
 
   // Requirement: Only show External hosts in Top Remote Endpoints
   conditions.push(`NOT ${IS_DST_INTERNAL}`);
 
   const where = `WHERE ${conditions.join(' AND ')}`;
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM ${table} ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
     SELECT
       dst_ip AS dstIp,
-      COUNT(*) AS flowCount,
+      COALESCE(SUM(flow_count), 0) AS flowCount,
       COALESCE(SUM(bytes), 0) AS bytes,
       COALESCE(SUM(packets), 0) AS packets
-    FROM netflow_logs
+    FROM ${table}
     ${where}
     GROUP BY dst_ip
     ORDER BY bytes DESC
@@ -384,27 +410,28 @@ export function getTopDestinations(filters: NetflowFilters = {}, limit = 10): To
 }
 
 /**
- * Get Internal <-> Internal Traffic (East-West LAN Traffic)
+ * Get Internal <-> Internal Traffic (East-West LAN Traffic) - served from roll-ups
  */
 export function getInternalTraffic(filters: NetflowFilters = {}, limit = 10): TopDestinationRecord[] {
   const db = getDatabase();
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  const { table, timeCol } = getOptimizedRollupTable(filters);
+  const { conditions, params } = buildNetflowFilterClause(filters, '', timeCol);
 
   // Both source and destination internal
   conditions.push(IS_SRC_INTERNAL);
   conditions.push(IS_DST_INTERNAL);
 
   const where = `WHERE ${conditions.join(' AND ')}`;
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM ${table} ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
     SELECT
       dst_ip AS dstIp,
-      COUNT(*) AS flowCount,
+      COALESCE(SUM(flow_count), 0) AS flowCount,
       COALESCE(SUM(bytes), 0) AS bytes,
       COALESCE(SUM(packets), 0) AS packets
-    FROM netflow_logs
+    FROM ${table}
     ${where}
     GROUP BY dst_ip
     ORDER BY bytes DESC
@@ -422,14 +449,15 @@ export function getInternalTraffic(filters: NetflowFilters = {}, limit = 10): To
 }
 
 /**
- * Get Top Services & Ports (Classified by Server Port, Ephemeral grouped)
+ * Get Top Services & Ports - served from roll-ups
  */
 export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopServiceRecord[] {
   const db = getDatabase();
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  const { table, timeCol } = getOptimizedRollupTable(filters);
+  const { conditions, params } = buildNetflowFilterClause(filters, '', timeCol);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM ${table} ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
@@ -439,13 +467,13 @@ export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopSer
         ELSE dst_port 
       END AS dstPort,
       CASE 
-        WHEN dst_port >= 49152 THEN 'Ephemeral / Other (49152+)'
+        WHEN dst_port >= 49152 THEN 'Ephemeral / Other (49152+)' 
         ELSE service_name 
       END AS serviceName,
       protocol,
-      COUNT(*) AS flowCount,
+      COALESCE(SUM(flow_count), 0) AS flowCount,
       COALESCE(SUM(bytes), 0) AS bytes
-    FROM netflow_logs
+    FROM ${table}
     ${where}
     GROUP BY 
       CASE WHEN dst_port >= 49152 THEN 49152 ELSE dst_port END,
@@ -465,19 +493,20 @@ export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopSer
 }
 
 /**
- * Get Protocol Distribution (TCP vs UDP vs ICMP)
+ * Get Protocol Distribution (TCP vs UDP vs ICMP) - served from roll-ups
  */
 export function getProtocolDistribution(filters: NetflowFilters = {}): ProtocolStatRecord[] {
   const db = getDatabase();
-  const { conditions, params } = buildNetflowFilterClause(filters);
+  const { table, timeCol } = getOptimizedRollupTable(filters);
+  const { conditions, params } = buildNetflowFilterClause(filters, '', timeCol);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM netflow_logs ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(flow_count), 0) as total FROM ${table} ${where}`).get(...params) as any;
   const total = Number(totalRow?.total || 0);
 
   const rows = db.prepare(`
-    SELECT protocol, COUNT(*) as flowCount, COALESCE(SUM(bytes), 0) as bytes
-    FROM netflow_logs
+    SELECT protocol, COALESCE(SUM(flow_count), 0) as flowCount, COALESCE(SUM(bytes), 0) as bytes
+    FROM ${table}
     ${where}
     GROUP BY protocol
     ORDER BY flowCount DESC
