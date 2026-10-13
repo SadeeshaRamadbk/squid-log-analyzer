@@ -4,6 +4,7 @@ import {
   getNetflowThroughput,
   getTopTalkers,
   getTopDestinations,
+  getInternalTraffic,
   getTopServices,
   getProtocolDistribution,
   getDistinctNetflowOptions,
@@ -21,6 +22,13 @@ export async function GET(request: NextRequest) {
     const protocol = searchParams.get('protocol') || undefined;
     const serviceName = searchParams.get('serviceName') || undefined;
     const timeWindow = (searchParams.get('timeWindow') as '30m' | '1h') || undefined;
+    const hideFirewallTraffic = searchParams.has('hideFirewallTraffic')
+      ? searchParams.get('hideFirewallTraffic') === 'true'
+      : undefined;
+    const hideProxyHop = searchParams.has('hideProxyHop')
+      ? searchParams.get('hideProxyHop') === 'true'
+      : undefined;
+    const trafficType = (searchParams.get('trafficType') as 'all' | 'external' | 'internal') || undefined;
 
     const filters: NetflowFilters = {
       startDate,
@@ -30,12 +38,16 @@ export async function GET(request: NextRequest) {
       protocol,
       serviceName,
       timeWindow,
+      hideFirewallTraffic,
+      hideProxyHop,
+      trafficType,
     };
 
     const overview = getNetflowMetrics(filters);
     const throughput = getNetflowThroughput(filters);
     const topTalkers = getTopTalkers(filters, 10);
     const topDestinations = getTopDestinations(filters, 10);
+    const internalTraffic = getInternalTraffic(filters, 10);
     const topServices = getTopServices(filters, 10);
     const protocols = getProtocolDistribution(filters);
     const netflowOptions = getDistinctNetflowOptions();
@@ -49,6 +61,7 @@ export async function GET(request: NextRequest) {
         throughput,
         topTalkers,
         topDestinations,
+        internalTraffic,
         topServices,
         protocols,
         filterOptions: {

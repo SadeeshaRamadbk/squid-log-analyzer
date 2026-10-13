@@ -1,4 +1,6 @@
 import { getDatabase } from './index';
+import { getSystemSettings, getTimezoneDayBounds, formatTimestamp } from '../settings';
+import { getTimeBucketConfig, formatBucketLabel, SquidTimePoint } from '../bucketing';
 
 export interface DashboardFilters {
   startDate?: string; // 'YYYY-MM-DD'
@@ -100,21 +102,30 @@ function getTimeWindowCutoff(timeWindow?: string): number | null {
   return null;
 }
 
-/**
- * Build WHERE clause for daily_summaries table
- */
-function buildSummaryFilterClause(filters: DashboardFilters, prefix = ''): { whereClause: string; params: any[] } {
+export function buildRawLogsFilterClause(
+  filters: DashboardFilters,
+  prefix = '',
+  customTimezone?: string
+): { whereClause: string; conditions: string[]; params: any[] } {
   const conditions: string[] = [];
   const params: any[] = [];
+  const tz = customTimezone || getSystemSettings().timezone || 'Asia/Colombo';
 
-  if (filters.startDate) {
-    conditions.push(`${prefix}date >= ?`);
-    params.push(filters.startDate);
-  }
-
-  if (filters.endDate) {
-    conditions.push(`${prefix}date <= ?`);
-    params.push(filters.endDate);
+  const cutoff = getTimeWindowCutoff(filters.timeWindow);
+  if (cutoff !== null) {
+    conditions.push(`${prefix}timestamp >= ?`);
+    params.push(cutoff);
+  } else {
+    if (filters.startDate) {
+      const { startMs } = getTimezoneDayBounds(filters.startDate, tz);
+      conditions.push(`${prefix}timestamp >= ?`);
+      params.push(startMs);
+    }
+    if (filters.endDate) {
+      const { endMs } = getTimezoneDayBounds(filters.endDate, tz);
+      conditions.push(`${prefix}timestamp <= ?`);
+      params.push(endMs);
+    }
   }
 
   if (filters.clientIp && filters.clientIp.trim() !== '') {
@@ -123,7 +134,7 @@ function buildSummaryFilterClause(filters: DashboardFilters, prefix = ''): { whe
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  return { whereClause, params };
+  return { whereClause, conditions, params };
 }
 
 /**
@@ -131,73 +142,37 @@ function buildSummaryFilterClause(filters: DashboardFilters, prefix = ''): { whe
  */
 export function getOverviewMetrics(filters: DashboardFilters = {}): SummaryMetric {
   const db = getDatabase();
-  const cutoff = getTimeWindowCutoff(filters.timeWindow);
-
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-    if (filters.clientIp && filters.clientIp.trim() !== '') {
-      conditions.push('client_ip = ?');
-      params.push(filters.clientIp.trim());
-    }
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const query = `
-      SELECT
-        COUNT(*) AS totalRequests,
-        COALESCE(SUM(bytes), 0) AS totalBytes,
-        COALESCE(SUM(CASE 
-          WHEN method IN ('GET', 'HEAD', 'OPTIONS') THEN bytes 
-          WHEN method IN ('POST', 'PUT', 'PATCH') THEN 0 
-          WHEN method = 'CONNECT' THEN CAST(bytes * 0.85 AS INTEGER)
-          ELSE bytes 
-        END), 0) AS downloadBytes,
-        COALESCE(SUM(CASE 
-          WHEN method IN ('POST', 'PUT', 'PATCH') THEN bytes 
-          WHEN method IN ('GET', 'HEAD', 'OPTIONS') THEN 0 
-          WHEN method = 'CONNECT' THEN CAST(bytes * 0.15 AS INTEGER)
-          ELSE 0 
-        END), 0) AS uploadBytes,
-        COALESCE(SUM(CASE WHEN is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedRequests,
-        COUNT(DISTINCT domain) AS uniqueDomains,
-        COUNT(DISTINCT client_ip) AS uniqueClients
-      FROM raw_logs
-      ${where}
-    `;
-    const row = db.prepare(query).get(...params) as any;
-    return {
-      totalRequests: Number(row?.totalRequests || 0),
-      totalBytes: Number(row?.totalBytes || 0),
-      downloadBytes: Number(row?.downloadBytes || 0),
-      uploadBytes: Number(row?.uploadBytes || 0),
-      blockedRequests: Number(row?.blockedRequests || 0),
-      uniqueDomains: Number(row?.uniqueDomains || 0),
-      uniqueClients: Number(row?.uniqueClients || 0),
-    };
-  }
-
-  const { whereClause, params } = buildSummaryFilterClause(filters);
+  const { whereClause, params } = buildRawLogsFilterClause(filters);
 
   const query = `
     SELECT
-      COALESCE(SUM(request_count), 0) AS totalRequests,
+      COUNT(*) AS totalRequests,
       COALESCE(SUM(bytes), 0) AS totalBytes,
-      COALESCE(SUM(blocked_count), 0) AS blockedRequests,
+      COALESCE(SUM(CASE 
+        WHEN method IN ('GET', 'HEAD', 'OPTIONS') THEN bytes 
+        WHEN method IN ('POST', 'PUT', 'PATCH') THEN 0 
+        WHEN method = 'CONNECT' THEN CAST(bytes * 0.85 AS INTEGER)
+        ELSE bytes 
+      END), 0) AS downloadBytes,
+      COALESCE(SUM(CASE 
+        WHEN method IN ('POST', 'PUT', 'PATCH') THEN bytes 
+        WHEN method IN ('GET', 'HEAD', 'OPTIONS') THEN 0 
+        WHEN method = 'CONNECT' THEN CAST(bytes * 0.15 AS INTEGER)
+        ELSE 0 
+      END), 0) AS uploadBytes,
+      COALESCE(SUM(CASE WHEN is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedRequests,
       COUNT(DISTINCT domain) AS uniqueDomains,
       COUNT(DISTINCT client_ip) AS uniqueClients
-    FROM daily_summaries
+    FROM raw_logs
     ${whereClause}
   `;
 
   const row = db.prepare(query).get(...params) as any;
-  const totalB = Number(row?.totalBytes || 0);
-  const downB = Math.round(totalB * 0.85);
-  const upB = Math.max(0, totalB - downB);
-
   return {
     totalRequests: Number(row?.totalRequests || 0),
-    totalBytes: totalB,
-    downloadBytes: downB,
-    uploadBytes: upB,
+    totalBytes: Number(row?.totalBytes || 0),
+    downloadBytes: Number(row?.downloadBytes || 0),
+    uploadBytes: Number(row?.uploadBytes || 0),
     blockedRequests: Number(row?.blockedRequests || 0),
     uniqueDomains: Number(row?.uniqueDomains || 0),
     uniqueClients: Number(row?.uniqueClients || 0),
@@ -209,60 +184,24 @@ export function getOverviewMetrics(filters: DashboardFilters = {}): SummaryMetri
  */
 export function getTopDomains(filters: DashboardFilters = {}, limit = 10): DomainStat[] {
   const db = getDatabase();
-  const cutoff = getTimeWindowCutoff(filters.timeWindow);
+  const { whereClause, params } = buildRawLogsFilterClause(filters);
 
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-    if (filters.clientIp && filters.clientIp.trim() !== '') {
-      conditions.push('client_ip = ?');
-      params.push(filters.clientIp.trim());
-    }
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs ${where}`).get(...params) as any;
-    const totalRequests = Number(totalRow?.total || 0);
-
-    const query = `
-      SELECT
-        domain,
-        COUNT(*) AS requestCount,
-        COALESCE(SUM(CASE WHEN is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedCount,
-        COALESCE(SUM(bytes), 0) AS bytes
-      FROM raw_logs
-      ${where}
-      GROUP BY domain
-      ORDER BY requestCount DESC
-      LIMIT ?
-    `;
-    const rows = db.prepare(query).all(...params, limit) as any[];
-    return rows.map((r) => ({
-      domain: r.domain,
-      requestCount: Number(r.requestCount),
-      blockedCount: Number(r.blockedCount),
-      bytes: Number(r.bytes),
-      percentage: totalRequests > 0 ? Math.round((Number(r.requestCount) / totalRequests) * 1000) / 10 : 0,
-    }));
-  }
-
-  const { whereClause, params } = buildSummaryFilterClause(filters);
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(request_count), 0) as total FROM daily_summaries ${whereClause}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs ${whereClause}`).get(...params) as any;
   const totalRequests = Number(totalRow?.total || 0);
 
   const query = `
     SELECT
       domain,
-      SUM(request_count) AS requestCount,
-      SUM(blocked_count) AS blockedCount,
-      SUM(bytes) AS bytes
-    FROM daily_summaries
+      COUNT(*) AS requestCount,
+      COALESCE(SUM(CASE WHEN is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedCount,
+      COALESCE(SUM(bytes), 0) AS bytes
+    FROM raw_logs
     ${whereClause}
     GROUP BY domain
     ORDER BY requestCount DESC
     LIMIT ?
   `;
-
   const rows = db.prepare(query).all(...params, limit) as any[];
-
   return rows.map((r) => ({
     domain: r.domain,
     requestCount: Number(r.requestCount),
@@ -277,188 +216,64 @@ export function getTopDomains(filters: DashboardFilters = {}, limit = 10): Domai
  */
 export function getTopClientIps(filters: DashboardFilters = {}, limit = 10): ClientIpStat[] {
   const db = getDatabase();
-  const cutoff = getTimeWindowCutoff(filters.timeWindow);
+  const { whereClause, params } = buildRawLogsFilterClause(filters, 'r.');
 
-  if (cutoff !== null) {
-    const conditions = ['r.timestamp >= ?'];
-    const params: any[] = [cutoff];
-    if (filters.clientIp && filters.clientIp.trim() !== '') {
-      conditions.push('r.client_ip = ?');
-      params.push(filters.clientIp.trim());
-    }
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${where}`).get(...params) as any;
-    const totalRequests = Number(totalRow?.total || 0);
-
-    const query = `
-      SELECT
-        r.client_ip AS clientIp,
-        COUNT(*) AS requestCount,
-        COALESCE(SUM(CASE WHEN r.is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedCount,
-        COALESCE(SUM(r.bytes), 0) AS bytes,
-        COALESCE(SUM(CASE 
-          WHEN r.method IN ('GET', 'HEAD', 'OPTIONS') THEN r.bytes 
-          WHEN r.method IN ('POST', 'PUT', 'PATCH') THEN 0 
-          WHEN r.method = 'CONNECT' THEN CAST(r.bytes * 0.85 AS INTEGER)
-          ELSE r.bytes 
-        END), 0) AS downloadBytes,
-        COALESCE(SUM(CASE 
-          WHEN r.method IN ('POST', 'PUT', 'PATCH') THEN r.bytes 
-          WHEN r.method IN ('GET', 'HEAD', 'OPTIONS') THEN 0 
-          WHEN r.method = 'CONNECT' THEN CAST(r.bytes * 0.15 AS INTEGER)
-          ELSE 0 
-        END), 0) AS uploadBytes,
-        m.user_name AS userName,
-        m.department AS department
-      FROM raw_logs r
-      LEFT JOIN ip_mappings m ON r.client_ip = m.client_ip
-      ${where}
-      GROUP BY r.client_ip
-      ORDER BY requestCount DESC
-      LIMIT ?
-    `;
-    const rows = db.prepare(query).all(...params, limit) as any[];
-    return rows.map((r) => ({
-      clientIp: r.clientIp,
-      userName: r.userName || null,
-      department: r.department || null,
-      requestCount: Number(r.requestCount),
-      blockedCount: Number(r.blockedCount),
-      bytes: Number(r.bytes),
-      downloadBytes: Number(r.downloadBytes || 0),
-      uploadBytes: Number(r.uploadBytes || 0),
-      percentage: totalRequests > 0 ? Math.round((Number(r.requestCount) / totalRequests) * 1000) / 10 : 0,
-    }));
-  }
-
-  const { whereClause: totalWhere, params: totalParams } = buildSummaryFilterClause(filters);
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(request_count), 0) as total FROM daily_summaries ${totalWhere}`).get(...totalParams) as any;
+  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${whereClause}`).get(...params) as any;
   const totalRequests = Number(totalRow?.total || 0);
-
-  const { whereClause, params } = buildSummaryFilterClause(filters, 'd.');
 
   const query = `
     SELECT
-      d.client_ip AS clientIp,
-      SUM(d.request_count) AS requestCount,
-      SUM(d.blocked_count) AS blockedCount,
-      SUM(d.bytes) AS bytes,
+      r.client_ip AS clientIp,
+      COUNT(*) AS requestCount,
+      COALESCE(SUM(CASE WHEN r.is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedCount,
+      COALESCE(SUM(r.bytes), 0) AS bytes,
+      COALESCE(SUM(CASE 
+        WHEN r.method IN ('GET', 'HEAD', 'OPTIONS') THEN r.bytes 
+        WHEN r.method IN ('POST', 'PUT', 'PATCH') THEN 0 
+        WHEN r.method = 'CONNECT' THEN CAST(r.bytes * 0.85 AS INTEGER)
+        ELSE r.bytes 
+      END), 0) AS downloadBytes,
+      COALESCE(SUM(CASE 
+        WHEN r.method IN ('POST', 'PUT', 'PATCH') THEN r.bytes 
+        WHEN r.method IN ('GET', 'HEAD', 'OPTIONS') THEN 0 
+        WHEN r.method = 'CONNECT' THEN CAST(r.bytes * 0.15 AS INTEGER)
+        ELSE 0 
+      END), 0) AS uploadBytes,
       m.user_name AS userName,
       m.department AS department
-    FROM daily_summaries d
-    LEFT JOIN ip_mappings m ON d.client_ip = m.client_ip
+    FROM raw_logs r
+    LEFT JOIN ip_mappings m ON r.client_ip = m.client_ip
     ${whereClause}
-    GROUP BY d.client_ip
+    GROUP BY r.client_ip
     ORDER BY requestCount DESC
     LIMIT ?
   `;
-
   const rows = db.prepare(query).all(...params, limit) as any[];
-
-  return rows.map((r) => {
-    const bytesTotal = Number(r.bytes);
-    const downB = Math.round(bytesTotal * 0.85);
-    const upB = Math.max(0, bytesTotal - downB);
-    return {
-      clientIp: r.clientIp,
-      userName: r.userName || null,
-      department: r.department || null,
-      requestCount: Number(r.requestCount),
-      blockedCount: Number(r.blockedCount),
-      bytes: bytesTotal,
-      downloadBytes: downB,
-      uploadBytes: upB,
-      percentage: totalRequests > 0 ? Math.round((Number(r.requestCount) / totalRequests) * 1000) / 10 : 0,
-    };
-  });
-}
-
-/**
- * Get Requests Over Time
- */
-export function getRequestsOverTime(filters: DashboardFilters = {}): TimeSeriesPoint[] {
-  const db = getDatabase();
-  const cutoff = getTimeWindowCutoff(filters.timeWindow);
-
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-    if (filters.clientIp && filters.clientIp.trim() !== '') {
-      conditions.push('client_ip = ?');
-      params.push(filters.clientIp.trim());
-    }
-    const where = `WHERE ${conditions.join(' AND ')}`;
-
-    // Group by minute bucket: HH:MM
-    const query = `
-      SELECT
-        strftime('%H:%M', timestamp / 1000, 'unixepoch', 'localtime') AS date,
-        COUNT(*) AS requestCount,
-        COALESCE(SUM(CASE WHEN is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedCount,
-        COALESCE(SUM(bytes), 0) AS bytes
-      FROM raw_logs
-      ${where}
-      GROUP BY date
-      ORDER BY MIN(timestamp) ASC
-    `;
-    const rows = db.prepare(query).all(...params) as any[];
-    return rows.map((r) => ({
-      date: r.date,
-      requestCount: Number(r.requestCount),
-      blockedCount: Number(r.blockedCount),
-      bytes: Number(r.bytes),
-    }));
-  }
-
-  const { whereClause, params } = buildSummaryFilterClause(filters);
-
-  const query = `
-    SELECT
-      date,
-      SUM(request_count) AS requestCount,
-      SUM(blocked_count) AS blockedCount,
-      SUM(bytes) AS bytes
-    FROM daily_summaries
-    ${whereClause}
-    GROUP BY date
-    ORDER BY date ASC
-  `;
-
-  const rows = db.prepare(query).all(...params) as any[];
-
   return rows.map((r) => ({
-    date: r.date,
+    clientIp: r.clientIp,
+    userName: r.userName || null,
+    department: r.department || null,
     requestCount: Number(r.requestCount),
     blockedCount: Number(r.blockedCount),
     bytes: Number(r.bytes),
+    downloadBytes: Number(r.downloadBytes || 0),
+    uploadBytes: Number(r.uploadBytes || 0),
+    percentage: totalRequests > 0 ? Math.round((Number(r.requestCount) / totalRequests) * 1000) / 10 : 0,
   }));
 }
 
 /**
- * Get Blocked Requests list from raw_logs (with full URL)
+ * Get Requests Over Time with Adaptive Bucketing and Zero-Filled Gaps
  */
-export function getBlockedRequests(filters: DashboardFilters = {}, limit = 50, offset = 0): { records: BlockedRequestRecord[]; total: number } {
+export function getRequestsOverTime(filters: DashboardFilters = {}): SquidTimePoint[] {
   const db = getDatabase();
-  const conditions: string[] = ['is_blocked = 1'];
-  const params: any[] = [];
-  const cutoff = getTimeWindowCutoff(filters.timeWindow);
+  const tz = getSystemSettings().timezone || 'Asia/Colombo';
 
-  if (cutoff !== null) {
-    conditions.push('timestamp >= ?');
-    params.push(cutoff);
-  } else {
-    if (filters.startDate) {
-      const startMs = new Date(`${filters.startDate}T00:00:00Z`).getTime();
-      conditions.push('timestamp >= ?');
-      params.push(startMs);
-    }
+  const boundsRow = db.prepare('SELECT MIN(timestamp) as minTs, MAX(timestamp) as maxTs FROM raw_logs').get() as any;
+  const config = getTimeBucketConfig(filters, boundsRow?.minTs, boundsRow?.maxTs, tz);
 
-    if (filters.endDate) {
-      const endMs = new Date(`${filters.endDate}T23:59:59.999Z`).getTime();
-      conditions.push('timestamp <= ?');
-      params.push(endMs);
-    }
-  }
+  const conditions: string[] = ['timestamp >= ?', 'timestamp <= ?'];
+  const params: any[] = [config.startMs, config.endMs];
 
   if (filters.clientIp && filters.clientIp.trim() !== '') {
     conditions.push('client_ip = ?');
@@ -467,7 +282,87 @@ export function getBlockedRequests(filters: DashboardFilters = {}, limit = 50, o
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
-  const countQuery = `SELECT COUNT(*) AS total FROM raw_logs ${whereClause}`;
+  const query = `
+    SELECT
+      CAST(((timestamp - ?) / ?) AS INTEGER) AS bucket_idx,
+      COUNT(*) AS requestCount,
+      COALESCE(SUM(CASE WHEN is_blocked = 1 THEN 1 ELSE 0 END), 0) AS blockedCount,
+      COALESCE(SUM(bytes), 0) AS bytes,
+      COALESCE(SUM(CASE 
+        WHEN method IN ('GET', 'HEAD', 'OPTIONS') THEN bytes 
+        WHEN method IN ('POST', 'PUT', 'PATCH') THEN 0 
+        WHEN method = 'CONNECT' THEN CAST(bytes * 0.85 AS INTEGER)
+        ELSE bytes 
+      END), 0) AS downloadBytes,
+      COALESCE(SUM(CASE 
+        WHEN method IN ('POST', 'PUT', 'PATCH') THEN bytes 
+        WHEN method IN ('GET', 'HEAD', 'OPTIONS') THEN 0 
+        WHEN method = 'CONNECT' THEN CAST(bytes * 0.15 AS INTEGER)
+        ELSE 0 
+      END), 0) AS uploadBytes
+    FROM raw_logs
+    ${whereClause}
+    GROUP BY bucket_idx
+    ORDER BY bucket_idx ASC
+  `;
+
+  const rows = db.prepare(query).all(config.startMs, config.bucketSizeMs, ...params) as any[];
+  const rowMap = new Map<number, any>();
+  for (const r of rows) {
+    rowMap.set(Number(r.bucket_idx), r);
+  }
+
+  // Zero-fill all buckets
+  const result: SquidTimePoint[] = [];
+  for (let i = 0; i < config.totalBuckets; i++) {
+    const bucketStartMs = config.startMs + i * config.bucketSizeMs;
+    const label = formatBucketLabel(bucketStartMs, config.labelFormat, tz);
+    const existing = rowMap.get(i);
+
+    if (existing) {
+      result.push({
+        timestamp: bucketStartMs,
+        date: label,
+        requestCount: Number(existing.requestCount || 0),
+        blockedCount: Number(existing.blockedCount || 0),
+        bytes: Number(existing.bytes || 0),
+        downloadBytes: Number(existing.downloadBytes || 0),
+        uploadBytes: Number(existing.uploadBytes || 0),
+      });
+    } else {
+      result.push({
+        timestamp: bucketStartMs,
+        date: label,
+        requestCount: 0,
+        blockedCount: 0,
+        bytes: 0,
+        downloadBytes: 0,
+        uploadBytes: 0,
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get Blocked Requests list from raw_logs (with full URL)
+ * Uses the exact same filter definition as getOverviewMetrics
+ */
+export function getBlockedRequests(
+  filters: DashboardFilters = {},
+  limit = 50,
+  offset = 0
+): { records: BlockedRequestRecord[]; total: number } {
+  const db = getDatabase();
+  const tz = getSystemSettings().timezone || 'Asia/Colombo';
+  const { conditions, params } = buildRawLogsFilterClause(filters, 'r.', tz);
+  
+  // Guarantee identical blocked definition
+  conditions.push('r.is_blocked = 1');
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+  const countQuery = `SELECT COUNT(*) AS total FROM raw_logs r ${whereClause}`;
   const totalCountRow = db.prepare(countQuery).get(...params) as any;
   const total = Number(totalCountRow?.total || 0);
 
@@ -485,7 +380,7 @@ export function getBlockedRequests(filters: DashboardFilters = {}, limit = 50, o
       m.department AS department
     FROM raw_logs r
     LEFT JOIN ip_mappings m ON r.client_ip = m.client_ip
-    ${whereClause.replace(/\bclient_ip\b/g, 'r.client_ip')}
+    ${whereClause}
     ORDER BY r.timestamp DESC
     LIMIT ? OFFSET ?
   `;
@@ -495,7 +390,7 @@ export function getBlockedRequests(filters: DashboardFilters = {}, limit = 50, o
   const records: BlockedRequestRecord[] = rows.map((r) => ({
     id: r.id,
     timestamp: r.timestamp,
-    formattedTime: new Date(r.timestamp).toISOString().replace('T', ' ').substring(0, 19),
+    formattedTime: formatTimestamp(r.timestamp, tz),
     clientIp: r.clientIp,
     userName: r.userName || null,
     department: r.department || null,

@@ -1,45 +1,91 @@
 'use client';
 
-import React from 'react';
-import { Globe } from 'lucide-react';
+import React, { useState } from 'react';
+import { Globe, ArrowLeftRight } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 
+interface DestinationItem {
+  dstIp: string;
+  flowCount: number;
+  bytes: number;
+  packets: number;
+  percentage: number;
+}
+
 interface TopDestinationsTableProps {
-  destinations: Array<{
-    dstIp: string;
-    flowCount: number;
-    bytes: number;
-    packets: number;
-    percentage: number;
-  }>;
+  destinations: DestinationItem[];
+  internalDestinations?: DestinationItem[];
   onSelectDstIp?: (ip: string) => void;
 }
 
-export function TopDestinationsTable({ destinations, onSelectDstIp }: TopDestinationsTableProps) {
+export function TopDestinationsTable({
+  destinations,
+  internalDestinations = [],
+  onSelectDstIp,
+}: TopDestinationsTableProps) {
+  const [tab, setTab] = useState<'external' | 'internal'>('external');
+  const items = tab === 'external' ? destinations : internalDestinations;
+
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <div>
           <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
-            <Globe className="w-4 h-4 text-cyan-400" />
-            Top Remote Endpoints & Destination IPs
+            {tab === 'external' ? (
+              <Globe className="w-4 h-4 text-cyan-400" />
+            ) : (
+              <ArrowLeftRight className="w-4 h-4 text-amber-400" />
+            )}
+            {tab === 'external' ? 'Top Remote Endpoints (WAN)' : 'Internal ↔ Internal Traffic (LAN)'}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            External destinations receiving highest inbound/outbound volume
+            {tab === 'external'
+              ? 'External destination endpoints receiving highest traffic'
+              : 'East-West broadcast, local subnet, and inter-host communication'}
           </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="inline-flex items-center bg-slate-950/80 border border-slate-800 rounded-lg p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setTab('external')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+              tab === 'external'
+                ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            External WAN
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('internal')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+              tab === 'internal'
+                ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Internal ↔ Internal
+          </button>
         </div>
       </div>
 
       <div className="overflow-x-auto flex-1">
-        {destinations.length === 0 ? (
+        {items.length === 0 ? (
           <div className="h-48 flex items-center justify-center text-slate-500 text-xs">
-            No remote endpoint traffic recorded.
+            {tab === 'external'
+              ? 'No external WAN traffic recorded.'
+              : 'No East-West internal traffic recorded.'}
           </div>
         ) : (
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 font-medium">
-                <th className="pb-2.5 pl-1">Destination IP</th>
+                <th className="pb-2.5 pl-1">
+                  {tab === 'external' ? 'External Destination IP' : 'Internal Host IP'}
+                </th>
                 <th className="pb-2.5 text-right">Volume</th>
                 <th className="pb-2.5 text-right">Flows</th>
                 <th className="pb-2.5 text-right">Packets</th>
@@ -47,7 +93,7 @@ export function TopDestinationsTable({ destinations, onSelectDstIp }: TopDestina
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {destinations.map((item, idx) => (
+              {items.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
                   <td className="py-2.5 pl-1 font-mono font-medium text-cyan-300">
                     <button
@@ -72,7 +118,7 @@ export function TopDestinationsTable({ destinations, onSelectDstIp }: TopDestina
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
                         <div
-                          className="bg-cyan-500 h-full rounded-full"
+                          className={tab === 'external' ? 'bg-cyan-500 h-full rounded-full' : 'bg-amber-500 h-full rounded-full'}
                           style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
                         />
                       </div>

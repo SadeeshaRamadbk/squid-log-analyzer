@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Filter, X, RefreshCw, Server, Clock, Radio, Network, Tag } from 'lucide-react';
+import { Calendar, Filter, X, RefreshCw, Server, Clock, Radio, Network, Tag, ShieldCheck, Layers } from 'lucide-react';
 
 interface SoftflowdFiltersProps {
   startDate?: string;
@@ -11,6 +11,9 @@ interface SoftflowdFiltersProps {
   protocol?: string;
   serviceName?: string;
   timeWindow?: '30m' | '1h';
+  hideFirewallTraffic?: boolean;
+  hideProxyHop?: boolean;
+  trafficType?: 'all' | 'external' | 'internal';
   availableClientIps: Array<string | { clientIp: string; userName?: string | null; department?: string | null }>;
   availableProtocols: string[];
   availableServices: string[];
@@ -24,6 +27,9 @@ interface SoftflowdFiltersProps {
     protocol?: string;
     serviceName?: string;
     timeWindow?: '30m' | '1h';
+    hideFirewallTraffic?: boolean;
+    hideProxyHop?: boolean;
+    trafficType?: 'all' | 'external' | 'internal';
   }) => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
@@ -39,6 +45,9 @@ export function SoftflowdFilters({
   protocol,
   serviceName,
   timeWindow,
+  hideFirewallTraffic = true,
+  hideProxyHop = true,
+  trafficType = 'all',
   availableClientIps,
   availableProtocols,
   availableServices,
@@ -54,20 +63,22 @@ export function SoftflowdFilters({
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
+    const base = { srcIp, dstIp, protocol, serviceName, hideFirewallTraffic, hideProxyHop, trafficType };
+
     if (preset === '30m') {
-      onFilterChange({ startDate: undefined, endDate: undefined, srcIp, dstIp, protocol, serviceName, timeWindow: '30m' });
+      onFilterChange({ ...base, startDate: undefined, endDate: undefined, timeWindow: '30m' });
     } else if (preset === '1h') {
-      onFilterChange({ startDate: undefined, endDate: undefined, srcIp, dstIp, protocol, serviceName, timeWindow: '1h' });
+      onFilterChange({ ...base, startDate: undefined, endDate: undefined, timeWindow: '1h' });
     } else if (preset === 'all') {
-      onFilterChange({ startDate: undefined, endDate: undefined, srcIp, dstIp, protocol, serviceName, timeWindow: undefined });
+      onFilterChange({ ...base, startDate: undefined, endDate: undefined, timeWindow: undefined });
     } else if (preset === 'today') {
-      onFilterChange({ startDate: todayStr, endDate: todayStr, srcIp, dstIp, protocol, serviceName, timeWindow: undefined });
+      onFilterChange({ ...base, startDate: todayStr, endDate: todayStr, timeWindow: undefined });
     } else if (preset === '7d') {
       const past = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      onFilterChange({ startDate: past.toISOString().split('T')[0], endDate: todayStr, srcIp, dstIp, protocol, serviceName, timeWindow: undefined });
+      onFilterChange({ ...base, startDate: past.toISOString().split('T')[0], endDate: todayStr, timeWindow: undefined });
     } else if (preset === '30d') {
       const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-      onFilterChange({ startDate: past.toISOString().split('T')[0], endDate: todayStr, srcIp, dstIp, protocol, serviceName, timeWindow: undefined });
+      onFilterChange({ ...base, startDate: past.toISOString().split('T')[0], endDate: todayStr, timeWindow: undefined });
     }
   };
 
@@ -181,6 +192,69 @@ export function SoftflowdFilters({
         </div>
       </div>
 
+      {/* Middle Row: Smart Filter Toggles (Hide Firewall, Hide Proxy Hop) */}
+      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80 text-xs">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Hop Isolation:
+        </span>
+
+        {/* Toggle: Hide Firewall Self-Traffic */}
+        <button
+          type="button"
+          onClick={() =>
+            onFilterChange({
+              startDate,
+              endDate,
+              srcIp,
+              dstIp,
+              protocol,
+              serviceName,
+              timeWindow,
+              hideFirewallTraffic: !hideFirewallTraffic,
+              hideProxyHop,
+              trafficType,
+            })
+          }
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 border ${
+            hideFirewallTraffic
+              ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60'
+              : 'bg-slate-800/70 text-slate-400 border-slate-700 hover:text-slate-200'
+          }`}
+          title="Exclude pfSense router self-traffic (192.168.0.1) from talker stats"
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${hideFirewallTraffic ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+          Hide Firewall (192.168.0.1)
+        </button>
+
+        {/* Toggle: Hide Proxy Hop (Port 3128) */}
+        <button
+          type="button"
+          onClick={() =>
+            onFilterChange({
+              startDate,
+              endDate,
+              srcIp,
+              dstIp,
+              protocol,
+              serviceName,
+              timeWindow,
+              hideFirewallTraffic,
+              hideProxyHop: !hideProxyHop,
+              trafficType,
+            })
+          }
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 border ${
+            hideProxyHop
+              ? 'bg-indigo-950/60 text-indigo-300 border-indigo-800/60'
+              : 'bg-slate-800/70 text-slate-400 border-slate-700 hover:text-slate-200'
+          }`}
+          title="Exclude Squid proxy hop (:3128) to avoid double-counting web traffic"
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${hideProxyHop ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+          Hide Proxy Hop (:3128)
+        </button>
+      </div>
+
       {/* Bottom Row: Detailed Selectors (Source IP, Protocol, Service, Custom Dates) */}
       <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-800/80 text-xs">
         {/* Source IP / Host */}
@@ -197,6 +271,9 @@ export function SoftflowdFilters({
                 protocol,
                 serviceName,
                 timeWindow,
+                hideFirewallTraffic,
+                hideProxyHop,
+                trafficType,
               })
             }
             className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-2 max-w-[200px] truncate"
@@ -232,6 +309,9 @@ export function SoftflowdFilters({
                 protocol: e.target.value || undefined,
                 serviceName,
                 timeWindow,
+                hideFirewallTraffic,
+                hideProxyHop,
+                trafficType,
               })
             }
             className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-2"
@@ -261,6 +341,9 @@ export function SoftflowdFilters({
                 protocol,
                 serviceName: e.target.value || undefined,
                 timeWindow,
+                hideFirewallTraffic,
+                hideProxyHop,
+                trafficType,
               })
             }
             className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-2 max-w-[150px] truncate"
@@ -298,6 +381,9 @@ export function SoftflowdFilters({
                 protocol,
                 serviceName,
                 timeWindow: undefined,
+                hideFirewallTraffic,
+                hideProxyHop,
+                trafficType,
               })
             }
             className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
@@ -317,6 +403,9 @@ export function SoftflowdFilters({
                 protocol,
                 serviceName,
                 timeWindow: undefined,
+                hideFirewallTraffic,
+                hideProxyHop,
+                trafficType,
               })
             }
             className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
@@ -336,6 +425,9 @@ export function SoftflowdFilters({
                 protocol: undefined,
                 serviceName: undefined,
                 timeWindow: undefined,
+                hideFirewallTraffic: true,
+                hideProxyHop: true,
+                trafficType: 'all',
               })
             }
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer ml-auto"

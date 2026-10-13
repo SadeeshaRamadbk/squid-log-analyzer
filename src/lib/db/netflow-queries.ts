@@ -1,4 +1,6 @@
 import { getDatabase } from './index';
+import { getSystemSettings, getTimezoneDayBounds, formatTimestamp, isInternalIp as isInternalIpSettings } from '@/lib/settings';
+import { getTimeBucketConfig, formatBucketLabel, NetflowTimePoint } from '@/lib/bucketing';
 
 export interface NetflowFilters {
   startDate?: string;
@@ -8,6 +10,9 @@ export interface NetflowFilters {
   protocol?: string;
   serviceName?: string;
   timeWindow?: '30m' | '1h';
+  hideFirewallTraffic?: boolean;
+  hideProxyHop?: boolean;
+  trafficType?: 'all' | 'external' | 'internal';
 }
 
 export interface NetflowSummaryMetrics {
@@ -39,6 +44,7 @@ export interface TopDestinationRecord {
   bytes: number;
   packets: number;
   percentage: number;
+  isInternal?: boolean;
 }
 
 export interface TopServiceRecord {
@@ -57,14 +63,7 @@ export interface ProtocolStatRecord {
   percentage: number;
 }
 
-export interface NetflowTimeSeriesPoint {
-  date: string;
-  flowCount: number;
-  bytes: number;
-  downloadBytes: number;
-  uploadBytes: number;
-  packets: number;
-}
+export type NetflowTimeSeriesPoint = NetflowTimePoint;
 
 export interface NetflowFlowRecord {
   id: number;
@@ -85,28 +84,88 @@ export interface NetflowFlowRecord {
   flowDurationMs: number;
 }
 
-/**
- * Check if an IPv4 address is an RFC 1918 internal address
- */
 export function isInternalIp(ip: string): boolean {
-  if (!ip) return false;
-  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
-  if (ip.startsWith('172.')) {
-    const parts = ip.split('.');
-    const second = parseInt(parts[1], 10);
-    return second >= 16 && second <= 31;
-  }
-  return false;
+  return isInternalIpSettings(ip);
 }
 
-// SQL fragments for determining internal vs external traffic
-const IS_SRC_INTERNAL = `(src_ip LIKE '10.%' OR src_ip LIKE '192.168.%' OR src_ip LIKE '172.16.%' OR src_ip LIKE '172.17.%' OR src_ip LIKE '172.18.%' OR src_ip LIKE '172.19.%' OR src_ip LIKE '172.2%.' OR src_ip LIKE '172.30.%' OR src_ip LIKE '172.31.%')`;
-const IS_DST_INTERNAL = `(dst_ip LIKE '10.%' OR dst_ip LIKE '192.168.%' OR dst_ip LIKE '172.16.%' OR dst_ip LIKE '172.17.%' OR dst_ip LIKE '172.18.%' OR dst_ip LIKE '172.19.%' OR dst_ip LIKE '172.2%.' OR dst_ip LIKE '172.30.%' OR dst_ip LIKE '172.31.%')`;
+// SQL fragments for determining internal vs external traffic (RFC1918 + RFC6598)
+const IS_SRC_INTERNAL = `(src_ip LIKE '10.%' OR src_ip LIKE '192.168.%' OR src_ip LIKE '172.16.%' OR src_ip LIKE '172.17.%' OR src_ip LIKE '172.18.%' OR src_ip LIKE '172.19.%' OR src_ip LIKE '172.2%.' OR src_ip LIKE '172.30.%' OR src_ip LIKE '172.31.%' OR src_ip LIKE '100.64.%')`;
+const IS_DST_INTERNAL = `(dst_ip LIKE '10.%' OR dst_ip LIKE '192.168.%' OR dst_ip LIKE '172.16.%' OR dst_ip LIKE '172.17.%' OR dst_ip LIKE '172.18.%' OR dst_ip LIKE '172.19.%' OR dst_ip LIKE '172.2%.' OR dst_ip LIKE '172.30.%' OR dst_ip LIKE '172.31.%' OR dst_ip LIKE '100.64.%')`;
 
-function getCutoff(timeWindow?: string): number | null {
-  if (timeWindow === '30m') return Date.now() - 30 * 60 * 1000;
-  if (timeWindow === '1h') return Date.now() - 60 * 60 * 1000;
-  return null;
+/**
+ * Build unified WHERE conditions for netflow queries
+ */
+export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = '') {
+  const settings = getSystemSettings();
+  const tz = settings.timezone || 'Asia/Colombo';
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  // Time window / date bounds
+  if (filters.timeWindow === '30m') {
+    conditions.push(`${prefix}timestamp >= ?`);
+    params.push(Date.now() - 30 * 60 * 1000);
+  } else if (filters.timeWindow === '1h') {
+    conditions.push(`${prefix}timestamp >= ?`);
+    params.push(Date.now() - 60 * 60 * 1000);
+  } else {
+    if (filters.startDate) {
+      const { startMs } = getTimezoneDayBounds(filters.startDate, tz);
+      conditions.push(`${prefix}timestamp >= ?`);
+      params.push(startMs);
+    }
+    if (filters.endDate) {
+      const { endMs } = getTimezoneDayBounds(filters.endDate, tz);
+      conditions.push(`${prefix}timestamp <= ?`);
+      params.push(endMs);
+    }
+  }
+
+  // Source / Destination IP filter
+  if (filters.srcIp && filters.srcIp.trim() !== '') {
+    const ip = filters.srcIp.trim();
+    conditions.push(`(${prefix}src_ip = ? OR ${prefix}dst_ip = ?)`);
+    params.push(ip, ip);
+  }
+  if (filters.dstIp && filters.dstIp.trim() !== '') {
+    conditions.push(`${prefix}dst_ip = ?`);
+    params.push(filters.dstIp.trim());
+  }
+
+  // Protocol filter
+  if (filters.protocol && filters.protocol.trim() !== '') {
+    conditions.push(`${prefix}protocol = ?`);
+    params.push(filters.protocol.trim());
+  }
+
+  // Service Name filter
+  if (filters.serviceName && filters.serviceName.trim() !== '') {
+    conditions.push(`${prefix}service_name = ?`);
+    params.push(filters.serviceName.trim());
+  }
+
+  // Hide firewall self-traffic (defaults to true)
+  const hideFw = filters.hideFirewallTraffic !== undefined ? filters.hideFirewallTraffic : settings.hideFirewallTraffic;
+  if (hideFw && settings.firewallIp) {
+    conditions.push(`(${prefix}src_ip != ? AND ${prefix}dst_ip != ?)`);
+    params.push(settings.firewallIp, settings.firewallIp);
+  }
+
+  // Hide proxy hop (Squid port 3128, defaults to true)
+  const hideProxy = filters.hideProxyHop !== undefined ? filters.hideProxyHop : settings.hideProxyHop;
+  if (hideProxy && settings.squidPort) {
+    conditions.push(`(${prefix}src_port != ? AND ${prefix}dst_port != ?)`);
+    params.push(settings.squidPort, settings.squidPort);
+  }
+
+  // Traffic Type filter
+  if (filters.trafficType === 'external') {
+    conditions.push(`((${prefix}${IS_SRC_INTERNAL} AND NOT ${prefix}${IS_DST_INTERNAL}) OR (NOT ${prefix}${IS_SRC_INTERNAL} AND ${prefix}${IS_DST_INTERNAL}))`);
+  } else if (filters.trafficType === 'internal') {
+    conditions.push(`(${prefix}${IS_SRC_INTERNAL} AND ${prefix}${IS_DST_INTERNAL})`);
+  }
+
+  return { conditions, params, tz, settings };
 }
 
 /**
@@ -114,111 +173,33 @@ function getCutoff(timeWindow?: string): number | null {
  */
 export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryMetrics {
   const db = getDatabase();
-  const cutoff = getCutoff(filters.timeWindow);
+  const { conditions, params } = buildNetflowFilterClause(filters);
 
   let uploadCase = `CASE WHEN ${IS_SRC_INTERNAL} AND NOT ${IS_DST_INTERNAL} THEN bytes ELSE 0 END`;
   let downloadCase = `CASE WHEN ${IS_DST_INTERNAL} AND NOT ${IS_SRC_INTERNAL} THEN bytes ELSE 0 END`;
 
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-
-    if (filters.srcIp?.trim()) {
-      const ip = filters.srcIp.trim();
-      conditions.push('(src_ip = ? OR dst_ip = ?)');
-      params.push(ip, ip);
-      uploadCase = `CASE WHEN src_ip = '${ip}' THEN bytes ELSE 0 END`;
-      downloadCase = `CASE WHEN dst_ip = '${ip}' THEN bytes ELSE 0 END`;
-    }
-    if (filters.dstIp?.trim()) {
-      conditions.push('dst_ip = ?');
-      params.push(filters.dstIp.trim());
-    }
-    if (filters.protocol?.trim()) {
-      conditions.push('protocol = ?');
-      params.push(filters.protocol.trim());
-    }
-    if (filters.serviceName?.trim()) {
-      conditions.push('service_name = ?');
-      params.push(filters.serviceName.trim());
-    }
-
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const query = `
-      SELECT
-        COUNT(*) AS totalFlows,
-        COALESCE(SUM(bytes), 0) AS totalBytes,
-        COALESCE(SUM(${uploadCase}), 0) AS uploadBytes,
-        COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
-        COALESCE(SUM(packets), 0) AS totalPackets,
-        COUNT(DISTINCT src_ip) AS uniqueSrcIps,
-        COUNT(DISTINCT dst_ip) AS uniqueDstIps
-      FROM netflow_logs
-      ${where}
-    `;
-    const row = db.prepare(query).get(...params) as any;
-
-    const protoRow = db.prepare(`SELECT protocol FROM netflow_logs ${where} GROUP BY protocol ORDER BY COUNT(*) DESC LIMIT 1`).get(...params) as any;
-
-    return {
-      totalFlows: Number(row?.totalFlows || 0),
-      totalBytes: Number(row?.totalBytes || 0),
-      uploadBytes: Number(row?.uploadBytes || 0),
-      downloadBytes: Number(row?.downloadBytes || 0),
-      totalPackets: Number(row?.totalPackets || 0),
-      uniqueSrcIps: Number(row?.uniqueSrcIps || 0),
-      uniqueDstIps: Number(row?.uniqueDstIps || 0),
-      topProtocol: protoRow?.protocol || 'TCP',
-    };
-  }
-
-  // Multi-day / Historical from summaries
-  const conditions: string[] = [];
-  const params: any[] = [];
-
-  if (filters.startDate) {
-    conditions.push('date >= ?');
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push('date <= ?');
-    params.push(filters.endDate);
-  }
   if (filters.srcIp?.trim()) {
     const ip = filters.srcIp.trim();
-    conditions.push('(src_ip = ? OR dst_ip = ?)');
-    params.push(ip, ip);
     uploadCase = `CASE WHEN src_ip = '${ip}' THEN bytes ELSE 0 END`;
     downloadCase = `CASE WHEN dst_ip = '${ip}' THEN bytes ELSE 0 END`;
-  }
-  if (filters.dstIp?.trim()) {
-    conditions.push('dst_ip = ?');
-    params.push(filters.dstIp.trim());
-  }
-  if (filters.protocol?.trim()) {
-    conditions.push('protocol = ?');
-    params.push(filters.protocol.trim());
-  }
-  if (filters.serviceName?.trim()) {
-    conditions.push('service_name = ?');
-    params.push(filters.serviceName.trim());
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const query = `
     SELECT
-      COALESCE(SUM(flow_count), 0) AS totalFlows,
+      COUNT(*) AS totalFlows,
       COALESCE(SUM(bytes), 0) AS totalBytes,
       COALESCE(SUM(${uploadCase}), 0) AS uploadBytes,
       COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
       COALESCE(SUM(packets), 0) AS totalPackets,
       COUNT(DISTINCT src_ip) AS uniqueSrcIps,
       COUNT(DISTINCT dst_ip) AS uniqueDstIps
-    FROM netflow_daily_summaries
+    FROM netflow_logs
     ${where}
   `;
   const row = db.prepare(query).get(...params) as any;
-  const protoRow = db.prepare(`SELECT protocol FROM netflow_daily_summaries ${where} GROUP BY protocol ORDER BY SUM(flow_count) DESC LIMIT 1`).get(...params) as any;
+
+  const protoRow = db.prepare(`SELECT protocol FROM netflow_logs ${where} GROUP BY protocol ORDER BY COUNT(*) DESC LIMIT 1`).get(...params) as any;
 
   return {
     totalFlows: Number(row?.totalFlows || 0),
@@ -233,109 +214,84 @@ export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryM
 }
 
 /**
- * Get NetFlow Throughput Time Series with Upload & Download
+ * Get NetFlow Throughput Time Series with Adaptive Bucketing & Zero-Filling
  */
 export function getNetflowThroughput(filters: NetflowFilters = {}): NetflowTimeSeriesPoint[] {
   const db = getDatabase();
-  const cutoff = getCutoff(filters.timeWindow);
+  const settings = getSystemSettings();
+  const tz = settings.timezone || 'Asia/Colombo';
+
+  // Determine bounds from raw table if no explicit filter is given
+  const rangeRow = db.prepare('SELECT MIN(timestamp) AS minMs, MAX(timestamp) AS maxMs FROM netflow_logs').get() as any;
+  const config = getTimeBucketConfig(filters, rangeRow?.minMs, rangeRow?.maxMs, tz);
+
+  const { conditions, params } = buildNetflowFilterClause(filters);
 
   let uploadCase = `CASE WHEN ${IS_SRC_INTERNAL} AND NOT ${IS_DST_INTERNAL} THEN bytes ELSE 0 END`;
   let downloadCase = `CASE WHEN ${IS_DST_INTERNAL} AND NOT ${IS_SRC_INTERNAL} THEN bytes ELSE 0 END`;
 
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-
-    if (filters.srcIp?.trim()) {
-      const ip = filters.srcIp.trim();
-      conditions.push('(src_ip = ? OR dst_ip = ?)');
-      params.push(ip, ip);
-      uploadCase = `CASE WHEN src_ip = '${ip}' THEN bytes ELSE 0 END`;
-      downloadCase = `CASE WHEN dst_ip = '${ip}' THEN bytes ELSE 0 END`;
-    }
-    if (filters.dstIp?.trim()) {
-      conditions.push('dst_ip = ?');
-      params.push(filters.dstIp.trim());
-    }
-    if (filters.protocol?.trim()) {
-      conditions.push('protocol = ?');
-      params.push(filters.protocol.trim());
-    }
-
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const query = `
-      SELECT
-        strftime('%H:%M', timestamp / 1000, 'unixepoch', 'localtime') AS date,
-        COUNT(*) AS flowCount,
-        COALESCE(SUM(bytes), 0) AS bytes,
-        COALESCE(SUM(${uploadCase}), 0) AS uploadBytes,
-        COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
-        COALESCE(SUM(packets), 0) AS packets
-      FROM netflow_logs
-      ${where}
-      GROUP BY date
-      ORDER BY MIN(timestamp) ASC
-    `;
-    const rows = db.prepare(query).all(...params) as any[];
-    return rows.map((r) => ({
-      date: r.date,
-      flowCount: Number(r.flowCount),
-      bytes: Number(r.bytes),
-      uploadBytes: Number(r.uploadBytes),
-      downloadBytes: Number(r.downloadBytes),
-      packets: Number(r.packets),
-    }));
-  }
-
-  const conditions: string[] = [];
-  const params: any[] = [];
-  if (filters.startDate) {
-    conditions.push('date >= ?');
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push('date <= ?');
-    params.push(filters.endDate);
-  }
   if (filters.srcIp?.trim()) {
     const ip = filters.srcIp.trim();
-    conditions.push('(src_ip = ? OR dst_ip = ?)');
-    params.push(ip, ip);
     uploadCase = `CASE WHEN src_ip = '${ip}' THEN bytes ELSE 0 END`;
     downloadCase = `CASE WHEN dst_ip = '${ip}' THEN bytes ELSE 0 END`;
   }
-  if (filters.dstIp?.trim()) {
-    conditions.push('dst_ip = ?');
-    params.push(filters.dstIp.trim());
-  }
-  if (filters.protocol?.trim()) {
-    conditions.push('protocol = ?');
-    params.push(filters.protocol.trim());
-  }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  // Ensure query only looks inside [startMs, endMs]
+  conditions.push('timestamp >= ? AND timestamp <= ?');
+  params.push(config.startMs, config.endMs);
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
   const query = `
     SELECT
-      date,
-      COALESCE(SUM(flow_count), 0) AS flowCount,
+      CAST((timestamp - ?) / ? AS INTEGER) AS bucket_idx,
+      COUNT(*) AS flowCount,
       COALESCE(SUM(bytes), 0) AS bytes,
       COALESCE(SUM(${uploadCase}), 0) AS uploadBytes,
       COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
       COALESCE(SUM(packets), 0) AS packets
-    FROM netflow_daily_summaries
-    ${where}
-    GROUP BY date
-    ORDER BY date ASC
+    FROM netflow_logs
+    ${whereClause}
+    GROUP BY bucket_idx
+    ORDER BY bucket_idx ASC
   `;
-  const rows = db.prepare(query).all(...params) as any[];
-  return rows.map((r) => ({
-    date: r.date,
-    flowCount: Number(r.flowCount),
-    bytes: Number(r.bytes),
-    uploadBytes: Number(r.uploadBytes),
-    downloadBytes: Number(r.downloadBytes),
-    packets: Number(r.packets),
-  }));
+
+  const rows = db.prepare(query).all(config.startMs, config.bucketSizeMs, ...params) as any[];
+  const rowMap = new Map<number, any>();
+  for (const r of rows) {
+    rowMap.set(Number(r.bucket_idx), r);
+  }
+
+  const result: NetflowTimeSeriesPoint[] = [];
+  for (let i = 0; i < config.totalBuckets; i++) {
+    const bucketStartMs = config.startMs + i * config.bucketSizeMs;
+    const label = formatBucketLabel(bucketStartMs, config.labelFormat, tz);
+    const existing = rowMap.get(i);
+
+    if (existing) {
+      result.push({
+        timestamp: bucketStartMs,
+        date: label,
+        flowCount: Number(existing.flowCount || 0),
+        bytes: Number(existing.bytes || 0),
+        uploadBytes: Number(existing.uploadBytes || 0),
+        downloadBytes: Number(existing.downloadBytes || 0),
+        packets: Number(existing.packets || 0),
+      });
+    } else {
+      result.push({
+        timestamp: bucketStartMs,
+        date: label,
+        flowCount: 0,
+        bytes: 0,
+        uploadBytes: 0,
+        downloadBytes: 0,
+        packets: 0,
+      });
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -343,88 +299,20 @@ export function getNetflowThroughput(filters: NetflowFilters = {}): NetflowTimeS
  */
 export function getTopTalkers(filters: NetflowFilters = {}, limit = 10): TopTalkerRecord[] {
   const db = getDatabase();
-  const cutoff = getCutoff(filters.timeWindow);
-
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-    if (filters.protocol?.trim()) {
-      conditions.push('protocol = ?');
-      params.push(filters.protocol.trim());
-    }
-
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
-    const totalBytes = Number(totalRow?.totalBytes || 0);
-
-    const query = `
-      WITH unified AS (
-        SELECT src_ip AS client_ip, bytes AS upload_bytes, 0 AS download_bytes, 1 AS flow_count, packets
-        FROM netflow_logs
-        ${where} AND ${IS_SRC_INTERNAL}
-        UNION ALL
-        SELECT dst_ip AS client_ip, 0 AS upload_bytes, bytes AS download_bytes, 1 AS flow_count, packets
-        FROM netflow_logs
-        ${where} AND ${IS_DST_INTERNAL}
-      )
-      SELECT
-        u.client_ip AS srcIp,
-        m.user_name AS userName,
-        m.department AS department,
-        COALESCE(SUM(u.upload_bytes), 0) AS uploadBytes,
-        COALESCE(SUM(u.download_bytes), 0) AS downloadBytes,
-        COALESCE(SUM(u.upload_bytes + u.download_bytes), 0) AS bytes,
-        COALESCE(SUM(u.flow_count), 0) AS flowCount,
-        COALESCE(SUM(u.packets), 0) AS packets
-      FROM unified u
-      LEFT JOIN ip_mappings m ON u.client_ip = m.client_ip
-      WHERE u.client_ip IS NOT NULL AND u.client_ip != ''
-      GROUP BY u.client_ip
-      ORDER BY bytes DESC
-      LIMIT ?
-    `;
-
-    const rows = db.prepare(query).all(...params, ...params, limit) as any[];
-    return rows.map((r) => ({
-      srcIp: r.srcIp,
-      userName: r.userName || null,
-      department: r.department || null,
-      flowCount: Number(r.flowCount),
-      bytes: Number(r.bytes),
-      uploadBytes: Number(r.uploadBytes),
-      downloadBytes: Number(r.downloadBytes),
-      packets: Number(r.packets),
-      percentage: totalBytes > 0 ? Math.round((Number(r.bytes) / totalBytes) * 1000) / 10 : 0,
-    }));
-  }
-
-  const conditions: string[] = [];
-  const params: any[] = [];
-  if (filters.startDate) {
-    conditions.push('date >= ?');
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push('date <= ?');
-    params.push(filters.endDate);
-  }
-  if (filters.protocol?.trim()) {
-    conditions.push('protocol = ?');
-    params.push(filters.protocol.trim());
-  }
+  const { conditions, params } = buildNetflowFilterClause(filters);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_daily_summaries ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
     WITH unified AS (
-      SELECT src_ip AS client_ip, bytes AS upload_bytes, 0 AS download_bytes, flow_count, packets
-      FROM netflow_daily_summaries
+      SELECT src_ip AS client_ip, bytes AS upload_bytes, 0 AS download_bytes, 1 AS flow_count, packets
+      FROM netflow_logs
       ${where ? where + ' AND' : 'WHERE'} ${IS_SRC_INTERNAL}
       UNION ALL
-      SELECT dst_ip AS client_ip, 0 AS upload_bytes, bytes AS download_bytes, flow_count, packets
-      FROM netflow_daily_summaries
+      SELECT dst_ip AS client_ip, 0 AS upload_bytes, bytes AS download_bytes, 1 AS flow_count, packets
+      FROM netflow_logs
       ${where ? where + ' AND' : 'WHERE'} ${IS_DST_INTERNAL}
     )
     SELECT
@@ -459,68 +347,26 @@ export function getTopTalkers(filters: NetflowFilters = {}, limit = 10): TopTalk
 }
 
 /**
- * Get Top Destinations (Remote Endpoints)
+ * Get Top Remote Endpoints (Exclusively External Destination IPs)
  */
 export function getTopDestinations(filters: NetflowFilters = {}, limit = 10): TopDestinationRecord[] {
   const db = getDatabase();
-  const cutoff = getCutoff(filters.timeWindow);
+  const { conditions, params } = buildNetflowFilterClause(filters);
 
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
-    if (filters.dstIp?.trim()) {
-      conditions.push('dst_ip = ?');
-      params.push(filters.dstIp.trim());
-    }
+  // Requirement: Only show External hosts in Top Remote Endpoints
+  conditions.push(`NOT ${IS_DST_INTERNAL}`);
 
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
-    const totalBytes = Number(totalRow?.totalBytes || 0);
-
-    const query = `
-      SELECT
-        dst_ip AS dstIp,
-        COUNT(*) AS flowCount,
-        COALESCE(SUM(bytes), 0) AS bytes,
-        COALESCE(SUM(packets), 0) AS packets
-      FROM netflow_logs
-      ${where}
-      GROUP BY dst_ip
-      ORDER BY bytes DESC
-      LIMIT ?
-    `;
-    const rows = db.prepare(query).all(...params, limit) as any[];
-    return rows.map((r) => ({
-      dstIp: r.dstIp,
-      flowCount: Number(r.flowCount),
-      bytes: Number(r.bytes),
-      packets: Number(r.packets),
-      percentage: totalBytes > 0 ? Math.round((Number(r.bytes) / totalBytes) * 1000) / 10 : 0,
-    }));
-  }
-
-  const conditions: string[] = [];
-  const params: any[] = [];
-  if (filters.startDate) {
-    conditions.push('date >= ?');
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push('date <= ?');
-    params.push(filters.endDate);
-  }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_daily_summaries ${where}`).get(...params) as any;
+  const where = `WHERE ${conditions.join(' AND ')}`;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
     SELECT
       dst_ip AS dstIp,
-      SUM(flow_count) AS flowCount,
-      SUM(bytes) AS bytes,
-      SUM(packets) AS packets
-    FROM netflow_daily_summaries
+      COUNT(*) AS flowCount,
+      COALESCE(SUM(bytes), 0) AS bytes,
+      COALESCE(SUM(packets), 0) AS packets
+    FROM netflow_logs
     ${where}
     GROUP BY dst_ip
     ORDER BY bytes DESC
@@ -533,73 +379,77 @@ export function getTopDestinations(filters: NetflowFilters = {}, limit = 10): To
     bytes: Number(r.bytes),
     packets: Number(r.packets),
     percentage: totalBytes > 0 ? Math.round((Number(r.bytes) / totalBytes) * 1000) / 10 : 0,
+    isInternal: false,
   }));
 }
 
 /**
- * Get Top Services & Ports
+ * Get Internal <-> Internal Traffic (East-West LAN Traffic)
  */
-export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopServiceRecord[] {
+export function getInternalTraffic(filters: NetflowFilters = {}, limit = 10): TopDestinationRecord[] {
   const db = getDatabase();
-  const cutoff = getCutoff(filters.timeWindow);
+  const { conditions, params } = buildNetflowFilterClause(filters);
 
-  if (cutoff !== null) {
-    const conditions = ['timestamp >= ?'];
-    const params: any[] = [cutoff];
+  // Both source and destination internal
+  conditions.push(IS_SRC_INTERNAL);
+  conditions.push(IS_DST_INTERNAL);
 
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
-    const totalBytes = Number(totalRow?.totalBytes || 0);
-
-    const query = `
-      SELECT
-        dst_port AS dstPort,
-        service_name AS serviceName,
-        protocol,
-        COUNT(*) AS flowCount,
-        COALESCE(SUM(bytes), 0) AS bytes
-      FROM netflow_logs
-      ${where}
-      GROUP BY dst_port, protocol
-      ORDER BY bytes DESC
-      LIMIT ?
-    `;
-    const rows = db.prepare(query).all(...params, limit) as any[];
-    return rows.map((r) => ({
-      dstPort: Number(r.dstPort),
-      serviceName: r.serviceName || `Port ${r.dstPort}`,
-      protocol: r.protocol,
-      flowCount: Number(r.flowCount),
-      bytes: Number(r.bytes),
-      percentage: totalBytes > 0 ? Math.round((Number(r.bytes) / totalBytes) * 1000) / 10 : 0,
-    }));
-  }
-
-  const conditions: string[] = [];
-  const params: any[] = [];
-  if (filters.startDate) {
-    conditions.push('date >= ?');
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push('date <= ?');
-    params.push(filters.endDate);
-  }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_daily_summaries ${where}`).get(...params) as any;
+  const where = `WHERE ${conditions.join(' AND ')}`;
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
   const totalBytes = Number(totalRow?.totalBytes || 0);
 
   const query = `
     SELECT
-      dst_port AS dstPort,
-      service_name AS serviceName,
-      protocol,
-      SUM(flow_count) AS flowCount,
-      SUM(bytes) AS bytes
-    FROM netflow_daily_summaries
+      dst_ip AS dstIp,
+      COUNT(*) AS flowCount,
+      COALESCE(SUM(bytes), 0) AS bytes,
+      COALESCE(SUM(packets), 0) AS packets
+    FROM netflow_logs
     ${where}
-    GROUP BY dst_port, protocol
+    GROUP BY dst_ip
+    ORDER BY bytes DESC
+    LIMIT ?
+  `;
+  const rows = db.prepare(query).all(...params, limit) as any[];
+  return rows.map((r) => ({
+    dstIp: r.dstIp,
+    flowCount: Number(r.flowCount),
+    bytes: Number(r.bytes),
+    packets: Number(r.packets),
+    percentage: totalBytes > 0 ? Math.round((Number(r.bytes) / totalBytes) * 1000) / 10 : 0,
+    isInternal: true,
+  }));
+}
+
+/**
+ * Get Top Services & Ports (Classified by Server Port, Ephemeral grouped)
+ */
+export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopServiceRecord[] {
+  const db = getDatabase();
+  const { conditions, params } = buildNetflowFilterClause(filters);
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const totalRow = db.prepare(`SELECT COALESCE(SUM(bytes), 0) as totalBytes FROM netflow_logs ${where}`).get(...params) as any;
+  const totalBytes = Number(totalRow?.totalBytes || 0);
+
+  const query = `
+    SELECT
+      CASE 
+        WHEN dst_port >= 49152 THEN 49152 
+        ELSE dst_port 
+      END AS dstPort,
+      CASE 
+        WHEN dst_port >= 49152 THEN 'Ephemeral / Other (49152+)'
+        ELSE service_name 
+      END AS serviceName,
+      protocol,
+      COUNT(*) AS flowCount,
+      COALESCE(SUM(bytes), 0) AS bytes
+    FROM netflow_logs
+    ${where}
+    GROUP BY 
+      CASE WHEN dst_port >= 49152 THEN 49152 ELSE dst_port END,
+      protocol
     ORDER BY bytes DESC
     LIMIT ?
   `;
@@ -619,47 +469,15 @@ export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopSer
  */
 export function getProtocolDistribution(filters: NetflowFilters = {}): ProtocolStatRecord[] {
   const db = getDatabase();
-  const cutoff = getCutoff(filters.timeWindow);
-
-  if (cutoff !== null) {
-    const where = 'WHERE timestamp >= ?';
-    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM netflow_logs ${where}`).get(cutoff) as any;
-    const total = Number(totalRow?.total || 0);
-
-    const rows = db.prepare(`
-      SELECT protocol, COUNT(*) as flowCount, COALESCE(SUM(bytes), 0) as bytes
-      FROM netflow_logs
-      ${where}
-      GROUP BY protocol
-      ORDER BY flowCount DESC
-    `).all(cutoff) as any[];
-
-    return rows.map((r) => ({
-      protocol: r.protocol,
-      flowCount: Number(r.flowCount),
-      bytes: Number(r.bytes),
-      percentage: total > 0 ? Math.round((Number(r.flowCount) / total) * 1000) / 10 : 0,
-    }));
-  }
-
-  const conditions: string[] = [];
-  const params: any[] = [];
-  if (filters.startDate) {
-    conditions.push('date >= ?');
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push('date <= ?');
-    params.push(filters.endDate);
-  }
+  const { conditions, params } = buildNetflowFilterClause(filters);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COALESCE(SUM(flow_count), 0) as total FROM netflow_daily_summaries ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM netflow_logs ${where}`).get(...params) as any;
   const total = Number(totalRow?.total || 0);
 
   const rows = db.prepare(`
-    SELECT protocol, SUM(flow_count) as flowCount, SUM(bytes) as bytes
-    FROM netflow_daily_summaries
+    SELECT protocol, COUNT(*) as flowCount, COALESCE(SUM(bytes), 0) as bytes
+    FROM netflow_logs
     ${where}
     GROUP BY protocol
     ORDER BY flowCount DESC
@@ -678,39 +496,7 @@ export function getProtocolDistribution(filters: NetflowFilters = {}): ProtocolS
  */
 export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset = 0): { records: NetflowFlowRecord[]; total: number } {
   const db = getDatabase();
-  const conditions: string[] = [];
-  const params: any[] = [];
-  const cutoff = getCutoff(filters.timeWindow);
-
-  if (cutoff !== null) {
-    conditions.push('r.timestamp >= ?');
-    params.push(cutoff);
-  } else {
-    if (filters.startDate) {
-      const startMs = new Date(`${filters.startDate}T00:00:00Z`).getTime();
-      conditions.push('r.timestamp >= ?');
-      params.push(startMs);
-    }
-    if (filters.endDate) {
-      const endMs = new Date(`${filters.endDate}T23:59:59.999Z`).getTime();
-      conditions.push('r.timestamp <= ?');
-      params.push(endMs);
-    }
-  }
-
-  if (filters.srcIp?.trim()) {
-    const ip = filters.srcIp.trim();
-    conditions.push('(r.src_ip = ? OR r.dst_ip = ?)');
-    params.push(ip, ip);
-  }
-  if (filters.dstIp?.trim()) {
-    conditions.push('r.dst_ip = ?');
-    params.push(filters.dstIp.trim());
-  }
-  if (filters.protocol?.trim()) {
-    conditions.push('r.protocol = ?');
-    params.push(filters.protocol.trim());
-  }
+  const { conditions, params, tz } = buildNetflowFilterClause(filters, 'r.');
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const totalRow = db.prepare(`SELECT COUNT(*) as total FROM netflow_logs r ${where}`).get(...params) as any;
@@ -752,7 +538,7 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
     return {
       id: r.id,
       timestamp: r.timestamp,
-      formattedTime: new Date(r.timestamp).toISOString().replace('T', ' ').substring(0, 19),
+      formattedTime: formatTimestamp(r.timestamp, tz),
       srcIp: r.srcIp,
       userName: r.userName || null,
       department: r.department || null,
@@ -760,7 +546,7 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
       srcPort: r.srcPort,
       dstPort: r.dstPort,
       protocol: r.protocol,
-      serviceName: r.serviceName || `Port ${r.dstPort}`,
+      serviceName: r.serviceName || (r.dstPort >= 49152 ? 'Ephemeral / Other' : `Port ${r.dstPort}`),
       bytes: Number(r.bytes),
       direction,
       packets: Number(r.packets),
@@ -778,7 +564,7 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
 export function getDistinctNetflowOptions(): { protocols: string[]; services: string[] } {
   const db = getDatabase();
   const protoRows = db.prepare('SELECT DISTINCT protocol FROM netflow_logs ORDER BY protocol ASC').all() as any[];
-  const serviceRows = db.prepare('SELECT DISTINCT service_name FROM netflow_logs WHERE service_name IS NOT NULL ORDER BY service_name ASC').all() as any[];
+  const serviceRows = db.prepare('SELECT DISTINCT service_name FROM netflow_logs WHERE service_name IS NOT NULL AND service_name != "" ORDER BY service_name ASC').all() as any[];
 
   return {
     protocols: protoRows.map((r) => r.protocol),

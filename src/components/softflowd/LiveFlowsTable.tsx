@@ -87,32 +87,32 @@ export function LiveFlowsTable({
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[520px]">
         {records.length === 0 ? (
           <div className="h-32 flex flex-col items-center justify-center text-slate-500 text-xs">
             <Layers className="w-6 h-6 mb-1 text-slate-600" />
             No flows recorded under the active filters.
           </div>
         ) : (
-          <table className="w-full text-left text-xs">
-            <thead>
+          <table className="w-full min-w-[1020px] text-left text-xs">
+            <thead className="sticky top-0 bg-slate-900/95 backdrop-blur z-10 shadow-sm">
               <tr className="border-b border-slate-800 text-slate-400 font-medium">
-                <th className="pb-2.5 pl-1 w-36">Time (UTC)</th>
-                <th className="pb-2.5 w-24">Type</th>
-                <th className="pb-2.5 w-44">Source Host / User</th>
-                <th className="pb-2.5 w-16 text-right">Src Port</th>
-                <th className="pb-2.5 w-40">Destination Host</th>
-                <th className="pb-2.5 w-28">Service / Dst Port</th>
-                <th className="pb-2.5 w-16">Proto</th>
-                <th className="pb-2.5 w-20">Flags</th>
-                <th className="pb-2.5 text-right">Volume</th>
-                <th className="pb-2.5 text-right pr-2">Packets</th>
+                <th className="py-2.5 pl-2 w-40">Time</th>
+                <th className="py-2.5 w-24">Type</th>
+                <th className="py-2.5 w-48">Source Host / User</th>
+                <th className="py-2.5 w-24 text-right px-3">Src Port</th>
+                <th className="py-2.5 w-48 pl-3">Destination Host</th>
+                <th className="py-2.5 w-36 px-2">Service / Dst Port</th>
+                <th className="py-2.5 w-16 px-2">Proto</th>
+                <th className="py-2.5 w-20 px-2">Flags</th>
+                <th className="py-2.5 text-right px-2">Volume</th>
+                <th className="py-2.5 text-right pr-2">Packets</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {records.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-800/40 transition-colors group">
-                  <td className="py-2.5 pl-1 font-mono text-slate-400 text-[11px] whitespace-nowrap">
+                  <td className="py-2.5 pl-2 font-mono text-slate-400 text-[11px] whitespace-nowrap">
                     {r.formattedTime}
                   </td>
                   <td className="py-2.5">
@@ -135,7 +135,7 @@ export function LiveFlowsTable({
                       <button
                         type="button"
                         onClick={() => onViewProfile?.(r.srcIp)}
-                        className="text-indigo-300 font-medium hover:underline hover:text-indigo-200 cursor-pointer text-left"
+                        className="text-indigo-300 font-medium hover:underline hover:text-indigo-200 cursor-pointer text-left truncate"
                         title={`Inspect Profile for ${r.srcIp}`}
                       >
                         {r.srcIp}
@@ -161,20 +161,22 @@ export function LiveFlowsTable({
                       )}
                     </div>
                   </td>
-                  <td className="py-2.5 text-right font-mono text-slate-400">
-                    {r.srcPort}
+                  <td className="py-2.5 text-right px-3">
+                    <span className="inline-block px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/80 font-mono text-[11px] text-slate-300">
+                      {r.srcPort}
+                    </span>
                   </td>
-                  <td className="py-2.5 font-mono">
+                  <td className="py-2.5 pl-3 font-mono">
                     <button
                       type="button"
                       onClick={() => onViewProfile?.(r.dstIp)}
-                      className="text-cyan-300 hover:underline hover:text-cyan-200 cursor-pointer text-left"
+                      className="text-cyan-300 hover:underline hover:text-cyan-200 cursor-pointer text-left truncate"
                       title={`Inspect Profile for ${r.dstIp}`}
                     >
                       {r.dstIp}
                     </button>
                   </td>
-                  <td className="py-2.5">
+                  <td className="py-2.5 px-2">
                     <span className="font-semibold text-purple-300">{r.serviceName}</span>{' '}
                     <span className="text-[10px] text-slate-500 font-mono">({r.dstPort})</span>
                   </td>

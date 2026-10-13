@@ -1,4 +1,4 @@
-import { resolveProtocolName, resolveServiceName } from './service-ports';
+import { resolveProtocolName, resolveServiceName, classifyService } from './service-ports';
 
 export interface DecodedNetFlow {
   timestamp: number;          // Epoch ms
@@ -74,7 +74,7 @@ export function parseNetFlowV5Packet(buffer: Buffer): DecodedNetFlow[] {
     const srcIp = uint32ToIp(srcIpNum);
     const dstIp = uint32ToIp(dstIpNum);
     const protocol = resolveProtocolName(protoNum);
-    const serviceName = resolveServiceName(dstPort);
+    const { serviceName } = classifyService(srcPort, dstPort);
     const tcpFlags = protocol === 'TCP' ? decodeTcpFlags(flagsByte) : '-';
 
     const flowDurationMs = Math.max(0, lastUptime - firstUptime);

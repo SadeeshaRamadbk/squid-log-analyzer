@@ -11,6 +11,13 @@ export async function GET(request: NextRequest) {
     const protocol = searchParams.get('protocol') || undefined;
     const serviceName = searchParams.get('serviceName') || undefined;
     const timeWindow = (searchParams.get('timeWindow') as '30m' | '1h') || undefined;
+    const hideFirewallTraffic = searchParams.has('hideFirewallTraffic')
+      ? searchParams.get('hideFirewallTraffic') === 'true'
+      : undefined;
+    const hideProxyHop = searchParams.has('hideProxyHop')
+      ? searchParams.get('hideProxyHop') === 'true'
+      : undefined;
+    const trafficType = (searchParams.get('trafficType') as 'all' | 'external' | 'internal') || undefined;
 
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '25', 10)));
@@ -24,6 +31,9 @@ export async function GET(request: NextRequest) {
       protocol,
       serviceName,
       timeWindow,
+      hideFirewallTraffic,
+      hideProxyHop,
+      trafficType,
     };
 
     const { records, total } = getRecentFlows(filters, limit, offset);

@@ -56,7 +56,14 @@ function DashboardContent() {
     protocol?: string;
     serviceName?: string;
     timeWindow?: '30m' | '1h';
-  }>({});
+    hideFirewallTraffic?: boolean;
+    hideProxyHop?: boolean;
+    trafficType?: 'all' | 'external' | 'internal';
+  }>({
+    hideFirewallTraffic: true,
+    hideProxyHop: true,
+    trafficType: 'all',
+  });
 
   // Tab state for Squid lower panel (Live stream vs Blocked requests)
   const [squidLogTab, setSquidLogTab] = useState<'live' | 'blocked'>('live');
@@ -150,6 +157,7 @@ function DashboardContent() {
     throughput: any[];
     topTalkers: any[];
     topDestinations: any[];
+    internalTraffic: any[];
     topServices: any[];
     protocols: any[];
     filterOptions: {
@@ -173,6 +181,7 @@ function DashboardContent() {
     throughput: [],
     topTalkers: [],
     topDestinations: [],
+    internalTraffic: [],
     topServices: [],
     protocols: [],
     filterOptions: {
@@ -285,6 +294,9 @@ function DashboardContent() {
       if (softflowdFilters.protocol) params.set('protocol', softflowdFilters.protocol);
       if (softflowdFilters.serviceName) params.set('serviceName', softflowdFilters.serviceName);
       if (softflowdFilters.timeWindow) params.set('timeWindow', softflowdFilters.timeWindow);
+      if (softflowdFilters.hideFirewallTraffic !== undefined) params.set('hideFirewallTraffic', String(softflowdFilters.hideFirewallTraffic));
+      if (softflowdFilters.hideProxyHop !== undefined) params.set('hideProxyHop', String(softflowdFilters.hideProxyHop));
+      if (softflowdFilters.trafficType) params.set('trafficType', softflowdFilters.trafficType);
 
       const res = await fetch(`/api/netflow/stats?${params.toString()}`);
       const json = await res.json();
@@ -308,6 +320,9 @@ function DashboardContent() {
       if (softflowdFilters.protocol) params.set('protocol', softflowdFilters.protocol);
       if (softflowdFilters.serviceName) params.set('serviceName', softflowdFilters.serviceName);
       if (softflowdFilters.timeWindow) params.set('timeWindow', softflowdFilters.timeWindow);
+      if (softflowdFilters.hideFirewallTraffic !== undefined) params.set('hideFirewallTraffic', String(softflowdFilters.hideFirewallTraffic));
+      if (softflowdFilters.hideProxyHop !== undefined) params.set('hideProxyHop', String(softflowdFilters.hideProxyHop));
+      if (softflowdFilters.trafficType) params.set('trafficType', softflowdFilters.trafficType);
       params.set('page', page.toString());
       params.set('limit', '25');
 
@@ -585,6 +600,9 @@ function DashboardContent() {
               protocol={softflowdFilters.protocol}
               serviceName={softflowdFilters.serviceName}
               timeWindow={softflowdFilters.timeWindow}
+              hideFirewallTraffic={softflowdFilters.hideFirewallTraffic}
+              hideProxyHop={softflowdFilters.hideProxyHop}
+              trafficType={softflowdFilters.trafficType}
               availableProtocols={netflowStats.filterOptions.protocols}
               availableServices={netflowStats.filterOptions.services}
               availableClientIps={netflowStats.filterOptions.availableClientIps}
@@ -613,6 +631,7 @@ function DashboardContent() {
               />
               <TopDestinationsTable
                 destinations={netflowStats.topDestinations}
+                internalDestinations={netflowStats.internalTraffic}
                 onSelectDstIp={(ip: string) => handleSoftflowdFilterChange({ ...softflowdFilters, dstIp: ip })}
               />
             </div>
