@@ -57,8 +57,18 @@ export async function GET() {
   }
 }
 
+import { getUserFromRequest } from '@/lib/auth';
+
 export async function POST(request: NextRequest) {
   try {
+    const user = getUserFromRequest(request);
+    if (user && user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Admin role required to execute retention purge or database vacuum' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const result = runRetentionJob({
       squidDays: body.squidDays !== undefined ? Number(body.squidDays) : (body.retentionDays ? Number(body.retentionDays) : 60),

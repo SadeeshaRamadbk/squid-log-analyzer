@@ -212,6 +212,29 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_netflow_hr_src ON netflow_hourly_rollups(src_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_hr_dst ON netflow_hourly_rollups(dst_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_hr_port ON netflow_hourly_rollups(dst_port);
+
+    -- Security: Local user accounts & roles
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      salt TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer', -- 'admin' or 'viewer'
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+    -- Security: Active session tokens
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      username TEXT NOT NULL,
+      role TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(token);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
   `);
 
   // Backfill minute and hourly rollups from existing raw logs if empty
@@ -252,4 +275,13 @@ export function initializeDatabase(db: Database.Database): void {
   } catch (e) {
     console.warn('[Schema] Roll-up migration warning:', e);
   }
+
+  // Seed default admin and viewer accounts
+  try {
+    const { seedDefaultUsers } = require('../auth');
+    seedDefaultUsers(db);
+  } catch (e) {
+    console.warn('[Schema] User seed warning:', e);
+  }
 }
+

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRecentFlows, NetflowFilters } from '@/lib/db/netflow-queries';
+import { sanitizePagination } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,9 +20,7 @@ export async function GET(request: NextRequest) {
       : undefined;
     const trafficType = (searchParams.get('trafficType') as 'all' | 'external' | 'internal') || undefined;
 
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '25', 10)));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = sanitizePagination(searchParams.get('page'), searchParams.get('limit'));
 
     const filters: NetflowFilters = {
       startDate,

@@ -1,12 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Network, Shield, Database, Users, HelpCircle, Columns2, Link2, FileCode, FileText } from 'lucide-react';
+import {
+  Network,
+  Shield,
+  Database,
+  Users,
+  HelpCircle,
+  Columns2,
+  Link2,
+  FileCode,
+  LogOut,
+  UserCheck,
+  ChevronDown,
+  Settings,
+  Sparkles,
+} from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { useAuth } from '../auth/AuthContext';
 
 interface AppHeaderProps {
   activeView?: 'squid' | 'softflowd' | 'split';
@@ -39,224 +54,346 @@ export function AppHeader({
 }: AppHeaderProps) {
   const pathname = usePathname();
   const currentView = activeView || (pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
+  const { user, isAdmin, logout } = useAuth();
+  const [setupMenuOpen, setSetupMenuOpen] = useState(false);
+  const setupMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close setup dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (setupMenuRef.current && !setupMenuRef.current.contains(event.target as Node)) {
+        setSetupMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const hasSetupOptions = !!(onOpenSquidConfig || onOpenConfigModal);
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-        {/* Left: Brand & Module Switcher */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-600/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+    <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-sm">
+      <div className="max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* ============================================================== */}
+        {/* ROW 1: Brand Identity, Segmented Navigation Tabs, & Session */}
+        {/* ============================================================== */}
+        <div className="py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/50">
+          
+          {/* Brand Identity & Environment */}
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 group cursor-pointer focus:outline-none shrink-0"
+          >
+            <div className="w-8.5 h-8.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600/30 transition-colors shadow-sm">
               {currentView === 'softflowd' ? (
-                <Shield className="w-5 h-5" />
+                <Shield className="w-4.5 h-4.5 text-indigo-400" />
               ) : currentView === 'split' ? (
-                <Columns2 className="w-5 h-5 text-indigo-300" />
+                <Columns2 className="w-4.5 h-4.5 text-amber-400" />
               ) : (
-                <Network className="w-5 h-5" />
+                <Network className="w-4.5 h-4.5 text-blue-400" />
               )}
             </div>
-            <div>
+            <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-white">
-                  {currentView === 'softflowd'
-                    ? 'pfSense softflowd Flow Analyzer'
-                    : currentView === 'split'
-                    ? 'Unified Network & Proxy NOC'
-                    : 'Squid Proxy Log Analyzer'}
-                </h1>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700 font-mono">
+                <span className="text-sm font-bold tracking-tight text-slate-100 group-hover:text-white transition-colors">
+                  Nippon BPO NOC
+                </span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800/90 text-indigo-300 border border-slate-700 font-mono">
                   nipponbpo.local
                 </span>
-                {currentView === 'split' && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    Dual Panel
-                  </span>
-                )}
               </div>
-              <p className="text-[11px] text-slate-400">
-                {currentView === 'softflowd'
-                  ? 'softflowd 1.2.6_4 • NetFlow v5 UDP 2055 • L3/L4 Traffic'
-                  : currentView === 'split'
-                  ? 'Real-Time Multitasking: HTTP/S Audit + pfSense L3/L4 Telemetry side-by-side'
-                  : 'HTTP/S Audit & Privacy • SQLite WAL • Separated In/Out Bandwidth'}
-              </p>
+              <span className="text-[10px] text-slate-400 leading-tight">
+                Squid Proxy & NetFlow Telemetry
+              </span>
             </div>
-          </div>
+          </Link>
 
-          {/* Module Switcher Tabs */}
-          <nav className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
+          {/* Navigation Tabs (Segmented Control) */}
+          <nav
+            role="tablist"
+            aria-label="Module Views"
+            className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800 text-xs shadow-inner"
+          >
             {onViewChange ? (
               <>
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={currentView === 'squid'}
                   onClick={() => onViewChange('squid')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'squid'
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                   }`}
                 >
                   <Network className="w-3.5 h-3.5" />
-                  Squid (HTTP/S)
+                  <span>Squid (Proxy)</span>
                 </button>
 
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={currentView === 'softflowd'}
                   onClick={() => onViewChange('softflowd')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'softflowd'
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  pfSense (L3/L4)
+                  <span>pfSense (Flows)</span>
                 </button>
 
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={currentView === 'split'}
                   onClick={() => onViewChange('split')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'split'
                       ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                   }`}
-                  title="Multitasking Split View: Squid + pfSense side-by-side"
+                  title="Dual Panel Multitask NOC View"
                 >
                   <Columns2 className="w-3.5 h-3.5" />
-                  Multitask Split View
+                  <span>Split View</span>
                 </button>
               </>
             ) : (
               <>
                 <Link
                   href="/"
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                  role="tab"
+                  aria-selected={currentView === 'squid'}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'squid'
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                   }`}
                 >
                   <Network className="w-3.5 h-3.5" />
-                  Squid (HTTP/S)
+                  <span>Squid (Proxy)</span>
                 </Link>
 
                 <Link
                   href="/softflowd"
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                  role="tab"
+                  aria-selected={currentView === 'softflowd'}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'softflowd'
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  pfSense (L3/L4)
+                  <span>pfSense (Flows)</span>
                 </Link>
 
                 <Link
                   href="/?view=split"
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                  role="tab"
+                  aria-selected={currentView === 'split'}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'split'
                       ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                   }`}
                 >
                   <Columns2 className="w-3.5 h-3.5" />
-                  Split View
+                  <span>Split View</span>
                 </Link>
               </>
             )}
           </nav>
+
+          {/* Right: Collector Status, Theme & User Session */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Collector Health Indicator */}
+            <CollectorHealthBadge className="h-8 inline-flex items-center gap-2 px-2.5 rounded-lg bg-slate-950/80 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition-colors cursor-pointer shadow-sm" />
+
+            {/* Vertical Divider */}
+            <div className="h-5 w-px bg-slate-800/80 mx-0.5" />
+
+            {/* Theme Toggle */}
+            <ThemeToggle className="h-8 w-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700/80 flex items-center justify-center shrink-0 shadow-sm" />
+
+            {/* User Profile Pill & Sign Out */}
+            {user && (
+              <div className="flex items-center gap-1.5 pl-1">
+                <div className="h-8 px-2.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-xs flex items-center gap-2 shadow-sm">
+                  <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="font-semibold text-slate-200">{user.username}</span>
+                  <span
+                    className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded font-mono ${
+                      isAdmin
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    }`}
+                  >
+                    {user.role}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="h-8 w-8 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/30 transition-colors cursor-pointer flex items-center justify-center shadow-sm"
+                  title={`Sign out (${user.username})`}
+                  aria-label={`Sign out ${user.username}`}
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Center/Right: Health Indicator, Global Search & Tool Modals */}
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
-          <CollectorHealthBadge />
-
-          {onSelectProfile && (
-            <div className="w-full sm:w-60 md:w-64">
+        {/* ============================================================== */}
+        {/* ROW 2: Global IP Search & Operational Tools Toolbar */}
+        {/* ============================================================== */}
+        <div className="py-2 flex flex-wrap items-center justify-between gap-3">
+          
+          {/* Left: Global IP / Domain / Port Search */}
+          <div className="w-full sm:w-72 md:w-80 lg:w-96">
+            {onSelectProfile && (
               <GlobalIpSearch
                 onSelectProfile={onSelectProfile}
                 onSelectDomain={onSelectDomain}
                 onSelectPort={onSelectPort}
               />
-            </div>
-          )}
+            )}
+          </div>
 
+          {/* Right: Operational Action Buttons with Standardized Sizing & Even Gaps */}
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            {onToggleFilterSync && (
+            {/* Filter Sync (Only when Split View is active) */}
+            {onToggleFilterSync && currentView === 'split' && (
               <button
                 type="button"
                 onClick={onToggleFilterSync}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors font-medium cursor-pointer ${
+                className={`h-8 px-3 rounded-lg border font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm ${
                   isFilterSynced
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                    : 'bg-slate-800/80 text-slate-400 border-slate-700/80 hover:text-slate-200 hover:bg-slate-800'
                 }`}
                 title="Sync IP and Date filters across both panels in real-time"
               >
-                <Link2 className="w-3.5 h-3.5" />
-                {isFilterSynced ? 'Synced' : 'Sync Filters'}
+                <Link2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{isFilterSynced ? 'Synced' : 'Sync Filters'}</span>
               </button>
             )}
 
-            {onOpenSquidConfig && (currentView === 'squid' || currentView === 'split') && (
-              <button
-                type="button"
-                onClick={onOpenSquidConfig}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 transition-colors font-medium cursor-pointer"
-                title="Squid log forwarding setup"
-              >
-                <FileCode className="w-3.5 h-3.5" />
-                Squid Setup
-              </button>
-            )}
-
-            {onOpenConfigModal && (currentView === 'softflowd' || currentView === 'split') && (
-              <button
-                type="button"
-                onClick={onOpenConfigModal}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors font-medium cursor-pointer"
-                title="pfSense softflowd NetFlow setup"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                pfSense Setup
-              </button>
-            )}
-
+            {/* IP Aliases */}
             <button
               type="button"
               onClick={onOpenIpModal}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors font-medium cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Manage Workstation IP to Employee & Department mappings"
             >
-              <Users className="w-3.5 h-3.5" />
-              IP Aliases
+              <Users className="w-3.5 h-3.5 text-amber-400" />
+              <span>IP Aliases</span>
             </button>
 
+            {/* Scheduled Word / AI Reports */}
             {onOpenReportsModal && (
               <button
                 type="button"
                 onClick={onOpenReportsModal}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition-colors font-medium cursor-pointer"
-                title="Generate scheduled Word reports with NIM AI summary"
+                className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Generate automated executive Word reports with AI summaries"
               >
-                <FileText className="w-3.5 h-3.5" />
-                Reports (AI)
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Reports (AI)</span>
               </button>
             )}
 
+            {/* Setup / Configuration Options Dropdown or Contextual Button */}
+            {hasSetupOptions && (
+              currentView === 'split' ? (
+                <div ref={setupMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setSetupMenuOpen((prev) => !prev)}
+                    className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    title="Configuration and setup guides for Squid & pfSense"
+                    aria-expanded={setupMenuOpen}
+                  >
+                    <Settings className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Setup</span>
+                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${setupMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {setupMenuOpen && (
+                    <div className="absolute right-0 mt-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl p-1 z-50 text-xs space-y-0.5 animate-in fade-in duration-100">
+                      {onOpenSquidConfig && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSetupMenuOpen(false);
+                            onOpenSquidConfig();
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                        >
+                          <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Squid Proxy Setup</span>
+                        </button>
+                      )}
+                      {onOpenConfigModal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSetupMenuOpen(false);
+                            onOpenConfigModal();
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>pfSense softflowd Setup</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : currentView === 'squid' && onOpenSquidConfig ? (
+                <button
+                  type="button"
+                  onClick={onOpenSquidConfig}
+                  className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="Squid log forwarding setup"
+                >
+                  <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Squid Setup</span>
+                </button>
+              ) : onOpenConfigModal ? (
+                <button
+                  type="button"
+                  onClick={onOpenConfigModal}
+                  className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="pfSense softflowd NetFlow setup"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>pfSense Setup</span>
+                </button>
+              ) : null
+            )}
+
+            {/* Database Backup & Restore */}
             <button
               type="button"
               onClick={onOpenBackupModal}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 transition-colors font-medium cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Backup and Restore SQLite database"
             >
-              <Database className="w-3.5 h-3.5" />
-              Backup
+              <Database className="w-3.5 h-3.5 text-blue-400" />
+              <span>Backup</span>
             </button>
-
-            <ThemeToggle />
           </div>
+
         </div>
+
       </div>
     </header>
   );

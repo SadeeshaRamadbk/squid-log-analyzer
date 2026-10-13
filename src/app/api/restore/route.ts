@@ -4,10 +4,19 @@ import path from 'path';
 import os from 'os';
 import Database from 'better-sqlite3';
 import { getDatabasePath, closeDatabase, reopenDatabase } from '@/lib/db';
+import { getUserFromRequest } from '@/lib/auth';
 
 const SQLITE_HEADER = Buffer.from('SQLite format 3\0', 'utf-8');
 
 export async function POST(request: NextRequest) {
+  const user = getUserFromRequest(request);
+  if (user && user.role !== 'admin') {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to restore database backups' },
+      { status: 403 }
+    );
+  }
+
   const tempUploadedPath = path.join(
     os.tmpdir(),
     `squid_restore_${Date.now()}_${Math.random().toString(36).substring(7)}.db`

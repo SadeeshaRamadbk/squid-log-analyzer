@@ -11,8 +11,10 @@ import {
   FileCheck,
   RefreshCw,
   HardDrive,
+  ShieldAlert,
 } from 'lucide-react';
 import { formatBytes } from '@/lib/formatters';
+import { useAuth } from '../auth/AuthContext';
 
 interface BackupRestoreModalProps {
   isOpen: boolean;
@@ -21,6 +23,7 @@ interface BackupRestoreModalProps {
 }
 
 export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestoreModalProps) {
+  const { isAdmin } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -30,6 +33,10 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
   if (!isOpen) return null;
 
   const handleDownloadBackup = async () => {
+    if (!isAdmin) {
+      setError('Admin role required to download database backups');
+      return;
+    }
     setDownloading(true);
     setError(null);
     try {
@@ -76,6 +83,10 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
 
   const handleRestoreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      setError('Admin role required to restore database backups');
+      return;
+    }
     if (!selectedFile) {
       setError('Please select a backup file (.db) to restore');
       return;
@@ -141,7 +152,25 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-5">
+          {/* Privacy Note */}
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-300">
+              <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Data Protection & Privacy Notice</span>
+            </div>
+            <p className="text-[11px] leading-relaxed">
+              This database contains sensitive employee network telemetry and web access logs for nipponbpo.local. SSH credentials and external API tokens are strictly isolated in server-side environment variables and excluded from database backups. Ensure downloaded files are handled according to internal data privacy policies.
+            </p>
+          </div>
+
+          {!isAdmin && (
+            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Viewer Role Active: Admin privileges are required to create or restore database snapshots.</span>
+            </div>
+          )}
+
           {/* Notifications */}
           {error && (
             <div className="flex items-center gap-2 p-3 text-xs rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300">

@@ -1,10 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getDatabase } from '@/lib/db';
+import { getUserFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const user = getUserFromRequest(request);
+  if (user && user.role !== 'admin') {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to export database backups' },
+      { status: 403 }
+    );
+  }
+
   const tempBackupPath = path.join(os.tmpdir(), `squid_backup_${Date.now()}_${Math.random().toString(36).substring(7)}.db`);
 
   try {

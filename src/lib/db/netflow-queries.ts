@@ -1,6 +1,7 @@
 import { getDatabase } from './index';
 import { getSystemSettings, getTimezoneDayBounds, formatTimestamp, isInternalIp as isInternalIpSettings } from '@/lib/settings';
 import { getTimeBucketConfig, formatBucketLabel, NetflowTimePoint } from '@/lib/bucketing';
+import { isValidIp, isValidDate, sanitizeParam } from '@/lib/validation';
 
 export interface NetflowFilters {
   startDate?: string;
@@ -124,44 +125,46 @@ export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = 
     conditions.push(`${prefix}${timeCol} >= ?`);
     params.push(Date.now() - 60 * 60 * 1000);
   } else {
-    if (filters.startDate) {
+    if (filters.startDate && isValidDate(filters.startDate)) {
       const { startMs } = getTimezoneDayBounds(filters.startDate, tz);
       conditions.push(`${prefix}${timeCol} >= ?`);
       params.push(startMs);
     }
-    if (filters.endDate) {
+    if (filters.endDate && isValidDate(filters.endDate)) {
       const { endMs } = getTimezoneDayBounds(filters.endDate, tz);
       conditions.push(`${prefix}${timeCol} <= ?`);
       params.push(endMs);
     }
   }
 
-  // Source / Destination IP filter
-  if (filters.srcIp && filters.srcIp.trim() !== '') {
+  // Source / Destination IP filter (validated IPv4)
+  if (filters.srcIp && isValidIp(filters.srcIp.trim())) {
     const ip = filters.srcIp.trim();
     conditions.push(`(${prefix}src_ip = ? OR ${prefix}dst_ip = ?)`);
     params.push(ip, ip);
   }
-  if (filters.dstIp && filters.dstIp.trim() !== '') {
+  if (filters.dstIp && isValidIp(filters.dstIp.trim())) {
     conditions.push(`${prefix}dst_ip = ?`);
     params.push(filters.dstIp.trim());
   }
 
   // Protocol filter
-  if (filters.protocol && filters.protocol.trim() !== '') {
+  const cleanProto = sanitizeParam(filters.protocol, 16);
+  if (cleanProto) {
     conditions.push(`${prefix}protocol = ?`);
-    params.push(filters.protocol.trim());
+    params.push(cleanProto);
   }
 
   // Service Name filter
-  if (filters.serviceName && filters.serviceName.trim() !== '') {
+  const cleanService = sanitizeParam(filters.serviceName, 64);
+  if (cleanService) {
     conditions.push(`${prefix}service_name = ?`);
-    params.push(filters.serviceName.trim());
+    params.push(cleanService);
   }
 
   // Hide firewall self-traffic (defaults to true)
   const hideFw = filters.hideFirewallTraffic !== undefined ? filters.hideFirewallTraffic : settings.hideFirewallTraffic;
-  if (hideFw && settings.firewallIp) {
+  if (hideFw && settings.firewallIp && isValidIp(settings.firewallIp)) {
     conditions.push(`(${prefix}src_ip != ? AND ${prefix}dst_ip != ?)`);
     params.push(settings.firewallIp, settings.firewallIp);
   }
@@ -199,7 +202,7 @@ export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryM
   let uploadCase = `CASE WHEN ${IS_SRC_INTERNAL} AND NOT ${IS_DST_INTERNAL} THEN bytes ELSE 0 END`;
   let downloadCase = `CASE WHEN ${IS_DST_INTERNAL} AND NOT ${IS_SRC_INTERNAL} THEN bytes ELSE 0 END`;
 
-  if (filters.srcIp?.trim()) {
+  if (filters.srcIp?.trim() && isValidIp(filters.srcIp.trim())) {
     const ip = filters.srcIp.trim();
     uploadCase = `CASE WHEN src_ip = '${ip}' THEN bytes ELSE 0 END`;
     downloadCase = `CASE WHEN dst_ip = '${ip}' THEN bytes ELSE 0 END`;
@@ -254,7 +257,7 @@ export function getNetflowThroughput(filters: NetflowFilters = {}): NetflowTimeS
   let uploadCase = `CASE WHEN ${IS_SRC_INTERNAL} AND NOT ${IS_DST_INTERNAL} THEN bytes ELSE 0 END`;
   let downloadCase = `CASE WHEN ${IS_DST_INTERNAL} AND NOT ${IS_SRC_INTERNAL} THEN bytes ELSE 0 END`;
 
-  if (filters.srcIp?.trim()) {
+  if (filters.srcIp?.trim() && isValidIp(filters.srcIp.trim())) {
     const ip = filters.srcIp.trim();
     uploadCase = `CASE WHEN src_ip = '${ip}' THEN bytes ELSE 0 END`;
     downloadCase = `CASE WHEN dst_ip = '${ip}' THEN bytes ELSE 0 END`;
@@ -593,7 +596,7 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
 export function getDistinctNetflowOptions(): { protocols: string[]; services: string[] } {
   const db = getDatabase();
   const protoRows = db.prepare('SELECT DISTINCT protocol FROM netflow_logs ORDER BY protocol ASC').all() as any[];
-  const serviceRows = db.prepare('SELECT DISTINCT service_name FROM netflow_logs WHERE service_name IS NOT NULL AND service_name != "" ORDER BY service_name ASC').all() as any[];
+  const serviceRows = db.prepare("SELECT DISTINCT service_name FROM netflow_logs WHERE service_name IS NOT NULL AND service_name != '' ORDER BY service_name ASC").all() as any[];
 
   return {
     protocols: protoRows.map((r) => r.protocol),

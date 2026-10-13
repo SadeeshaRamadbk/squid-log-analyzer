@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'High-performance network log analysis dashboard for nipponbpo.local Squid proxy',
 };
 
+import { AuthProvider } from '@/components/auth/AuthContext';
+
 export default function RootLayout({
   children,
 }: {
@@ -14,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full bg-slate-950 text-slate-100">
       <body className="min-h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

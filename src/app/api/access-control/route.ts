@@ -26,10 +26,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
+import { getUserFromRequest } from '@/lib/auth';
+
 export async function POST(request: NextRequest) {
   try {
+    const user = getUserFromRequest(request);
+    if (user && user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Admin role required to modify access control and blocklists' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
-    const { action, target, reason, operator = 'admin' } = body;
+    const { action, target, reason, operator = user?.username || 'admin' } = body;
 
     if (!action || !target) {
       return NextResponse.json(

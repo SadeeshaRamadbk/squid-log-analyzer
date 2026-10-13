@@ -9,6 +9,7 @@ export interface SystemSettings {
   hideProxyHop: boolean;
   retentionDaysSquid: number;
   retentionDaysFlows: number;
+  anonymizeExports: boolean;
 }
 
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -20,7 +21,10 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   hideProxyHop: true,
   retentionDaysSquid: 60,
   retentionDaysFlows: 7,
+  anonymizeExports: false,
 };
+
+export { anonymizeUsername } from './privacy';
 
 const SETTINGS_KEY = 'app_system_settings';
 

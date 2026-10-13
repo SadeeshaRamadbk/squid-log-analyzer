@@ -58,8 +58,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
+import { getUserFromRequest } from '@/lib/auth';
+
 export async function POST(request: NextRequest) {
   try {
+    const user = getUserFromRequest(request);
+    if (user && user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Admin role required to edit domain categorization' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { domain, category } = body;
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { evaluateSecurityRules, updateAlertStatus } from '@/lib/alerts';
+import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -13,6 +14,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = getUserFromRequest(request);
+    if (user && user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Admin role required to acknowledge or dismiss alerts' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { id, status } = body;
 
