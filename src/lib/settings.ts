@@ -178,14 +178,14 @@ export function formatTimestamp(timestamp: number | Date | string, timezone = 'A
   const date = typeof timestamp === 'number'
     ? new Date(timestamp)
     : typeof timestamp === 'string'
-    ? new Date(timestamp)
+    ? (isNaN(Number(timestamp)) ? new Date(timestamp) : new Date(Number(timestamp)))
     : timestamp;
 
   if (isNaN(date.getTime())) return '-';
 
   try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'Asia/Colombo',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -193,7 +193,9 @@ export function formatTimestamp(timestamp: number | Date | string, timezone = 'A
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
-    }).format(date).replace(',', '');
+    });
+    const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
   } catch {
     return date.toISOString().replace('T', ' ').substring(0, 19);
   }

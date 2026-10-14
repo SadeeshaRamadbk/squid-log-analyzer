@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runRetentionJob } from '@/lib/db/retention';
 import { getDatabase, getDatabasePath } from '@/lib/db';
 import { formatBytes } from '@/lib/formatters';
+import { getSystemSettings } from '@/lib/settings';
 import fs from 'fs';
 
 export async function GET() {
   try {
     const db = getDatabase();
+    const settings = getSystemSettings();
     const meta = db.prepare("SELECT value, updated_at FROM system_meta WHERE key = 'last_retention_run'").get() as any;
     
     // Squid counts
@@ -32,6 +34,9 @@ export async function GET() {
       }
     } catch {}
 
+    const squidRetentionDays = settings.retentionDaysSquid ?? 60;
+    const netflowRetentionDays = settings.retentionDaysFlows ?? 7;
+
     return NextResponse.json({
       success: true,
       lastRun: meta ? JSON.parse(meta.value) : null,
@@ -40,14 +45,14 @@ export async function GET() {
       squid: {
         rawLogCount: squidRaw?.count || 0,
         summaryCount: squidSummary?.count || 0,
-        retentionDays: 60,
+        retentionDays: squidRetentionDays,
       },
       netflow: {
         rawFlowCount: flowRaw?.count || 0,
         minuteRollupCount: flowMin?.count || 0,
         hourlyRollupCount: flowHr?.count || 0,
         summaryCount: flowSummary?.count || 0,
-        retentionDays: 7,
+        retentionDays: netflowRetentionDays,
       },
       dbSizeBytes,
       dbSizeFormatted: formatBytes(dbSizeBytes),

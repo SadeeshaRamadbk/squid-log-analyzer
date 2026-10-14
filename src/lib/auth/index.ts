@@ -169,3 +169,142 @@ export function getUserFromRequest(req: Request): SessionData | null {
   if (!token) return null;
   return validateSession(token);
 }
+
+export interface UserRecord {
+  id: number;
+  username: string;
+  role: 'admin' | 'viewer';
+  createdAt: number;
+}
+
+/**
+ * Get all user accounts (passwords omitted)
+ */
+export function getAllUsers(): UserRecord[] {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT id, username, role, created_at FROM users ORDER BY id ASC').all() as any[];
+  return rows.map((r) => ({
+    id: r.id,
+    username: r.username,
+    role: r.role as 'admin' | 'viewer',
+    createdAt: r.created_at,
+  }));
+}
+
+/**
+ * Create a new user account with role
+ */
+export function createUser(username: string, password: string, role: 'admin' | 'viewer'): UserRecord {
+  const cleanUsername = username.trim().toLowerCase();
+  if (cleanUsername.length < 3) {
+    throw new Error('Username must be at least 3 characters');
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(cleanUsername)) {
+    throw new Error('Username can only contain letters, numbers, hyphens, and underscores');
+  }
+  if (!password || password.length < 6) {
+    throw new Error('Password must be at least 6 characters');
+  }
+  if (role !== 'admin' && role !== 'viewer') {
+    throw new Error('Invalid role specified');
+  }
+
+  const db = getDatabase();
+  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(cleanUsername);
+  if (existing) {
+    throw new Error(`Username "${cleanUsername}" is already taken`);
+  }
+
+  const { hash, salt } = hashPassword(password);
+  const now = Date.now();
+  const result = db.prepare(`
+    INSERT INTO users (username, password_hash, salt, role, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(cleanUsername, hash, salt, role, now);
+
+  return {
+    id: Number(result.lastInsertRowid),
+    username: cleanUsername,
+    role,
+    createdAt: now,
+  };
+}
+
+/**
+ * Change account password (validates current password unless admin override)
+ */
+export function changeUserPassword(userId: number, currentPassword: string | null, newPassword: string, isAdminOverride = false): void {
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters');
+  }
+
+  const db = getDatabase();
+  const user = db.prepare('SELECT id, password_hash, salt FROM users WHERE id = ?').get(userId) as any;
+  if (!user) {
+    throw new Error('User account not found');
+  }
+
+  if (!isAdminOverride) {
+    if (!currentPassword) {
+      throw new Error('Current password is required');
+    }
+    const isValid = verifyPassword(currentPassword, user.password_hash, user.salt);
+    if (!isValid) {
+      throw new Error('Current password is incorrect');
+    }
+  }
+
+  const { hash, salt } = hashPassword(newPassword);
+  db.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').run(hash, salt, userId);
+}
+
+/**
+ * Delete a user account and invalidate their active sessions
+ */
+export function deleteUser(userId: number, currentUserId: number): void {
+  if (userId === currentUserId) {
+    throw new Error('You cannot delete your own account');
+  }
+
+  const db = getDatabase();
+  const user = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(userId) as any;
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.role === 'admin') {
+    const adminCount = db.prepare("SELECT count(*) as cnt FROM users WHERE role = 'admin'").get() as any;
+    if (adminCount.cnt <= 1) {
+      throw new Error('Cannot delete the last remaining administrator account');
+    }
+  }
+
+  db.prepare('DELETE FROM user_sessions WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+}
+
+/**
+ * Update user role
+ */
+export function updateUserRole(userId: number, newRole: 'admin' | 'viewer', currentUserId: number): void {
+  if (newRole !== 'admin' && newRole !== 'viewer') {
+    throw new Error('Invalid role specified');
+  }
+
+  const db = getDatabase();
+  const user = db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId) as any;
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.role === 'admin' && newRole === 'viewer') {
+    const adminCount = db.prepare("SELECT count(*) as cnt FROM users WHERE role = 'admin'").get() as any;
+    if (adminCount.cnt <= 1) {
+      throw new Error('Cannot demote the last remaining administrator account');
+    }
+  }
+
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(newRole, userId);
+  db.prepare('UPDATE user_sessions SET role = ? WHERE user_id = ?').run(newRole, userId);
+}
+

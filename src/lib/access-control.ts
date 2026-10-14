@@ -1,4 +1,5 @@
 import { getDatabase } from './db';
+import { formatTimestamp, getSystemSettings } from './settings';
 
 export interface AccessRule {
   id: number;
@@ -48,10 +49,11 @@ export function getAccessControlAuditLog(limit = 50): AccessAuditRecord[] {
     LIMIT ?
   `).all(limit) as any[];
 
+  const tz = getSystemSettings().timezone || 'Asia/Colombo';
   return rows.map((r) => ({
     id: r.id,
     timestamp: r.timestamp,
-    formattedTime: new Date(r.timestamp).toISOString().replace('T', ' ').substring(0, 19),
+    formattedTime: formatTimestamp(r.timestamp, tz),
     action: r.action,
     target: r.target,
     operator: r.operator,

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Layers, ChevronLeft, ChevronRight, Tag, ArrowDownRight, ArrowUpRight, ArrowUpDown } from 'lucide-react';
-import { formatBytes, formatNumber } from '@/lib/formatters';
+import { Layers, ChevronLeft, ChevronRight, Tag, ArrowDownRight, ArrowUpRight, ArrowUpDown, Maximize2 } from 'lucide-react';
+import { formatBytes, formatNumber, formatTime } from '@/lib/formatters';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
 import { exportToCsv } from '@/lib/exportCsv';
@@ -38,6 +38,7 @@ interface LiveFlowsTableProps {
   onViewProfile?: (ip: string) => void;
   onViewPort?: (port: number, protocol?: string) => void;
   isLoading?: boolean;
+  onOpenLiveFeed?: () => void;
 }
 
 export function LiveFlowsTable({
@@ -52,6 +53,7 @@ export function LiveFlowsTable({
   onViewProfile,
   onViewPort,
   isLoading,
+  onOpenLiveFeed,
 }: LiveFlowsTableProps) {
   const [sortKey, setSortKey] = useState<keyof FlowRecord>('timestamp');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -138,33 +140,47 @@ export function LiveFlowsTable({
           </p>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">
-              Page {page} of {totalPages}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1 || isLoading}
-                aria-label="Previous page"
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages || isLoading}
-                aria-label="Next page"
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+        <div className="flex items-center gap-3">
+          {onOpenLiveFeed && (
+            <button
+              type="button"
+              onClick={onOpenLiveFeed}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 transition-all cursor-pointer shadow-sm shadow-indigo-500/10"
+              title="Open pfSense NetFlow Live Feed popup with real-time stream & deep filtering"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Live Feed &amp; Details</span>
+            </button>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400">
+                Page {page} of {totalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page - 1)}
+                  disabled={page <= 1 || isLoading}
+                  aria-label="Previous page"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page >= totalPages || isLoading}
+                  aria-label="Next page"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -296,8 +312,11 @@ export function LiveFlowsTable({
               {sortedRecords.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-800/40 transition-colors group">
                   {isVisible('timestamp') && (
-                    <td className="py-2.5 pl-2 font-mono text-slate-400 text-[11px] whitespace-nowrap">
-                      {r.formattedTime}
+                    <td
+                      className="py-2.5 pl-2 font-mono text-slate-400 text-[11px] whitespace-nowrap"
+                      title={formatTime(r.timestamp, true)}
+                    >
+                      {formatTime(r.timestamp, true)}
                     </td>
                   )}
                   {isVisible('direction') && (

@@ -30,7 +30,9 @@ import { FailedRequestsCard } from '@/components/dashboard/FailedRequestsCard';
 import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { BlockDomainModal } from '@/components/dashboard/BlockDomainModal';
 import { ScheduledReportsModal } from '@/components/dashboard/ScheduledReportsModal';
-import { Radio, ShieldAlert, Network, Shield, Columns2 } from 'lucide-react';
+import { SquidLiveFeedModal } from '@/components/dashboard/SquidLiveFeedModal';
+import { NetflowLiveFeedModal } from '@/components/softflowd/NetflowLiveFeedModal';
+import { Radio, ShieldAlert, Network, Shield, Columns2, Layers } from 'lucide-react';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 
 function DashboardContent() {
@@ -85,6 +87,8 @@ function DashboardContent() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedPort, setSelectedPort] = useState<{ port: number; protocol?: string } | null>(null);
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+  const [isSquidFeedOpen, setIsSquidFeedOpen] = useState(false);
+  const [isNetflowFeedOpen, setIsNetflowFeedOpen] = useState(false);
   const [blockModalDomain, setBlockModalDomain] = useState<string | null>(null);
   const [correlatedIp, setCorrelatedIp] = useState<string | null>(null);
   const [liveReqLimit, setLiveReqLimit] = useState(25);
@@ -717,6 +721,7 @@ function DashboardContent() {
                   onPageChange={(p) => fetchLiveRequests(p)}
                   onSelectIp={handleSelectClientIp}
                   onViewProfile={(ip) => setProfileModalIp(ip)}
+                  onOpenLiveFeed={() => setIsSquidFeedOpen(true)}
                 />
               ) : (
                 <BlockedRequestsList
@@ -800,6 +805,7 @@ function DashboardContent() {
               onPageChange={(p) => fetchFlows(p)}
               onEditAlias={handleOpenIpAliasModal}
               onViewProfile={(ip: string) => setProfileModalIp(ip)}
+              onOpenLiveFeed={() => setIsNetflowFeedOpen(true)}
             />
           </div>
         )}
@@ -862,9 +868,20 @@ function DashboardContent() {
                     <Network className="w-4 h-4 text-blue-400" />
                     Squid Web Proxy Telemetry
                   </div>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    {squidStats.overview.totalRequests.toLocaleString()} requests
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSquidFeedOpen(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer"
+                      title="Open Squid Live Feed popup"
+                    >
+                      <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+                      Live Feed
+                    </button>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {squidStats.overview.totalRequests.toLocaleString()} requests
+                    </span>
+                  </div>
                 </div>
 
                 <OverviewMetrics metrics={squidStats.overview} isLoading={loadingSquid} />
@@ -887,6 +904,7 @@ function DashboardContent() {
                   onPageChange={(p) => fetchLiveRequests(p)}
                   onSelectIp={handleSelectClientIp}
                   onViewProfile={(ip) => setProfileModalIp(ip)}
+                  onOpenLiveFeed={() => setIsSquidFeedOpen(true)}
                 />
               </div>
 
@@ -897,9 +915,20 @@ function DashboardContent() {
                     <Shield className="w-4 h-4 text-indigo-400" />
                     pfSense softflowd L3/L4 Telemetry
                   </div>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    {netflowStats.overview.totalFlows.toLocaleString()} flows
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsNetflowFeedOpen(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-colors cursor-pointer"
+                      title="Open NetFlow Live Feed popup"
+                    >
+                      <Layers className="w-3 h-3 text-indigo-400" />
+                      Live Feed
+                    </button>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {netflowStats.overview.totalFlows.toLocaleString()} flows
+                    </span>
+                  </div>
                 </div>
 
                 <SoftflowdMetrics metrics={netflowStats.overview} isLoading={loadingNetflow} />
@@ -922,6 +951,7 @@ function DashboardContent() {
                   onPageChange={(p) => fetchFlows(p)}
                   onEditAlias={handleOpenIpAliasModal}
                   onViewProfile={(ip: string) => setProfileModalIp(ip)}
+                  onOpenLiveFeed={() => setIsNetflowFeedOpen(true)}
                 />
               </div>
             </div>
@@ -995,6 +1025,23 @@ function DashboardContent() {
       <ScheduledReportsModal
         isOpen={isReportsModalOpen}
         onClose={() => setIsReportsModalOpen(false)}
+      />
+
+      <SquidLiveFeedModal
+        isOpen={isSquidFeedOpen}
+        onClose={() => setIsSquidFeedOpen(false)}
+        initialClientIp={squidFilters.clientIp}
+        onSelectIp={handleSelectClientIp}
+        onViewProfile={(ip) => setProfileModalIp(ip)}
+        onViewDomain={(domain) => setSelectedDomain(domain)}
+      />
+
+      <NetflowLiveFeedModal
+        isOpen={isNetflowFeedOpen}
+        onClose={() => setIsNetflowFeedOpen(false)}
+        initialIp={softflowdFilters.srcIp}
+        onViewProfile={(ip) => setProfileModalIp(ip)}
+        onViewPort={(port, protocol) => setSelectedPort({ port, protocol })}
       />
     </div>
   );

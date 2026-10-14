@@ -147,3 +147,18 @@ export function updateAlertStatus(id: number, status: 'acknowledged' | 'dismisse
     WHERE id = ?
   `).run(status, Date.now(), id);
 }
+
+/**
+ * Dismiss active security alerts older than a specified duration in milliseconds (default: 1 hour)
+ */
+export function dismissOldAlerts(olderThanMs: number = 60 * 60 * 1000): number {
+  const db = getDatabase();
+  const cutoff = Date.now() - olderThanMs;
+  const result = db.prepare(`
+    UPDATE security_alerts
+    SET status = 'dismissed', acknowledged_at = ?
+    WHERE status = 'active' AND timestamp < ?
+  `).run(Date.now(), cutoff);
+  return result.changes;
+}
+

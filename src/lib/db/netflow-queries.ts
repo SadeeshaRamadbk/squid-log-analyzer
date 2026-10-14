@@ -14,6 +14,7 @@ export interface NetflowFilters {
   hideFirewallTraffic?: boolean;
   hideProxyHop?: boolean;
   trafficType?: 'all' | 'external' | 'internal';
+  search?: string;
 }
 
 export interface NetflowSummaryMetrics {
@@ -155,11 +156,17 @@ export function buildNetflowFilterClause(filters: NetflowFilters = {}, prefix = 
     params.push(cleanProto);
   }
 
-  // Service Name filter
   const cleanService = sanitizeParam(filters.serviceName, 64);
   if (cleanService) {
     conditions.push(`${prefix}service_name = ?`);
     params.push(cleanService);
+  }
+
+  // Search keyword across IP, service, protocol
+  if (filters.search && filters.search.trim() !== '') {
+    const s = `%${filters.search.trim()}%`;
+    conditions.push(`(${prefix}src_ip LIKE ? OR ${prefix}dst_ip LIKE ? OR ${prefix}service_name LIKE ? OR ${prefix}protocol LIKE ?)`);
+    params.push(s, s, s, s);
   }
 
   // Hide firewall self-traffic (defaults to true)

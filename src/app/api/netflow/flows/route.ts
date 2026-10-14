@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       ? searchParams.get('hideProxyHop') === 'true'
       : undefined;
     const trafficType = (searchParams.get('trafficType') as 'all' | 'external' | 'internal') || undefined;
+    const search = searchParams.get('search') || undefined;
 
     const { page, limit, offset } = sanitizePagination(searchParams.get('page'), searchParams.get('limit'));
 
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
       hideFirewallTraffic,
       hideProxyHop,
       trafficType,
+      search,
     };
 
     const { records, total } = getRecentFlows(filters, limit, offset);

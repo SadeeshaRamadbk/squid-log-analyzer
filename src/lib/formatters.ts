@@ -25,3 +25,38 @@ export function formatDate(dateStr: string): string {
     return dateStr;
   }
 }
+
+/**
+ * Format timestamp (ms, string, or Date) in Sri Lanka timezone (Asia/Colombo)
+ */
+export function formatTime(timestamp: number | string | Date, showDate = false): string {
+  if (!timestamp) return '-';
+  const d = typeof timestamp === 'number'
+    ? new Date(timestamp)
+    : typeof timestamp === 'string'
+    ? (isNaN(Number(timestamp)) ? new Date(timestamp) : new Date(Number(timestamp)))
+    : timestamp;
+
+  if (isNaN(d.getTime())) return String(timestamp);
+
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Colombo',
+      year: showDate ? 'numeric' : undefined,
+      month: showDate ? '2-digit' : undefined,
+      day: showDate ? '2-digit' : undefined,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = Object.fromEntries(formatter.formatToParts(d).map((p) => [p.type, p.value]));
+    if (showDate) {
+      return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+    }
+    return `${parts.hour}:${parts.minute}:${parts.second}`;
+  } catch {
+    return d.toLocaleTimeString();
+  }
+}
+

@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Clock, Radio, RefreshCw, X, Filter, Link2, Shield, Network, Server, Tag } from 'lucide-react';
+import { Clock, Radio, RefreshCw, X, Filter, Link2, Shield, Network, Server, Tag, Layers } from 'lucide-react';
+import { DateRangeSelector } from '../common/DateRangeSelector';
 
 export interface GlobalFilterState {
   timeWindow?: '30m' | '1h';
@@ -153,7 +153,7 @@ export function GlobalFilterBar({
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm backdrop-blur-md space-y-2.5">
+    <div className="relative z-25 bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm backdrop-blur-md space-y-2.5">
       {/* Top: Presets & Live Streaming */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -226,33 +226,20 @@ export function GlobalFilterBar({
           </button>
 
           {/* Custom Date Pickers */}
-          <div className="flex items-center gap-1 bg-slate-950/60 border border-slate-800 rounded-lg px-2 py-0.5 ml-1">
-            <input
-              type="date"
-              value={filters.startDate || ''}
-              onChange={(e) =>
-                onFilterChange({
-                  ...filters,
-                  startDate: e.target.value || undefined,
-                  timeWindow: undefined,
-                })
-              }
-              className="bg-transparent text-[11px] text-slate-200 focus:outline-none cursor-pointer"
-            />
-            <span className="text-slate-500 text-[10px]">to</span>
-            <input
-              type="date"
-              value={filters.endDate || ''}
-              onChange={(e) =>
-                onFilterChange({
-                  ...filters,
-                  endDate: e.target.value || undefined,
-                  timeWindow: undefined,
-                })
-              }
-              className="bg-transparent text-[11px] text-slate-200 focus:outline-none cursor-pointer"
-            />
-          </div>
+          <DateRangeSelector
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            compact
+            className="ml-1"
+            onChange={({ startDate, endDate }) =>
+              onFilterChange({
+                ...filters,
+                startDate,
+                endDate,
+                timeWindow: undefined,
+              })
+            }
+          />
         </div>
 
         {/* Live radar & Refresh */}

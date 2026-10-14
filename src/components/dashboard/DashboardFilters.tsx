@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Filter, X, RefreshCw, Server, Clock, Radio } from 'lucide-react';
+import { Calendar, Filter, X, RefreshCw, Server, Clock, Radio, Layers } from 'lucide-react';
+import { DateRangeSelector } from '../common/DateRangeSelector';
 
 interface DashboardFiltersProps {
   startDate?: string;
@@ -16,6 +17,8 @@ interface DashboardFiltersProps {
   isRefreshing?: boolean;
   isRealTime: boolean;
   onToggleRealTime: () => void;
+  onOpenSquidFeed?: () => void;
+  onOpenNetflowFeed?: () => void;
 }
 
 export function DashboardFilters({
@@ -31,6 +34,8 @@ export function DashboardFilters({
   isRefreshing,
   isRealTime,
   onToggleRealTime,
+  onOpenSquidFeed,
+  onOpenNetflowFeed,
 }: DashboardFiltersProps) {
   // Preset handler
   const handlePreset = (preset: '30m' | '1h' | 'today' | '7d' | '30d' | 'all') => {
@@ -57,7 +62,7 @@ export function DashboardFilters({
   const hasActiveFilters = Boolean(startDate || endDate || clientIp || timeWindow);
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm backdrop-blur-md">
+    <div className="relative z-20 bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm backdrop-blur-md">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Left: Quick Date & Time Window Presets */}
         <div className="flex flex-wrap items-center gap-2">
@@ -136,39 +141,20 @@ export function DashboardFilters({
         {/* Right: Custom Date range + Client IP dropdown + Real-Time Toggle & Refresh */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Custom Date Pickers */}
-          <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1">
-            <input
-              type="date"
-              value={startDate || ''}
-              min={minDate || undefined}
-              max={maxDate || undefined}
-              onChange={(e) =>
-                onFilterChange({
-                  startDate: e.target.value || undefined,
-                  endDate,
-                  clientIp,
-                  timeWindow: undefined,
-                })
-              }
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
-            />
-            <span className="text-slate-500 text-xs">to</span>
-            <input
-              type="date"
-              value={endDate || ''}
-              min={minDate || undefined}
-              max={maxDate || undefined}
-              onChange={(e) =>
-                onFilterChange({
-                  startDate,
-                  endDate: e.target.value || undefined,
-                  clientIp,
-                  timeWindow: undefined,
-                })
-              }
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
-            />
-          </div>
+          <DateRangeSelector
+            startDate={startDate}
+            endDate={endDate}
+            minDate={minDate || undefined}
+            maxDate={maxDate || undefined}
+            onChange={({ startDate: s, endDate: e }) =>
+              onFilterChange({
+                startDate: s,
+                endDate: e,
+                clientIp,
+                timeWindow: undefined,
+              })
+            }
+          />
 
           {/* Client IP Filter */}
           <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1">
@@ -260,6 +246,34 @@ export function DashboardFilters({
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
             Refresh
           </button>
+
+          {/* Dedicated Live Feed Details Popups */}
+          {(onOpenSquidFeed || onOpenNetflowFeed) && (
+            <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-800">
+              {onOpenSquidFeed && (
+                <button
+                  type="button"
+                  onClick={onOpenSquidFeed}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer shadow-sm shadow-emerald-500/10"
+                  title="Open Squid Proxy Live Feed popup with complete logs & deep filters"
+                >
+                  <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                  <span>Squid Live Feed</span>
+                </button>
+              )}
+              {onOpenNetflowFeed && (
+                <button
+                  type="button"
+                  onClick={onOpenNetflowFeed}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer shadow-sm shadow-indigo-500/10"
+                  title="Open pfSense NetFlow Live Feed popup with session telemetry & socket filters"
+                >
+                  <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>NetFlow Live Feed</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

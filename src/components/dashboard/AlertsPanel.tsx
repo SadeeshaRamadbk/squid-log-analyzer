@@ -1,16 +1,28 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, XCircle, Bell, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, CheckCheck, XCircle, Bell, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, Clock } from 'lucide-react';
 import type { SecurityAlert } from '@/lib/alerts';
 
 interface AlertsPanelProps {
   onSelectIp?: (ip: string) => void;
 }
 
+function formatTimeAgo(timestamp: number): string {
+  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+  if (diffSec < 60) return `${Math.max(1, diffSec)}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
 export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dismissingOld, setDismissingOld] = useState(false);
   const [isOpen, setIsOpen] = useState(false); // Default hidden as requested
 
   const fetchAlerts = async () => {
@@ -47,8 +59,31 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
     }
   };
 
+  const handleDismissOld = async () => {
+    try {
+      setDismissingOld(true);
+      const res = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dismiss_old', olderThanMinutes: 60 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchAlerts();
+      }
+    } catch (err) {
+      console.error('Failed to dismiss old alerts', err);
+    } finally {
+      setDismissingOld(false);
+    }
+  };
+
   const activeAlerts = alerts.filter((a) => a.status === 'active');
   const criticalCount = activeAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length;
+
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const oldAlertsCount = activeAlerts.filter((a) => a.timestamp < oneHourAgo).length;
 
   if (activeAlerts.length === 0) {
     return null;
@@ -77,7 +112,22 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
+          <button
+            type="button"
+            onClick={handleDismissOld}
+            disabled={dismissingOld || loading || oldAlertsCount === 0}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800/60 transition-colors cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              oldAlertsCount > 0
+                ? `Dismiss ${oldAlertsCount} active alert(s) older than 1 hour`
+                : 'No active alerts older than 1 hour'
+            }
+          >
+            <CheckCheck className={`w-3.5 h-3.5 ${dismissingOld ? 'animate-spin text-rose-400' : 'text-rose-400'}`} />
+            <span>Dismiss Old{oldAlertsCount > 0 ? ` (${oldAlertsCount})` : ''}</span>
+          </button>
+
           <button
             type="button"
             onClick={fetchAlerts}
@@ -127,7 +177,7 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
               }`}
             >
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
                       alert.severity === 'critical'
@@ -149,6 +199,10 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
                       [{alert.sourceIp}]
                     </button>
                   )}
+                  <span className="text-[10px] text-slate-400 font-mono ml-auto sm:ml-0 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    {formatTimeAgo(alert.timestamp)}
+                  </span>
                 </div>
                 <p className="text-slate-300 text-[11px]">{alert.description}</p>
               </div>

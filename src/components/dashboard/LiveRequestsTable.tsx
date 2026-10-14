@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Radio, ChevronLeft, ChevronRight, User, ExternalLink, ShieldAlert, CheckCircle2, Globe, ArrowUpDown } from 'lucide-react';
-import { formatBytes } from '@/lib/formatters';
+import { Radio, ChevronLeft, ChevronRight, User, ExternalLink, ShieldAlert, CheckCircle2, Globe, ArrowUpDown, Maximize2 } from 'lucide-react';
+import { formatBytes, formatTime } from '@/lib/formatters';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
@@ -20,6 +20,7 @@ interface LiveRequestsTableProps {
   onSelectIp?: (ip: string) => void;
   onViewProfile?: (ip: string) => void;
   onViewDomain?: (domain: string) => void;
+  onOpenLiveFeed?: () => void;
 }
 
 export function LiveRequestsTable({
@@ -34,6 +35,7 @@ export function LiveRequestsTable({
   onSelectIp,
   onViewProfile,
   onViewDomain,
+  onOpenLiveFeed,
 }: LiveRequestsTableProps) {
   const [sortKey, setSortKey] = useState<keyof LiveRequestRecord>('timestamp');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -144,34 +146,48 @@ export function LiveRequestsTable({
           </p>
         </div>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">
-              Page {page} of {totalPages}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1 || isLoading}
-                aria-label="Previous page"
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages || isLoading}
-                aria-label="Next page"
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+        <div className="flex items-center gap-3">
+          {onOpenLiveFeed && (
+            <button
+              type="button"
+              onClick={onOpenLiveFeed}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 border border-blue-500/30 hover:border-blue-400/50 transition-all cursor-pointer shadow-sm shadow-blue-500/10"
+              title="Open Squid Live Feed popup with real-time stream & deep filtering"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+              <span>Live Feed &amp; Details</span>
+            </button>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400">
+                Page {page} of {totalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page - 1)}
+                  disabled={page <= 1 || isLoading}
+                  aria-label="Previous page"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page >= totalPages || isLoading}
+                  aria-label="Next page"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Toolbar: Page size, column visibility, export CSV */}
@@ -291,8 +307,11 @@ export function LiveRequestsTable({
               {sortedRecords.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-800/40 transition-colors">
                   {isVisible('timestamp') && (
-                    <td className="py-2.5 pl-1 text-slate-400 whitespace-nowrap text-[11px]">
-                      {r.formattedTime.split(' ')[1] || r.formattedTime}
+                    <td
+                      className="py-2.5 pl-1 text-slate-400 whitespace-nowrap text-[11px]"
+                      title={formatTime(r.timestamp, true)}
+                    >
+                      {formatTime(r.timestamp)}
                     </td>
                   )}
                   {isVisible('clientIp') && (

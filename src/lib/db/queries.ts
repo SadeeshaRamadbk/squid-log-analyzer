@@ -7,6 +7,10 @@ export interface DashboardFilters {
   endDate?: string;   // 'YYYY-MM-DD'
   clientIp?: string;  // specific IP or substring
   timeWindow?: '30m' | '1h'; // granular real-time window
+  search?: string;
+  method?: string;
+  isBlocked?: boolean;
+  resultCode?: string;
 }
 
 export interface SummaryMetric {
@@ -533,6 +537,8 @@ export function getLiveRequests(
   offset = 0
 ): { records: LiveRequestRecord[]; total: number } {
   const db = getDatabase();
+  const settings = getSystemSettings();
+  const tz = settings.timezone || 'Asia/Colombo';
   const conditions: string[] = [];
   const params: any[] = [];
 
@@ -560,6 +566,27 @@ export function getLiveRequests(
   if (filters.clientIp && filters.clientIp.trim() !== '') {
     conditions.push('r.client_ip = ?');
     params.push(filters.clientIp.trim());
+  }
+
+  if (filters.search && filters.search.trim() !== '') {
+    const s = `%${filters.search.trim()}%`;
+    conditions.push('(r.domain LIKE ? OR r.url LIKE ? OR r.client_ip LIKE ? OR m.user_name LIKE ?)');
+    params.push(s, s, s, s);
+  }
+
+  if (filters.method && filters.method.trim() !== '') {
+    conditions.push('r.method = ?');
+    params.push(filters.method.trim().toUpperCase());
+  }
+
+  if (filters.isBlocked !== undefined) {
+    conditions.push('r.is_blocked = ?');
+    params.push(filters.isBlocked ? 1 : 0);
+  }
+
+  if (filters.resultCode && filters.resultCode.trim() !== '') {
+    conditions.push('r.result_code LIKE ?');
+    params.push(`%${filters.resultCode.trim()}%`);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -599,7 +626,7 @@ export function getLiveRequests(
     return {
       id: r.id,
       timestamp: r.timestamp,
-      formattedTime: new Date(r.timestamp).toISOString().replace('T', ' ').substring(0, 19),
+      formattedTime: formatTimestamp(r.timestamp, tz),
       clientIp: r.clientIp,
       userName: r.userName || null,
       department: r.department || null,

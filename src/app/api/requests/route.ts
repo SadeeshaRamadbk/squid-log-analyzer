@@ -9,9 +9,15 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate') || undefined;
     const clientIp = searchParams.get('clientIp') || undefined;
     const timeWindow = (searchParams.get('timeWindow') as '30m' | '1h') || undefined;
+    const search = searchParams.get('search') || undefined;
+    const method = searchParams.get('method') || undefined;
+    const isBlocked = searchParams.has('isBlocked')
+      ? searchParams.get('isBlocked') === 'true'
+      : undefined;
+    const resultCode = searchParams.get('resultCode') || undefined;
     const { page, limit, offset } = sanitizePagination(searchParams.get('page'), searchParams.get('limit'));
 
-    const filters: DashboardFilters = { startDate, endDate, clientIp, timeWindow };
+    const filters: DashboardFilters = { startDate, endDate, clientIp, timeWindow, search, method, isBlocked, resultCode };
     const { records, total } = getLiveRequests(filters, limit, offset);
 
     return NextResponse.json({

@@ -5,6 +5,7 @@ import { ShieldAlert, Copy, Check, ChevronLeft, ChevronRight, User, Tag, Globe, 
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
 import { exportToCsv } from '@/lib/exportCsv';
+import { formatTime } from '@/lib/formatters';
 
 export interface BlockedRecord {
   id: number;
@@ -242,8 +243,11 @@ export function BlockedRequestsList({
               {sortedRecords.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-800/40 transition-colors group">
                   {isVisible('timestamp') && (
-                    <td className="py-2.5 pl-1 font-mono text-slate-400 text-[11px] whitespace-nowrap">
-                      {r.formattedTime}
+                    <td
+                      className="py-2.5 pl-1 font-mono text-slate-400 text-[11px] whitespace-nowrap"
+                      title={formatTime(r.timestamp, true)}
+                    >
+                      {formatTime(r.timestamp, true)}
                     </td>
                   )}
                   {isVisible('clientIp') && (

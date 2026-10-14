@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       success: true,
       user: {
         id: user.id,
+        userId: user.id,
         username: user.username,
         role: user.role,
       },

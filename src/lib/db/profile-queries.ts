@@ -1,4 +1,5 @@
 import { getDatabase } from './index';
+import { formatTimestamp, getSystemSettings } from '../settings';
 
 export interface IpProfileData {
   clientIp: string;
@@ -80,6 +81,7 @@ export interface IpSearchResult {
 export function getIpProfile(targetIp: string): IpProfileData {
   const db = getDatabase();
   const cleanIp = targetIp.trim();
+  const tz = getSystemSettings().timezone || 'Asia/Colombo';
 
   // 1. IP Mapping Info
   const mappingRow = db.prepare(`
@@ -174,7 +176,7 @@ export function getIpProfile(targetIp: string): IpProfileData {
   const recentBlocked = recentBlockedRows.map((r) => ({
     id: r.id,
     timestamp: r.timestamp,
-    formattedTime: new Date(r.timestamp).toISOString().replace('T', ' ').substring(0, 19),
+    formattedTime: formatTimestamp(r.timestamp, tz),
     method: r.method,
     url: r.url || `${r.domain} (Blocked)`,
     domain: r.domain,
@@ -310,7 +312,7 @@ export function getIpProfile(targetIp: string): IpProfileData {
     return {
       id: r.id,
       timestamp: r.timestamp,
-      formattedTime: new Date(r.timestamp).toISOString().replace('T', ' ').substring(0, 19),
+      formattedTime: formatTimestamp(r.timestamp, tz),
       direction,
       remoteIp,
       port,

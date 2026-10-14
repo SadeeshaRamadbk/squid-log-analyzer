@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { evaluateSecurityRules, updateAlertStatus } from '@/lib/alerts';
+import { evaluateSecurityRules, updateAlertStatus, dismissOldAlerts } from '@/lib/alerts';
 import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET() {
@@ -23,7 +23,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status } = body;
+    const { id, status, action, olderThanMinutes } = body;
+
+    // Batch dismiss active alerts older than cutoff
+    if (action === 'dismiss_old' || status === 'dismiss_old') {
+      const minutes = typeof olderThanMinutes === 'number' && olderThanMinutes > 0 ? olderThanMinutes : 60;
+      const dismissedCount = dismissOldAlerts(minutes * 60 * 1000);
+      return NextResponse.json({
+        success: true,
+        message: `Dismissed ${dismissedCount} old alerts`,
+        dismissedCount,
+      });
+    }
 
     if (!id || !['acknowledged', 'dismissed'].includes(status)) {
       return NextResponse.json(

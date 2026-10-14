@@ -2,12 +2,14 @@
 
 import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shield, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Shield, Lock, User, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthContext';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get('from') || '/';
+  const { setUser, refreshAuth } = useAuth();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,8 +31,17 @@ function LoginForm() {
 
       const data = await res.json();
       if (data.success) {
-        router.push(redirectPath);
-        router.refresh();
+        if (data.user) {
+          setUser({
+            userId: data.user.userId || data.user.id,
+            username: data.user.username,
+            role: data.user.role,
+          });
+        }
+        try {
+          await refreshAuth();
+        } catch {}
+        window.location.href = redirectPath;
       } else {
         setErrorMsg(data.error || 'Authentication failed');
       }
@@ -39,12 +50,6 @@ function LoginForm() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFillCredentials = (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
-    setErrorMsg(null);
   };
 
   return (
@@ -151,36 +156,6 @@ function LoginForm() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Credentials */}
-          <div className="pt-2 border-t border-slate-800/60">
-            <p className="text-[11px] text-slate-400 mb-2 font-medium">Quick Credentials:</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleFillCredentials('admin', 'Admin@123')}
-                className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left transition-colors cursor-pointer group"
-              >
-                <div className="font-semibold text-emerald-400 flex items-center justify-between">
-                  <span>Admin</span>
-                  <CheckCircle2 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5">admin / Admin@123</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleFillCredentials('viewer', 'Viewer@123')}
-                className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left transition-colors cursor-pointer group"
-              >
-                <div className="font-semibold text-blue-400 flex items-center justify-between">
-                  <span>Viewer</span>
-                  <CheckCircle2 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5">viewer / Viewer@123</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Security & Privacy Notice */}

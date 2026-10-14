@@ -17,6 +17,8 @@ import {
   ChevronDown,
   Settings,
   Sparkles,
+  Radio,
+  Layers,
 } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
@@ -31,6 +33,8 @@ interface AppHeaderProps {
   onOpenConfigModal?: () => void;
   onOpenSquidConfig?: () => void;
   onOpenReportsModal?: () => void;
+  onOpenSquidFeed?: () => void;
+  onOpenNetflowFeed?: () => void;
   onSelectProfile?: (ip: string) => void;
   onSelectDomain?: (domain: string) => void;
   onSelectPort?: (port: number, protocol?: string) => void;
@@ -46,6 +50,8 @@ export function AppHeader({
   onOpenConfigModal,
   onOpenSquidConfig,
   onOpenReportsModal,
+  onOpenSquidFeed,
+  onOpenNetflowFeed,
   onSelectProfile,
   onSelectDomain,
   onSelectPort,
@@ -72,7 +78,7 @@ export function AppHeader({
   const hasSetupOptions = !!(onOpenSquidConfig || onOpenConfigModal);
 
   return (
-    <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-sm">
+    <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 shadow-sm">
       <div className="max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* ============================================================== */}
@@ -237,6 +243,18 @@ export function AppHeader({
                     {user.role}
                   </span>
                 </div>
+                <Link
+                  href="/settings"
+                  className={`h-8 w-8 rounded-lg border transition-colors flex items-center justify-center shadow-sm cursor-pointer ${
+                    pathname === '/settings'
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-purple-600/30'
+                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700/80'
+                  }`}
+                  title="Settings & User Management"
+                  aria-label="Settings"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                </Link>
                 <button
                   type="button"
                   onClick={logout}
@@ -309,6 +327,45 @@ export function AppHeader({
                 <span>Reports (AI)</span>
               </button>
             )}
+
+            {/* Quick Live Feed Details Popups */}
+            {onOpenSquidFeed && (
+              <button
+                type="button"
+                onClick={onOpenSquidFeed}
+                className="h-8 px-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-500/10"
+                title="Open Squid Proxy Live Feed popup with complete logs & deep filters"
+              >
+                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span>Squid Feed</span>
+              </button>
+            )}
+
+            {onOpenNetflowFeed && (
+              <button
+                type="button"
+                onClick={onOpenNetflowFeed}
+                className="h-8 px-3 rounded-lg border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-indigo-200 transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm shadow-indigo-500/10"
+                title="Open pfSense NetFlow Live Feed popup with session telemetry & socket filters"
+              >
+                <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                <span>NetFlow Feed</span>
+              </button>
+            )}
+
+            {/* System Settings */}
+            <Link
+              href="/settings"
+              className={`h-8 px-3 rounded-lg border font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm ${
+                pathname === '/settings'
+                  ? 'bg-purple-600 text-white border-purple-500 shadow-purple-600/30'
+                  : 'border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white'
+              }`}
+              title="System Settings, Users & Retention"
+            >
+              <Settings className="w-3.5 h-3.5 text-purple-400" />
+              <span>Settings</span>
+            </Link>
 
             {/* Setup / Configuration Options Dropdown or Contextual Button */}
             {hasSetupOptions && (

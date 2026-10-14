@@ -18,6 +18,8 @@ import { RetentionBanner } from '@/components/dashboard/RetentionBanner';
 import { IpProfileModal } from '@/components/profile/IpProfileModal';
 import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
 import { PortDetailModal } from '@/components/profile/PortDetailModal';
+import { NetflowLiveFeedModal } from '@/components/softflowd/NetflowLiveFeedModal';
+import { Radio, Layers } from 'lucide-react';
 
 export default function SoftflowdPage() {
   const router = useRouter();
@@ -46,6 +48,7 @@ export default function SoftflowdPage() {
   const [profileModalIp, setProfileModalIp] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedPort, setSelectedPort] = useState<{ port: number; protocol?: string } | null>(null);
+  const [isNetflowFeedOpen, setIsNetflowFeedOpen] = useState(false);
 
   // Stats state
   const [stats, setStats] = useState<{
@@ -347,6 +350,7 @@ export default function SoftflowdPage() {
           onEditAlias={handleOpenIpAlias}
           onViewProfile={(ip) => setProfileModalIp(ip)}
           isLoading={loadingFlows}
+          onOpenLiveFeed={() => setIsNetflowFeedOpen(true)}
         />
       </main>
 
@@ -402,6 +406,14 @@ export default function SoftflowdPage() {
         isOpen={!!selectedPort}
         onClose={() => setSelectedPort(null)}
         onViewIpProfile={(ip) => setProfileModalIp(ip)}
+      />
+
+      <NetflowLiveFeedModal
+        isOpen={isNetflowFeedOpen}
+        onClose={() => setIsNetflowFeedOpen(false)}
+        initialIp={filters.srcIp}
+        onViewProfile={(ip) => setProfileModalIp(ip)}
+        onViewPort={(port, protocol) => setSelectedPort({ port, protocol })}
       />
     </div>
   );
