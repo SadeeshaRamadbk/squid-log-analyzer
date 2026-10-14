@@ -36,9 +36,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
       } else {
         setUser(null);
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          router.push('/login');
+        }
       }
     } catch {
       setUser(null);
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        router.push('/login');
+      }
     } finally {
       setIsLoading(false);
     }
