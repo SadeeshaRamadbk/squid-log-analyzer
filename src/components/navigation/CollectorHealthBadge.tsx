@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, RefreshCw, Radio, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Activity, RefreshCw, Radio, CheckCircle } from 'lucide-react';
 
 interface HealthData {
   netflow: {
@@ -70,13 +70,6 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
       : health.netflow.status === 'amber' || health.squid.status === 'amber'
       ? 'amber'
       : 'green';
-
-  const statusColor =
-    overallStatus === 'green'
-      ? 'bg-emerald-500 text-emerald-300 border-emerald-500/30'
-      : overallStatus === 'amber'
-      ? 'bg-amber-500 text-amber-300 border-amber-500/30'
-      : 'bg-rose-500 text-rose-300 border-rose-500/30';
 
   const dotColor =
     overallStatus === 'green'

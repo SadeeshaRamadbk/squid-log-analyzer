@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { AppHeader } from '@/components/navigation/AppHeader';
 import { OverviewMetrics } from '@/components/dashboard/OverviewMetrics';
-import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
-import { RequestsChart } from '@/components/dashboard/RequestsChart';
 import { TopDomainsTable } from '@/components/dashboard/TopDomainsTable';
 import { TopClientsTable } from '@/components/dashboard/TopClientsTable';
 import { BlockedRequestsList, BlockedRecord } from '@/components/dashboard/BlockedRequestsList';
@@ -17,12 +16,36 @@ import { BackupRestoreModal } from '@/components/dashboard/BackupRestoreModal';
 import { IpProfileModal } from '@/components/profile/IpProfileModal';
 import { PfSenseConfigModal } from '@/components/softflowd/PfSenseConfigModal';
 import { SoftflowdMetrics } from '@/components/softflowd/SoftflowdMetrics';
-import { SoftflowdFilters } from '@/components/softflowd/SoftflowdFilters';
-import { ThroughputChart } from '@/components/softflowd/ThroughputChart';
 import { TopTalkersTable } from '@/components/softflowd/TopTalkersTable';
 import { TopDestinationsTable } from '@/components/softflowd/TopDestinationsTable';
 import { TopServicesTable } from '@/components/softflowd/TopServicesTable';
 import { LiveFlowsTable, FlowRecord } from '@/components/softflowd/LiveFlowsTable';
+
+const RequestsChart = dynamic(
+  () => import('@/components/dashboard/RequestsChart').then((m) => m.RequestsChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 h-80 flex items-center justify-center text-slate-500">
+        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+        Loading analytics chart...
+      </div>
+    ),
+  }
+);
+
+const ThroughputChart = dynamic(
+  () => import('@/components/softflowd/ThroughputChart').then((m) => m.ThroughputChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 h-80 flex items-center justify-center text-slate-500">
+        <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mr-2" />
+        Loading throughput chart...
+      </div>
+    ),
+  }
+);
 import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
 import { PortDetailModal } from '@/components/profile/PortDetailModal';
 import { GlobalFilterBar, GlobalFilterState } from '@/components/navigation/GlobalFilterBar';
@@ -91,9 +114,6 @@ function DashboardContent() {
   const [isNetflowFeedOpen, setIsNetflowFeedOpen] = useState(false);
   const [blockModalDomain, setBlockModalDomain] = useState<string | null>(null);
   const [correlatedIp, setCorrelatedIp] = useState<string | null>(null);
-  const [liveReqLimit, setLiveReqLimit] = useState(25);
-  const [blockedLimit, setBlockedLimit] = useState(25);
-  const [flowLimit, setFlowLimit] = useState(25);
 
   // Squid Stats state
   const [loadingSquid, setLoadingSquid] = useState(true);
@@ -362,8 +382,9 @@ function DashboardContent() {
     }
   }, [softflowdFilters]);
 
-  // Initial Load for Squid
+  // Lazy Load for Squid
   useEffect(() => {
+    if (activeView !== 'squid' && activeView !== 'split') return;
     let isMounted = true;
     const run = async () => {
       setLoadingSquid(true);
@@ -374,10 +395,11 @@ function DashboardContent() {
     return () => {
       isMounted = false;
     };
-  }, [fetchSquidStats, fetchLiveRequests, fetchBlocked]);
+  }, [activeView, fetchSquidStats, fetchLiveRequests, fetchBlocked]);
 
-  // Initial Load for NetFlow
+  // Lazy Load for NetFlow
   useEffect(() => {
+    if (activeView !== 'softflowd' && activeView !== 'split') return;
     let isMounted = true;
     const run = async () => {
       setLoadingNetflow(true);
@@ -388,7 +410,7 @@ function DashboardContent() {
     return () => {
       isMounted = false;
     };
-  }, [fetchNetflowStats, fetchFlows]);
+  }, [activeView, fetchNetflowStats, fetchFlows]);
 
   // Real-Time Server-Sent Events (SSE) Effect with tab visibility pause & fallback
   useEffect(() => {
@@ -485,13 +507,14 @@ function DashboardContent() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      fetchSquidStats(),
-      fetchLiveRequests(liveReqPage),
-      fetchBlocked(blockedPage),
-      fetchNetflowStats(),
-      fetchFlows(flowPage),
-    ]);
+    const tasks: Promise<any>[] = [];
+    if (activeView === 'squid' || activeView === 'split') {
+      tasks.push(fetchSquidStats(), fetchLiveRequests(liveReqPage), fetchBlocked(blockedPage));
+    }
+    if (activeView === 'softflowd' || activeView === 'split') {
+      tasks.push(fetchNetflowStats(), fetchFlows(flowPage));
+    }
+    await Promise.all(tasks);
     setRefreshing(false);
   };
 
@@ -634,22 +657,6 @@ function DashboardContent() {
            ======================================================== */}
         {activeView === 'squid' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Global Squid Filter Bar with 30m preset & Real-Time Toggle */}
-            <DashboardFilters
-              startDate={squidFilters.startDate}
-              endDate={squidFilters.endDate}
-              clientIp={squidFilters.clientIp}
-              timeWindow={squidFilters.timeWindow}
-              availableClientIps={squidStats.filterOptions.availableClientIps}
-              minDate={squidStats.filterOptions.minDate}
-              maxDate={squidStats.filterOptions.maxDate}
-              onFilterChange={handleSquidFilterChange}
-              onRefresh={handleRefresh}
-              isRefreshing={refreshing}
-              isRealTime={isRealTime}
-              onToggleRealTime={() => setIsRealTime((prev) => !prev)}
-            />
-
             {/* Overview Metric Cards (Now with separated Download ⬇️ and Upload ⬆️) */}
             <OverviewMetrics metrics={squidStats.overview} isLoading={loadingSquid} />
 
@@ -744,30 +751,6 @@ function DashboardContent() {
            ======================================================== */}
         {activeView === 'softflowd' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            {/* NetFlow Filter Bar with 30m preset & Real-Time Toggle */}
-            <SoftflowdFilters
-              startDate={softflowdFilters.startDate}
-              endDate={softflowdFilters.endDate}
-              srcIp={softflowdFilters.srcIp}
-              dstIp={softflowdFilters.dstIp}
-              protocol={softflowdFilters.protocol}
-              serviceName={softflowdFilters.serviceName}
-              timeWindow={softflowdFilters.timeWindow}
-              hideFirewallTraffic={softflowdFilters.hideFirewallTraffic}
-              hideProxyHop={softflowdFilters.hideProxyHop}
-              trafficType={softflowdFilters.trafficType}
-              availableProtocols={netflowStats.filterOptions.protocols}
-              availableServices={netflowStats.filterOptions.services}
-              availableClientIps={netflowStats.filterOptions.availableClientIps}
-              minDate={netflowStats.filterOptions.minDate}
-              maxDate={netflowStats.filterOptions.maxDate}
-              onFilterChange={handleSoftflowdFilterChange}
-              onRefresh={handleRefresh}
-              isRefreshing={refreshing}
-              isRealTime={isRealTime}
-              onToggleRealTime={() => setIsRealTime((prev) => !prev)}
-            />
-
             {/* NetFlow KPI Metrics */}
             <SoftflowdMetrics metrics={netflowStats.overview} isLoading={loadingNetflow} />
 
@@ -1003,7 +986,7 @@ function DashboardContent() {
         domain={selectedDomain}
         isOpen={!!selectedDomain}
         onClose={() => setSelectedDomain(null)}
-        onFilterByDomain={(domain) => handleSquidFilterChange({ ...squidFilters, clientIp: undefined })}
+        onFilterByDomain={() => handleSquidFilterChange({ ...squidFilters, clientIp: undefined })}
         onViewIpProfile={(ip) => setProfileModalIp(ip)}
       />
 

@@ -286,9 +286,13 @@ export function deleteUser(userId: number, currentUserId: number): void {
 /**
  * Update user role
  */
-export function updateUserRole(userId: number, newRole: 'admin' | 'viewer', currentUserId: number): void {
+export function updateUserRole(userId: number, newRole: 'admin' | 'viewer', currentUserId?: number): void {
   if (newRole !== 'admin' && newRole !== 'viewer') {
     throw new Error('Invalid role specified');
+  }
+
+  if (currentUserId && userId === currentUserId && newRole === 'viewer') {
+    throw new Error('You cannot demote your own account from administrator');
   }
 
   const db = getDatabase();

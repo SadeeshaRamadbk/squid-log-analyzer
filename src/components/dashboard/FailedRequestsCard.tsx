@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { AlertOctagon, ShieldAlert, Globe, User, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertOctagon, Globe, User } from 'lucide-react';
 import { formatNumber } from '@/lib/formatters';
 import type { FailedRequestSummary } from '@/lib/db/queries';
 
@@ -25,7 +25,7 @@ export function FailedRequestsCard({
   const [data, setData] = useState<FailedRequestSummary | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchErrors = async () => {
+  const fetchErrors = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -44,11 +44,20 @@ export function FailedRequestsCard({
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate, clientIp, timeWindow]);
 
   useEffect(() => {
     fetchErrors();
-  }, [startDate, endDate, clientIp, timeWindow]);
+  }, [fetchErrors]);
+
+  if (loading && !data) {
+    return (
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center gap-2 text-xs text-slate-400">
+        <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        <span>Evaluating proxy error rates...</span>
+      </div>
+    );
+  }
 
   if (!data || data.totalFailed === 0) {
     return (

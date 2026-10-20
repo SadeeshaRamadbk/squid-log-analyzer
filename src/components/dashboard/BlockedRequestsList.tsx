@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { ShieldAlert, Copy, Check, ChevronLeft, ChevronRight, User, Tag, Globe, ArrowUpDown } from 'lucide-react';
+import { ShieldAlert, Copy, Check, ChevronLeft, ChevronRight, Tag, Globe, ArrowUpDown } from 'lucide-react';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
 import { exportToCsv } from '@/lib/exportCsv';

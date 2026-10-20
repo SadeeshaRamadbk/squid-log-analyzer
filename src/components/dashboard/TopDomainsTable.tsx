@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Globe, ShieldAlert, Download } from 'lucide-react';
+import { Globe, Download, ShieldAlert } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import { exportToCsv } from '@/lib/exportCsv';
 
@@ -70,8 +70,8 @@ export function TopDomainsTable({ domains, onViewDomain, onBlockDomain }: TopDom
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {domains.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40 transition-colors group">
+              {domains.map((item) => (
+                <tr key={item.domain} className="hover:bg-slate-800/40 transition-colors group">
                   <td className="py-2.5 pl-1 font-mono font-medium text-slate-200 truncate max-w-[200px]">
                     <div className="flex items-center justify-between gap-1">
                       <button

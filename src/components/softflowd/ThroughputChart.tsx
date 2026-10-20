@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -26,12 +26,14 @@ interface ThroughputChartProps {
 }
 
 export function ThroughputChart({ data }: ThroughputChartProps) {
-  const chartData = data.map((item) => ({
-    ...item,
-    formattedDate: formatDate(item.date),
-    downloadBytes: item.downloadBytes ?? 0,
-    uploadBytes: item.uploadBytes ?? 0,
-  }));
+  const chartData = useMemo(() => {
+    return data.map((item) => ({
+      ...item,
+      formattedDate: formatDate(item.date),
+      downloadBytes: item.downloadBytes ?? 0,
+      uploadBytes: item.uploadBytes ?? 0,
+    }));
+  }, [data]);
 
   if (chartData.length === 0) {
     return (

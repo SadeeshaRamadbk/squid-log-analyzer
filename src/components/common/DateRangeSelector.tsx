@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Calendar, X, ChevronDown, Check, Clock, CalendarDays } from 'lucide-react';
+import { X, ChevronDown, CalendarDays } from 'lucide-react';
 
 export interface DateRangeSelectorProps {
   startDate?: string;
@@ -27,6 +27,9 @@ export function DateRangeSelector({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const effectiveMaxDate = maxDate && maxDate > todayStr ? maxDate : todayStr;
+
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -37,22 +40,6 @@ export function DateRangeSelector({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleOpenStartPicker = () => {
-    try {
-      startInputRef.current?.showPicker();
-    } catch {
-      startInputRef.current?.focus();
-    }
-  };
-
-  const handleOpenEndPicker = () => {
-    try {
-      endInputRef.current?.showPicker();
-    } catch {
-      endInputRef.current?.focus();
-    }
-  };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -118,19 +105,25 @@ export function DateRangeSelector({
           : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
       } ${className}`}
     >
-      {/* Calendar Icon Button with Quick Presets Dropdown */}
-      <button
-        type="button"
-        onClick={() => setDropdownOpen((prev) => !prev)}
-        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer text-xs font-medium ${
-          hasSelection ? 'text-purple-300' : 'text-slate-400 hover:text-slate-200'
-        }`}
-        title="Quick date presets"
-        aria-expanded={dropdownOpen}
-      >
-        <CalendarDays className="w-3.5 h-3.5 text-purple-400" />
-        <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-      </button>
+      {/* Calendar Icon Button with Quick Presets Dropdown (for non-compact views) */}
+      {!compact && (
+        <button
+          type="button"
+          onClick={() => setDropdownOpen((prev) => !prev)}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer text-xs font-medium ${
+            hasSelection ? 'text-purple-300' : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Quick date presets"
+          aria-expanded={dropdownOpen}
+        >
+          <CalendarDays className="w-3.5 h-3.5 text-purple-400" />
+          <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+
+      {compact && (
+        <CalendarDays className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1.5" />
+      )}
 
       {/* Start Date Input */}
       <div className="relative flex items-center">
@@ -139,17 +132,16 @@ export function DateRangeSelector({
           type="date"
           value={startDate || ''}
           min={minDate || undefined}
-          max={maxDate || undefined}
-          style={{ colorScheme: 'dark' }}
+          max={effectiveMaxDate}
           onChange={(e) => onChange({ startDate: e.target.value || undefined, endDate })}
           className={`bg-transparent ${
-            compact ? 'text-[11px] py-1' : 'text-xs py-1.5'
+            compact ? 'text-[11px] py-1 w-[105px]' : 'text-xs py-1.5 w-[115px]'
           } font-mono text-slate-200 focus:outline-none cursor-pointer pl-1 pr-1`}
           title="Filter start date"
         />
       </div>
 
-      <span className="text-slate-500 text-[11px] font-mono select-none">to</span>
+      <span className="text-slate-400 text-[11px] font-mono select-none px-0.5">→</span>
 
       {/* End Date Input */}
       <div className="relative flex items-center">
@@ -157,12 +149,11 @@ export function DateRangeSelector({
           ref={endInputRef}
           type="date"
           value={endDate || ''}
-          min={minDate || undefined}
-          max={maxDate || undefined}
-          style={{ colorScheme: 'dark' }}
+          min={startDate || minDate || undefined}
+          max={effectiveMaxDate}
           onChange={(e) => onChange({ startDate, endDate: e.target.value || undefined })}
           className={`bg-transparent ${
-            compact ? 'text-[11px] py-1' : 'text-xs py-1.5'
+            compact ? 'text-[11px] py-1 w-[105px]' : 'text-xs py-1.5 w-[115px]'
           } font-mono text-slate-200 focus:outline-none cursor-pointer pl-1 pr-1`}
           title="Filter end date"
         />

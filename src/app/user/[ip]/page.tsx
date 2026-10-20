@@ -1,23 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, useCallback, use } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
   User,
   Building,
-  Tag,
   Globe,
   Server,
   ShieldAlert,
-  ArrowDownCircle,
-  ArrowUpCircle,
   Clock,
   Download,
-  Calendar,
-  Layers,
   Activity,
-  FileText,
 } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import type { IpProfileData } from '@/lib/db/profile-queries';
@@ -31,7 +25,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
   const [error, setError] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'squid' | 'flows'>('all');
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -47,11 +41,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
     } finally {
       setLoading(false);
     }
-  };
+  }, [userIp]);
 
   useEffect(() => {
     fetchProfile();
-  }, [userIp]);
+  }, [fetchProfile]);
 
   // Export User Dossier to Microsoft Word (.doc)
   const handleExportWordDoc = () => {

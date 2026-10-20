@@ -8,7 +8,6 @@ import {
   Database,
   CheckCircle2,
   AlertTriangle,
-  FileCheck,
   RefreshCw,
   HardDrive,
   ShieldAlert,

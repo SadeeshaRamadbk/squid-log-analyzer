@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Server, User, Tag, Download } from 'lucide-react';
+import { Server, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import { exportToCsv } from '@/lib/exportCsv';
 

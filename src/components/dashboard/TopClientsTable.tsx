@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Monitor, ShieldAlert, User, Download } from 'lucide-react';
+import { Monitor, ShieldAlert, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import { exportToCsv } from '@/lib/exportCsv';
 

@@ -1,4 +1,4 @@
-import { resolveProtocolName, resolveServiceName, classifyService } from './service-ports';
+import { resolveProtocolName, classifyService } from './service-ports';
 
 export interface DecodedNetFlow {
   timestamp: number;          // Epoch ms
@@ -45,7 +45,7 @@ export function parseNetFlowV5Packet(buffer: Buffer): DecodedNetFlow[] {
   }
 
   const count = buffer.readUInt16BE(2);
-  const sysUptime = buffer.readUInt32BE(4);
+  // sysUptime at offset 4..8 (not needed for absolute timestamps)
   const unixSecs = buffer.readUInt32BE(8);
   const unixNsecs = buffer.readUInt32BE(12);
 

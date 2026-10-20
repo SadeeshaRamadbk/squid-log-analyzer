@@ -8,14 +8,28 @@ export function ThemeToggle({ className }: { className?: string } = {}) {
 
   useEffect(() => {
     const saved = localStorage.getItem('app-theme') as 'dark' | 'light' | null;
-    if (saved) {
-      setTheme(saved);
-      if (saved === 'light') {
-        document.documentElement.classList.add('light-theme');
-      } else {
-        document.documentElement.classList.remove('light-theme');
-      }
+    const isLight = saved === 'light' || document.documentElement.classList.contains('light-theme');
+    if (isLight) {
+      setTheme('light');
+      document.documentElement.classList.add('light-theme');
+    } else {
+      setTheme('dark');
+      document.documentElement.classList.remove('light-theme');
     }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'app-theme') {
+        const val = e.newValue === 'light' ? 'light' : 'dark';
+        setTheme(val);
+        if (val === 'light') {
+          document.documentElement.classList.add('light-theme');
+        } else {
+          document.documentElement.classList.remove('light-theme');
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   const toggleTheme = () => {

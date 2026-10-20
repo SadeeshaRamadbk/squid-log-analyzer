@@ -1,25 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Radio,
   X,
   Search,
   RefreshCw,
   Download,
-  Filter,
-  CheckCircle2,
-  ShieldAlert,
   Globe,
-  User,
-  ArrowUpDown,
-  Clock,
-  Layers,
   Copy,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
-  Maximize2,
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatBytes, formatNumber, formatTime } from '@/lib/formatters';
@@ -74,7 +66,7 @@ export function SquidLiveFeedModal({
   }, [initialClientIp]);
 
   // Fetch live requests
-  const fetchLogs = async (targetPage = page) => {
+  const fetchLogs = useCallback(async (targetPage = page) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -109,14 +101,14 @@ export function SquidLiveFeedModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, search, method, clientIp, resultFilter, timeWindow, startDate, endDate]);
 
   // Trigger fetch when filters or modal open state change
   useEffect(() => {
     if (isOpen) {
       fetchLogs(1);
     }
-  }, [isOpen, search, method, resultFilter, clientIp, timeWindow, startDate, endDate, pageSize]);
+  }, [isOpen, fetchLogs]);
 
   // Auto-refresh timer
   useEffect(() => {
@@ -125,7 +117,7 @@ export function SquidLiveFeedModal({
       fetchLogs(page);
     }, refreshInterval);
     return () => clearInterval(interval);
-  }, [isOpen, refreshInterval, page, search, method, resultFilter, clientIp, timeWindow, startDate, endDate, pageSize]);
+  }, [isOpen, refreshInterval, page, fetchLogs]);
 
   // Escape to close
   useEffect(() => {
@@ -519,9 +511,17 @@ export function SquidLiveFeedModal({
                               {r.userName}
                             </div>
                           )}
-                          <div className="text-[11px] text-amber-400 font-mono">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onViewProfile) onViewProfile(r.clientIp);
+                              else onSelectIp?.(r.clientIp);
+                            }}
+                            className="text-[11px] text-amber-400 hover:text-amber-300 hover:underline font-mono cursor-pointer"
+                          >
                             {r.clientIp}
-                          </div>
+                          </button>
                         </div>
                       </td>
 

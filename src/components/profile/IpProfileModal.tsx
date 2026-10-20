@@ -5,9 +5,7 @@ import Link from 'next/link';
 import {
   X,
   User,
-  Tag,
   Building,
-  HardDrive,
   Activity,
   ShieldAlert,
   ArrowDownCircle,

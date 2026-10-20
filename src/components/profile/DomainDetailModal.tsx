@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Globe, X, ExternalLink, ShieldAlert, CheckCircle, Users, Activity } from 'lucide-react';
+import { Globe, X, ExternalLink, Users, Activity } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 
 interface DomainDetailModalProps {
@@ -80,13 +80,27 @@ export function DomainDetailModal({
               <p className="text-xs text-slate-400">Domain Drill-Down & Audit Telemetry</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onFilterByDomain && (
+              <button
+                type="button"
+                onClick={() => {
+                  onFilterByDomain(domain);
+                  onClose();
+                }}
+                className="px-2.5 py-1 text-xs rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/40 transition-colors cursor-pointer"
+              >
+                Filter Feed
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

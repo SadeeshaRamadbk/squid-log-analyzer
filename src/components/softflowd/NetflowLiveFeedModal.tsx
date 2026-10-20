@@ -1,26 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Layers,
   X,
   Search,
   RefreshCw,
   Download,
-  Shield,
   ArrowDownRight,
   ArrowUpRight,
-  ArrowUpDown,
-  Clock,
-  Copy,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
-  Network,
-  Activity,
-  Server,
-  Zap,
 } from 'lucide-react';
 import { formatBytes, formatNumber, formatTime } from '@/lib/formatters';
 import type { FlowRecord } from './LiveFlowsTable';
@@ -72,7 +64,7 @@ export function NetflowLiveFeedModal({
   }, [initialIp]);
 
   // Fetch live flows
-  const fetchFlows = async (targetPage = page) => {
+  const fetchFlows = useCallback(async (targetPage = page) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -106,14 +98,9 @@ export function NetflowLiveFeedModal({
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchFlows(1);
-    }
   }, [
-    isOpen,
+    page,
+    pageSize,
     search,
     protocol,
     serviceName,
@@ -123,8 +110,13 @@ export function NetflowLiveFeedModal({
     timeWindow,
     startDate,
     endDate,
-    pageSize,
   ]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchFlows(1);
+    }
+  }, [isOpen, fetchFlows]);
 
   // Auto-refresh timer
   useEffect(() => {
@@ -133,21 +125,7 @@ export function NetflowLiveFeedModal({
       fetchFlows(page);
     }, refreshInterval);
     return () => clearInterval(interval);
-  }, [
-    isOpen,
-    refreshInterval,
-    page,
-    search,
-    protocol,
-    serviceName,
-    trafficType,
-    hideFirewallTraffic,
-    hideProxyHop,
-    timeWindow,
-    startDate,
-    endDate,
-    pageSize,
-  ]);
+  }, [isOpen, refreshInterval, page, fetchFlows]);
 
   // Escape to close
   useEffect(() => {

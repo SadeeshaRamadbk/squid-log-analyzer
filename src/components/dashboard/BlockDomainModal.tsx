@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldAlert, X, AlertTriangle, CheckCircle, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, X } from 'lucide-react';
 
 interface BlockDomainModalProps {
   domain: string | null;

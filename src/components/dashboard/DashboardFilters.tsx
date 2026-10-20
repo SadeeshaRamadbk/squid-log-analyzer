@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Filter, X, RefreshCw, Server, Clock, Radio, Layers } from 'lucide-react';
+import { X, RefreshCw, Server, Clock, Radio, Layers } from 'lucide-react';
 import { DateRangeSelector } from '../common/DateRangeSelector';
 
 interface DashboardFiltersProps {

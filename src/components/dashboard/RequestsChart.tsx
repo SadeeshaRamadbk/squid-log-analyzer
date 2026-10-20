@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -28,12 +28,14 @@ interface RequestsChartProps {
 export function RequestsChart({ data }: RequestsChartProps) {
   const [metricMode, setMetricMode] = useState<'requests' | 'bandwidth'>('requests');
 
-  const chartData = data.map((item) => ({
-    ...item,
-    formattedDate: formatDate(item.date),
-    downloadBytes: item.downloadBytes ?? 0,
-    uploadBytes: item.uploadBytes ?? 0,
-  }));
+  const chartData = useMemo(() => {
+    return data.map((item) => ({
+      ...item,
+      formattedDate: formatDate(item.date),
+      downloadBytes: item.downloadBytes ?? 0,
+      uploadBytes: item.uploadBytes ?? 0,
+    }));
+  }, [data]);
 
   if (chartData.length === 0) {
     return (

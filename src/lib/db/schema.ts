@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { seedDefaultUsers } from '../auth';
 
 export function initializeDatabase(db: Database.Database): void {
   // Enforce WAL mode and optimal SQLite performance settings
@@ -278,7 +279,6 @@ export function initializeDatabase(db: Database.Database): void {
 
   // Seed default admin and viewer accounts
   try {
-    const { seedDefaultUsers } = require('../auth');
     seedDefaultUsers(db);
   } catch (e) {
     console.warn('[Schema] User seed warning:', e);

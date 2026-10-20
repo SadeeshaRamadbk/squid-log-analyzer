@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, CheckCheck, XCircle, Bell, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, Clock } from 'lucide-react';
+import { CheckCheck, Bell, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, Clock } from 'lucide-react';
 import type { SecurityAlert } from '@/lib/alerts';
 
 interface AlertsPanelProps {
@@ -23,7 +23,8 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [dismissingOld, setDismissingOld] = useState(false);
-  const [isOpen, setIsOpen] = useState(false); // Default hidden as requested
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
 
   const fetchAlerts = async () => {
     try {
@@ -32,6 +33,7 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
       const json = await res.json();
       if (json.success && Array.isArray(json.alerts)) {
         setAlerts(json.alerts);
+        setCurrentTime(Date.now());
       }
     } catch (err) {
       console.warn('Failed to load alerts', err);
@@ -41,6 +43,7 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
   };
 
   useEffect(() => {
+    setCurrentTime(Date.now());
     fetchAlerts();
     const interval = setInterval(fetchAlerts, 15000);
     return () => clearInterval(interval);
@@ -81,9 +84,8 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
   const activeAlerts = alerts.filter((a) => a.status === 'active');
   const criticalCount = activeAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length;
 
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
-  const oldAlertsCount = activeAlerts.filter((a) => a.timestamp < oneHourAgo).length;
+  const oneHourAgo = (currentTime || 0) - 60 * 60 * 1000;
+  const oldAlertsCount = currentTime ? activeAlerts.filter((a) => a.timestamp < oneHourAgo).length : 0;
 
   if (activeAlerts.length === 0) {
     return null;

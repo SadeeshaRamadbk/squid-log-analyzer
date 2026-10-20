@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Radio, ChevronLeft, ChevronRight, User, ExternalLink, ShieldAlert, CheckCircle2, Globe, ArrowUpDown, Maximize2 } from 'lucide-react';
+import { Radio, ChevronLeft, ChevronRight, Globe, ArrowUpDown, Maximize2 } from 'lucide-react';
 import { formatBytes, formatTime } from '@/lib/formatters';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';

@@ -41,7 +41,7 @@ function LoginForm() {
         try {
           await refreshAuth();
         } catch {}
-        window.location.href = redirectPath;
+        router.replace(redirectPath);
       } else {
         setErrorMsg(data.error || 'Authentication failed');
       }
@@ -95,11 +95,13 @@ function LoginForm() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <label htmlFor="login-username" className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 Username
               </label>
               <input
+                id="login-username"
+                name="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -112,12 +114,14 @@ function LoginForm() {
 
             {/* Password Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <label htmlFor="login-password" className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-slate-400" />
                 Password
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

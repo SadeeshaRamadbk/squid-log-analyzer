@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIpProfile, searchIps, searchGlobal } from '@/lib/db/profile-queries';
+import { getIpProfile, searchGlobal } from '@/lib/db/profile-queries';
 
 export async function GET(request: NextRequest) {
   try {

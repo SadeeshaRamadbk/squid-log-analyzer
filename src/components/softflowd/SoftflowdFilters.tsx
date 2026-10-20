@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Filter, X, RefreshCw, Server, Clock, Radio, Network, Tag, ShieldCheck, Layers } from 'lucide-react';
+import { X, RefreshCw, Server, Clock, Radio, Network, Tag, ShieldCheck, Layers } from 'lucide-react';
 import { DateRangeSelector } from '../common/DateRangeSelector';
 
 interface SoftflowdFiltersProps {
@@ -352,7 +352,7 @@ export function SoftflowdFilters({
             <option value="" className="bg-slate-900 text-slate-200">
               All Protocols
             </option>
-            {['TCP', 'UDP', 'ICMP', 'GRE', 'ESP'].map((p) => (
+            {(availableProtocols && availableProtocols.length > 0 ? availableProtocols : ['TCP', 'UDP', 'ICMP', 'GRE', 'ESP']).map((p) => (
               <option key={p} value={p} className="bg-slate-900 text-slate-200">
                 {p}
               </option>

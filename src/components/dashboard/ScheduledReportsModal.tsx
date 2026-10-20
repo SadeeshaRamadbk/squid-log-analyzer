@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Download, X, Calendar, Sparkles, Activity, CheckCircle2 } from 'lucide-react';
+import { FileText, Download, X, Calendar, Sparkles, Activity } from 'lucide-react';
 import type { GeneratedReportResult } from '@/lib/reports';
 
 interface ScheduledReportsModalProps {
@@ -113,7 +113,7 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
               <span>NIM AI Executive Summary Ready</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed italic bg-emerald-950/20 p-3 rounded-lg border border-emerald-800/30">
-              "{reportData.aiSummary}"
+              &ldquo;{reportData.aiSummary}&rdquo;
             </p>
             <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
               <span>Timezone: Asia/Colombo (UTC+5:30)</span>

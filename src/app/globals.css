@@ -2,8 +2,8 @@
 @source "../**";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -11,13 +11,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -44,3 +37,209 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   filter: invert(1);
 }
 
+/* =========================================================================
+   LIGHT THEME: EYE-FRIENDLY HIGH-CONTRAST DATA HIGHLIGHTS
+   Soft neutral canvas with deep crisp typography and vibrant data pills
+   ========================================================================= */
+html.light-theme {
+  color-scheme: light;
+  --background: #eef2f6; /* Soothing soft gray-blue canvas to eliminate glare */
+  --foreground: #0f172a; /* Deep contrast dark text */
+
+  /* Tailwind CSS v4 Slate Palette Inversion */
+  --color-slate-950: #eef2f6; /* Main body & canvas background */
+  --color-slate-900: #ffffff; /* Card, panel, and modal containers */
+  --color-slate-850: #f8fafc;
+  --color-slate-800: #f1f5f9; /* Sub-containers, table hover rows, active chips */
+  --color-slate-700: #cbd5e1; /* Sharp crisp borders & dividers */
+  --color-slate-600: #64748b; /* Secondary icons and muted borders */
+  --color-slate-500: #475569; /* Muted labels, secondary indicators */
+  --color-slate-400: #334155; /* Readable secondary text */
+  --color-slate-300: #1e293b; /* Prominent secondary text */
+  --color-slate-200: #0f172a; /* Strong headings and emphasized labels */
+  --color-slate-100: #020617; /* Primary high-contrast text */
+  --color-slate-50: #000000;  /* Pure black accents */
+}
+
+/* Canvas & body in light theme */
+html.light-theme body {
+  background-color: #eef2f6 !important;
+  color: #0f172a !important;
+}
+
+/* Card separation & elevated shadows */
+html.light-theme .bg-slate-900,
+html.light-theme .bg-slate-900\/80,
+html.light-theme .bg-slate-900\/90 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 4px -1px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Table styling & Zebra striping for easy scanning */
+html.light-theme thead th,
+html.light-theme thead tr {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
+html.light-theme tbody tr {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html.light-theme tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+html.light-theme tbody tr:hover {
+  background-color: #e0e7ff !important; /* Soft indigo row highlight on hover */
+}
+
+/* High-contrast data readability for IP addresses, numbers, and badges */
+html.light-theme .text-amber-400,
+html.light-theme .text-amber-300 {
+  color: #b45309 !important; /* Rich amber-700 */
+}
+
+html.light-theme .text-indigo-400,
+html.light-theme .text-indigo-300 {
+  color: #4338ca !important; /* Rich indigo-700 */
+}
+
+html.light-theme .text-cyan-400,
+html.light-theme .text-cyan-300 {
+  color: #0369a1 !important; /* Rich sky-700 */
+}
+
+html.light-theme .text-emerald-400,
+html.light-theme .text-emerald-300 {
+  color: #047857 !important; /* Rich emerald-700 */
+}
+
+html.light-theme .text-rose-400,
+html.light-theme .text-rose-300 {
+  color: #be123c !important; /* Rich rose-700 */
+}
+
+html.light-theme .text-purple-400,
+html.light-theme .text-purple-300 {
+  color: #6b21a8 !important; /* Rich purple-800 */
+}
+
+html.light-theme .text-blue-400,
+html.light-theme .text-blue-300 {
+  color: #1d4ed8 !important; /* Rich blue-700 */
+}
+
+/* Status badges & pill highlights in light mode */
+html.light-theme .bg-emerald-500\/10,
+html.light-theme .bg-emerald-500\/20 {
+  background-color: #d1fae5 !important;
+  border-color: #6ee7b7 !important;
+  color: #065f46 !important;
+}
+
+html.light-theme .bg-rose-500\/10,
+html.light-theme .bg-rose-500\/20,
+html.light-theme .bg-red-500\/10 {
+  background-color: #ffe4e6 !important;
+  border-color: #fda4af !important;
+  color: #9f1239 !important;
+}
+
+html.light-theme .bg-blue-500\/10,
+html.light-theme .bg-blue-500\/20 {
+  background-color: #dbeafe !important;
+  border-color: #93c5fd !important;
+  color: #1e40af !important;
+}
+
+html.light-theme .bg-amber-500\/10,
+html.light-theme .bg-amber-500\/20 {
+  background-color: #fef3c7 !important;
+  border-color: #fcd34d !important;
+  color: #92400e !important;
+}
+
+html.light-theme .bg-purple-500\/10,
+html.light-theme .bg-purple-500\/20 {
+  background-color: #f3e8ff !important;
+  border-color: #d8b4fe !important;
+  color: #6b21a8 !important;
+}
+
+/* Method Badges */
+html.light-theme td span.bg-purple-500\/10 {
+  background-color: #f3e8ff !important;
+  color: #6b21a8 !important;
+  border-color: #d8b4fe !important;
+}
+
+html.light-theme td span.bg-blue-500\/10 {
+  background-color: #dbeafe !important;
+  color: #1d4ed8 !important;
+  border-color: #93c5fd !important;
+}
+
+html.light-theme td span.bg-amber-500\/10 {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  border-color: #fcd34d !important;
+}
+
+/* Form controls in light theme */
+html.light-theme input,
+html.light-theme select,
+html.light-theme textarea {
+  color-scheme: light;
+  background-color: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+html.light-theme select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+html.light-theme input[type="date"],
+html.light-theme input[type="time"],
+html.light-theme input[type="datetime-local"] {
+  color-scheme: light;
+}
+
+html.light-theme input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.7;
+}
+
+html.light-theme input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: none;
+  opacity: 1;
+}
+
+/* Recharts styling for light theme */
+html.light-theme .recharts-cartesian-grid line {
+  stroke: #cbd5e1 !important;
+  stroke-dasharray: 4 4;
+}
+
+html.light-theme .recharts-default-tooltip {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+
+html.light-theme .recharts-tooltip-label,
+html.light-theme .recharts-tooltip-item {
+  color: #0f172a !important;
+}
+
+/* Ensure backdrop blur overlay maintains contrast behind modals */
+html.light-theme .bg-black\/70,
+html.light-theme .bg-black\/60 {
+  background-color: rgba(15, 23, 42, 0.5) !important;
+}

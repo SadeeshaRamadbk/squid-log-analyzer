@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, ShieldAlert, Globe, Monitor, HardDrive, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { Activity, ShieldAlert, Globe, HardDrive, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 
 interface OverviewMetricsProps {
@@ -85,11 +85,11 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-      {cards.map((card, idx) => {
+      {cards.map((card) => {
         const Icon = card.icon;
         return (
           <div
-            key={idx}
+            key={card.title}
             className={`rounded-xl border p-4 bg-slate-900/80 backdrop-blur-sm ${card.borderColor} shadow-sm transition-all hover:bg-slate-800/80`}
           >
             <div className="flex items-center justify-between">

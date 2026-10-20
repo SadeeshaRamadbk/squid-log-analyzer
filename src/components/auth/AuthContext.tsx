@@ -72,11 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
       setUser(null);
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      } else {
-        router.push('/login');
-      }
+      router.replace('/login');
     }
   };
 

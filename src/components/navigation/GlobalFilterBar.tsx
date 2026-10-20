@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Radio, RefreshCw, X, Filter, Link2, Shield, Network, Server, Tag, Layers } from 'lucide-react';
+import { Clock, Radio, RefreshCw, X, Filter, Link2, Server, Shield, Layers } from 'lucide-react';
 import { DateRangeSelector } from '../common/DateRangeSelector';
 
 export interface GlobalFilterState {
@@ -44,9 +44,8 @@ export function GlobalFilterBar({
   availableServices = ['HTTPS', 'DNS', 'HTTP', 'SSH', 'RDP', 'SMB'],
   activeView,
 }: GlobalFilterBarProps) {
-  const todayStr = new Date().toISOString().split('T')[0];
-
   const handleTimePreset = (preset: '30m' | '1h' | 'today' | '7d' | '30d' | 'all') => {
+    const today = new Date().toISOString().split('T')[0];
     const next = { ...filters };
     if (preset === '30m') {
       next.timeWindow = '30m';
@@ -58,18 +57,20 @@ export function GlobalFilterBar({
       next.endDate = undefined;
     } else if (preset === 'today') {
       next.timeWindow = undefined;
-      next.startDate = todayStr;
-      next.endDate = todayStr;
+      next.startDate = today;
+      next.endDate = today;
     } else if (preset === '7d') {
       next.timeWindow = undefined;
-      const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      next.startDate = past;
-      next.endDate = todayStr;
+      const past = new Date();
+      past.setDate(past.getDate() - 7);
+      next.startDate = past.toISOString().split('T')[0];
+      next.endDate = today;
     } else if (preset === '30d') {
       next.timeWindow = undefined;
-      const past = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      next.startDate = past;
-      next.endDate = todayStr;
+      const past = new Date();
+      past.setDate(past.getDate() - 30);
+      next.startDate = past.toISOString().split('T')[0];
+      next.endDate = today;
     } else if (preset === 'all') {
       next.timeWindow = undefined;
       next.startDate = undefined;
@@ -78,26 +79,50 @@ export function GlobalFilterBar({
     onFilterChange(next);
   };
 
-  // Build active filter chips list
+  // Determine active preset based on filters state
+  const is30mActive = filters.timeWindow === '30m';
+  const is1hActive = filters.timeWindow === '1h';
+  const isAllActive = !filters.timeWindow && !filters.startDate && !filters.endDate;
+
+  // For presets that compare dates, calculate range span in days if dates exist
+  let isTodayActive = false;
+  let is7dActive = false;
+  let is30dActive = false;
+
+  if (!filters.timeWindow && filters.startDate && filters.endDate) {
+    if (filters.startDate === filters.endDate) {
+      isTodayActive = true;
+    } else {
+      const startMs = new Date(filters.startDate).getTime();
+      const endMs = new Date(filters.endDate).getTime();
+      const diffDays = Math.round((endMs - startMs) / (1000 * 60 * 60 * 24));
+      if (diffDays === 7) is7dActive = true;
+      else if (diffDays === 30) is30dActive = true;
+    }
+  }
+
+  const isCustomDate = !filters.timeWindow && Boolean(filters.startDate || filters.endDate) && !isTodayActive && !is7dActive && !is30dActive;
+
+  // Build active filter chips list (only for user-defined filters, omitting default 'all' state)
   const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
 
   if (filters.timeWindow === '30m') {
     chips.push({
       key: 'time-30m',
-      label: 'Window: Last 30 Min',
+      label: 'Window: Last 30m',
       onRemove: () => onFilterChange({ ...filters, timeWindow: undefined }),
     });
   } else if (filters.timeWindow === '1h') {
     chips.push({
       key: 'time-1h',
-      label: 'Window: Last 1 Hour',
+      label: 'Window: Last 1h',
       onRemove: () => onFilterChange({ ...filters, timeWindow: undefined }),
     });
-  } else if (filters.startDate || filters.endDate) {
+  } else if (isCustomDate) {
     const label =
       filters.startDate === filters.endDate
         ? `Date: ${filters.startDate}`
-        : `Range: ${filters.startDate || 'start'} to ${filters.endDate || 'now'}`;
+        : `Range: ${filters.startDate || 'start'} → ${filters.endDate || 'now'}`;
     chips.push({
       key: 'date-range',
       label,
@@ -152,85 +177,75 @@ export function GlobalFilterBar({
     });
   };
 
+  const getPresetClass = (isActive: boolean) =>
+    `px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer select-none ${
+      isActive
+        ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-500/30'
+        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+    }`;
+
   return (
-    <div className="relative z-25 bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm backdrop-blur-md space-y-2.5">
-      {/* Top: Presets & Live Streaming */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
-            <Clock className="w-3.5 h-3.5 text-indigo-400" /> Time:
-          </span>
+    <div className="relative z-25 bg-slate-900/90 border border-slate-800 rounded-xl p-3 shadow-sm backdrop-blur-md space-y-2.5">
+      {/* Row 1: Time Controls, Filter Scope Selectors, and Live Action Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Left Side: Time Presets & Scope Selectors */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Time Presets Pill Group */}
+          <div className="flex items-center bg-slate-950/70 border border-slate-800 rounded-lg p-0.5">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 pl-2 pr-1.5 shrink-0">
+              <Clock className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Time:</span>
+            </span>
 
-          <button
-            type="button"
-            onClick={() => handleTimePreset('30m')}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-              filters.timeWindow === '30m'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            30 Min
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTimePreset('1h')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-              filters.timeWindow === '1h'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            1 Hour
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTimePreset('today')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-              !filters.timeWindow && filters.startDate === todayStr && filters.endDate === todayStr
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            Today
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTimePreset('7d')}
-            className="px-2.5 py-1 rounded-md font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
-          >
-            7 Days
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTimePreset('30d')}
-            className="px-2.5 py-1 rounded-md font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
-          >
-            30 Days
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTimePreset('all')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-              !filters.timeWindow && !filters.startDate && !filters.endDate
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            All Time
-          </button>
+            <button
+              type="button"
+              onClick={() => handleTimePreset('30m')}
+              className={getPresetClass(is30mActive)}
+            >
+              30m
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimePreset('1h')}
+              className={getPresetClass(is1hActive)}
+            >
+              1h
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimePreset('today')}
+              className={getPresetClass(isTodayActive)}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimePreset('7d')}
+              className={getPresetClass(is7dActive)}
+            >
+              7d
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimePreset('30d')}
+              className={getPresetClass(is30dActive)}
+            >
+              30d
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimePreset('all')}
+              className={getPresetClass(isAllActive)}
+            >
+              All
+            </button>
+          </div>
 
           {/* Custom Date Pickers */}
           <DateRangeSelector
             startDate={filters.startDate}
             endDate={filters.endDate}
             compact
-            className="ml-1"
             onChange={({ startDate, endDate }) =>
               onFilterChange({
                 ...filters,
@@ -240,11 +255,78 @@ export function GlobalFilterBar({
               })
             }
           />
+
+          <div className="hidden xl:block h-5 w-px bg-slate-800" />
+
+          {/* Scope Dropdowns Container (Client Host + Protocol + Service) */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Client Host Dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-lg px-2 py-1 text-xs hover:border-slate-700 transition-colors">
+              <Server className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <select
+                value={filters.clientIp || ''}
+                onChange={(e) => onFilterChange({ ...filters, clientIp: e.target.value || undefined })}
+                className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer max-w-[170px] truncate"
+                title="Filter by workstation host IP"
+              >
+                <option value="" className="bg-slate-900 text-slate-300">
+                  All Client Hosts
+                </option>
+                {availableClientIps.map((item) => {
+                  const ip = typeof item === 'string' ? item : item.clientIp;
+                  const user = typeof item === 'object' && item.userName ? item.userName : null;
+                  const dept = typeof item === 'object' && item.department ? ` (${item.department})` : '';
+                  return (
+                    <option key={ip} value={ip} className="bg-slate-900 text-slate-200">
+                      {user ? `${ip} - ${user}${dept}` : ip}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* NetFlow Specific Filters (when on softflowd or split) */}
+            {(activeView === 'softflowd' || activeView === 'split') && (
+              <>
+                {/* Protocol Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-950/70 border border-slate-800 rounded-lg px-2 py-1 text-xs hover:border-slate-700 transition-colors">
+                  <Shield className="w-3 h-3 text-indigo-400 shrink-0" />
+                  <select
+                    value={filters.protocol || ''}
+                    onChange={(e) => onFilterChange({ ...filters, protocol: e.target.value || undefined })}
+                    className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                    title="Filter by L4 Protocol"
+                  >
+                    <option value="" className="bg-slate-900 text-slate-300">All Protocols</option>
+                    {availableProtocols.map((p) => (
+                      <option key={p} value={p} className="bg-slate-900 text-slate-200">{p}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Service Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-950/70 border border-slate-800 rounded-lg px-2 py-1 text-xs hover:border-slate-700 transition-colors">
+                  <Layers className="w-3 h-3 text-cyan-400 shrink-0" />
+                  <select
+                    value={filters.serviceName || ''}
+                    onChange={(e) => onFilterChange({ ...filters, serviceName: e.target.value || undefined })}
+                    className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer max-w-[130px] truncate"
+                    title="Filter by Application Service"
+                  >
+                    <option value="" className="bg-slate-900 text-slate-300">All Services</option>
+                    {availableServices.map((s) => (
+                      <option key={s} value={s} className="bg-slate-900 text-slate-200">{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Live radar & Refresh */}
-        <div className="flex items-center gap-2">
-          {onToggleFilterSync && (
+        {/* Right Side: Actions (Sync, Real-Time toggle, Refresh button) */}
+        <div className="flex items-center gap-2 ml-auto">
+          {onToggleFilterSync && activeView === 'split' && (
             <button
               type="button"
               onClick={onToggleFilterSync}
@@ -291,7 +373,7 @@ export function GlobalFilterBar({
             onClick={onRefresh}
             disabled={isRefreshing}
             aria-label="Refresh data"
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors disabled:opacity-50 cursor-pointer border border-slate-700/60"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
             <span>Refresh</span>
@@ -299,7 +381,53 @@ export function GlobalFilterBar({
         </div>
       </div>
 
-      {/* Active Filter Chips Bar */}
+      {/* Row 2: NetFlow Quick Traffic Type Selector (When in Softflowd or Split mode) */}
+      {(activeView === 'softflowd' || activeView === 'split') && (
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-800/60 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Traffic Type:</span>
+            <div className="inline-flex bg-slate-950/80 rounded-lg p-0.5 border border-slate-800 text-[11px]">
+              {(['all', 'external', 'internal'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onFilterChange({ ...filters, trafficType: type })}
+                  className={`px-2.5 py-0.5 rounded capitalize font-medium transition-colors cursor-pointer ${
+                    (filters.trafficType || 'all') === type
+                      ? 'bg-indigo-600 text-white font-semibold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300 hover:text-white transition-colors">
+              <input
+                type="checkbox"
+                checked={filters.hideFirewallTraffic !== false}
+                onChange={(e) => onFilterChange({ ...filters, hideFirewallTraffic: e.target.checked })}
+                className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
+              />
+              <span>Hide Firewall Host</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300 hover:text-white transition-colors">
+              <input
+                type="checkbox"
+                checked={filters.hideProxyHop !== false}
+                onChange={(e) => onFilterChange({ ...filters, hideProxyHop: e.target.checked })}
+                className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
+              />
+              <span>Hide Proxy Hop</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Row 3: Active Filter Chips Bar (only rendered when user has applied non-default filters) */}
       {hasAnyFilter && (
         <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80 text-xs">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">

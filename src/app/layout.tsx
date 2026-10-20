@@ -14,7 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-slate-950 text-slate-100">
+    <html lang="en" className="h-full bg-slate-950 text-slate-100" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('app-theme');if(t==='light'){document.documentElement.classList.add('light-theme');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100">
         <AuthProvider>{children}</AuthProvider>
       </body>

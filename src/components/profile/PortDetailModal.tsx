@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Tag, X, Activity, Server, ArrowDownUp, Shield } from 'lucide-react';
+import { Tag, X, Activity, Server } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 
 interface PortDetailModalProps {

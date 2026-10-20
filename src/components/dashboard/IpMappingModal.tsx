@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, UserPlus, Trash2, Edit2, Check, User, Building, Search, AlertCircle, HelpCircle, ArrowRight } from 'lucide-react';
+import { X, Trash2, Edit2, Check, User, Search, AlertCircle, ArrowRight } from 'lucide-react';
 
 export interface IpMappingItem {
   clientIp: string;
@@ -345,7 +345,9 @@ export function IpMappingModal({
           {/* Table Area */}
           {activeTab === 'mappings' ? (
             <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <div className="p-8 text-center text-xs text-slate-400">Loading LAN host aliases...</div>
+              ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500">
                   {mappings.length === 0
                     ? 'No IP mappings configured yet. Use the form above to name your first IP.'

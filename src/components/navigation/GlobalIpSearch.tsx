@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Building, X, Globe, Tag, Activity } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
-import type { IpSearchResult, GlobalSearchResult } from '@/lib/db/profile-queries';
+import type { GlobalSearchResult } from '@/lib/db/profile-queries';
 
 interface GlobalIpSearchProps {
   onSelectProfile: (ip: string) => void;

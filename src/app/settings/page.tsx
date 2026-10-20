@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   Users,
   UserPlus,
   KeyRound,
   Shield,
-  ShieldAlert,
   Database,
   Calendar,
   Lock,
@@ -19,17 +18,15 @@ import {
   ArrowLeft,
   Save,
   RefreshCw,
-  Sliders,
-  HardDrive,
   Eye,
   EyeOff,
   UserCheck,
   Server,
   Network,
-  RotateCcw,
+  Sliders,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
-import { formatBytes, formatNumber } from '@/lib/formatters';
+import { formatNumber } from '@/lib/formatters';
 
 interface UserItem {
   id: number;
@@ -75,7 +72,6 @@ interface StorageStats {
 }
 
 function SettingsContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
 
@@ -103,7 +99,6 @@ function SettingsContent() {
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Retention & System Settings State
-  const [settings, setSettings] = useState<SystemSettingsData | null>(null);
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -158,7 +153,6 @@ function SettingsContent() {
 
       if (settingsData.success && settingsData.settings) {
         const s = settingsData.settings as SystemSettingsData;
-        setSettings(s);
         setRetentionSquid(s.retentionDaysSquid ?? 60);
         setRetentionFlows(s.retentionDaysFlows ?? 7);
         setTimezone(s.timezone || 'Asia/Colombo');
@@ -636,8 +630,10 @@ function SettingsContent() {
 
                   <form onSubmit={handleCreateUser} className="space-y-3.5 text-xs">
                     <div className="space-y-1.5">
-                      <label className="font-medium text-slate-300">Username</label>
+                      <label htmlFor="create-username" className="font-medium text-slate-300">Username</label>
                       <input
+                        id="create-username"
+                        name="newUsername"
                         type="text"
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
@@ -648,9 +644,11 @@ function SettingsContent() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="font-medium text-slate-300">Initial Password</label>
+                      <label htmlFor="create-password" className="font-medium text-slate-300">Initial Password</label>
                       <div className="relative">
                         <input
+                          id="create-password"
+                          name="newPassword"
                           type={showNewPassword ? 'text' : 'password'}
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
@@ -854,8 +852,10 @@ function SettingsContent() {
 
                   <form onSubmit={handleAdminResetPassword} className="space-y-4 text-xs">
                     <div className="space-y-1.5">
-                      <label className="font-medium text-slate-300">New Password</label>
+                      <label htmlFor="reset-password-val" className="font-medium text-slate-300">New Password</label>
                       <input
+                        id="reset-password-val"
+                        name="resetPassword"
                         type="password"
                         value={resetPasswordVal}
                         onChange={(e) => setResetPasswordVal(e.target.value)}
@@ -924,12 +924,14 @@ function SettingsContent() {
               <form onSubmit={handleChangeOwnPassword} className="space-y-4 text-xs">
                 {/* Current Password */}
                 <div className="space-y-1.5">
-                  <label className="font-medium text-slate-300 flex items-center gap-1.5">
+                  <label htmlFor="current-password" className="font-medium text-slate-300 flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-slate-400" />
                     <span>Current Password</span>
                   </label>
                   <div className="relative">
                     <input
+                      id="current-password"
+                      name="currentPassword"
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -949,12 +951,14 @@ function SettingsContent() {
 
                 {/* New Password */}
                 <div className="space-y-1.5">
-                  <label className="font-medium text-slate-300 flex items-center gap-1.5">
+                  <label htmlFor="change-new-password" className="font-medium text-slate-300 flex items-center gap-1.5">
                     <KeyRound className="w-3.5 h-3.5 text-slate-400" />
                     <span>New Password</span>
                   </label>
                   <div className="relative">
                     <input
+                      id="change-new-password"
+                      name="changeNewPassword"
                       type={showChangeNewPassword ? 'text' : 'password'}
                       value={changeNewPassword}
                       onChange={(e) => setChangeNewPassword(e.target.value)}
@@ -975,11 +979,13 @@ function SettingsContent() {
 
                 {/* Confirm New Password */}
                 <div className="space-y-1.5">
-                  <label className="font-medium text-slate-300 flex items-center gap-1.5">
+                  <label htmlFor="confirm-new-password" className="font-medium text-slate-300 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
                     <span>Confirm New Password</span>
                   </label>
                   <input
+                    id="confirm-new-password"
+                    name="confirmNewPassword"
                     type="password"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
@@ -1129,9 +1135,11 @@ function SettingsContent() {
                       Detailed HTTP/S access records including internal client IP, destination domain, transfer bytes, and full blocked URLs.
                     </p>
                     <div className="space-y-1.5 pt-1">
-                      <label className="text-xs font-medium text-slate-300">Keep Raw Logs For (Days)</label>
+                      <label htmlFor="retention-squid" className="text-xs font-medium text-slate-300">Keep Raw Logs For (Days)</label>
                       <div className="flex items-center gap-3">
                         <input
+                          id="retention-squid"
+                          name="retentionSquid"
                           type="number"
                           min={1}
                           max={365}
@@ -1155,9 +1163,11 @@ function SettingsContent() {
                       High-throughput Layer 3/4 flow sessions (approx 1,000+ flows/min). Raw flows are kept for short periods while minute & hourly rollups preserve long-term metrics.
                     </p>
                     <div className="space-y-1.5 pt-1">
-                      <label className="text-xs font-medium text-slate-300">Keep Raw Flows For (Days)</label>
+                      <label htmlFor="retention-flows" className="text-xs font-medium text-slate-300">Keep Raw Flows For (Days)</label>
                       <div className="flex items-center gap-3">
                         <input
+                          id="retention-flows"
+                          name="retentionFlows"
                           type="number"
                           min={1}
                           max={90}
@@ -1186,7 +1196,7 @@ function SettingsContent() {
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
                     <button
                       type="submit"
-                      disabled={savingSettings}
+                      disabled={savingSettings || loadingSettings}
                       className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-colors cursor-pointer flex items-center gap-2 shadow-lg shadow-purple-600/20 disabled:opacity-50"
                     >
                       {savingSettings ? (
@@ -1265,11 +1275,13 @@ function SettingsContent() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {/* Timezone */}
                   <div className="space-y-1.5">
-                    <label className="font-medium text-slate-300 flex items-center gap-1.5">
+                    <label htmlFor="system-timezone" className="font-medium text-slate-300 flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
                       <span>System Timezone</span>
                     </label>
                     <select
+                      id="system-timezone"
+                      name="timezone"
                       value={timezone}
                       onChange={(e) => setTimezone(e.target.value)}
                       disabled={!isAdmin}
@@ -1286,11 +1298,13 @@ function SettingsContent() {
 
                   {/* Squid Port */}
                   <div className="space-y-1.5">
-                    <label className="font-medium text-slate-300 flex items-center gap-1.5">
+                    <label htmlFor="squid-port" className="font-medium text-slate-300 flex items-center gap-1.5">
                       <Server className="w-3.5 h-3.5 text-slate-400" />
                       <span>Squid Proxy Port</span>
                     </label>
                     <input
+                      id="squid-port"
+                      name="squidPort"
                       type="number"
                       value={squidPort}
                       onChange={(e) => setSquidPort(parseInt(e.target.value) || 3128)}
@@ -1301,11 +1315,13 @@ function SettingsContent() {
 
                   {/* Firewall IP */}
                   <div className="space-y-1.5">
-                    <label className="font-medium text-slate-300 flex items-center gap-1.5">
+                    <label htmlFor="firewall-ip" className="font-medium text-slate-300 flex items-center gap-1.5">
                       <Shield className="w-3.5 h-3.5 text-slate-400" />
                       <span>pfSense Firewall IP</span>
                     </label>
                     <input
+                      id="firewall-ip"
+                      name="firewallIp"
                       type="text"
                       value={firewallIp}
                       onChange={(e) => setFirewallIp(e.target.value)}
@@ -1318,8 +1334,10 @@ function SettingsContent() {
 
                 {/* Toggles */}
                 <div className="space-y-3 pt-2 border-t border-slate-800/80">
-                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 cursor-pointer hover:bg-slate-950/60">
+                  <label htmlFor="hide-firewall-traffic" className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 cursor-pointer hover:bg-slate-950/60">
                     <input
+                      id="hide-firewall-traffic"
+                      name="hideFirewallTraffic"
                       type="checkbox"
                       checked={hideFirewallTraffic}
                       onChange={(e) => setHideFirewallTraffic(e.target.checked)}
@@ -1332,8 +1350,10 @@ function SettingsContent() {
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 cursor-pointer hover:bg-slate-950/60">
+                  <label htmlFor="hide-proxy-hop" className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 cursor-pointer hover:bg-slate-950/60">
                     <input
+                      id="hide-proxy-hop"
+                      name="hideProxyHop"
                       type="checkbox"
                       checked={hideProxyHop}
                       onChange={(e) => setHideProxyHop(e.target.checked)}
@@ -1346,8 +1366,10 @@ function SettingsContent() {
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 cursor-pointer hover:bg-slate-950/60">
+                  <label htmlFor="anonymize-exports" className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 cursor-pointer hover:bg-slate-950/60">
                     <input
+                      id="anonymize-exports"
+                      name="anonymizeExports"
                       type="checkbox"
                       checked={anonymizeExports}
                       onChange={(e) => setAnonymizeExports(e.target.checked)}

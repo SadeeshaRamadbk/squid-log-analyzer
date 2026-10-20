@@ -602,8 +602,15 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
  */
 export function getDistinctNetflowOptions(): { protocols: string[]; services: string[] } {
   const db = getDatabase();
-  const protoRows = db.prepare('SELECT DISTINCT protocol FROM netflow_logs ORDER BY protocol ASC').all() as any[];
-  const serviceRows = db.prepare("SELECT DISTINCT service_name FROM netflow_logs WHERE service_name IS NOT NULL AND service_name != '' ORDER BY service_name ASC").all() as any[];
+  const protoRows = db.prepare('SELECT DISTINCT protocol FROM netflow_logs WHERE protocol IS NOT NULL ORDER BY protocol ASC').all() as any[];
+  const serviceRows = db.prepare(`
+    SELECT service_name 
+    FROM netflow_logs 
+    WHERE service_name IS NOT NULL AND service_name != ''
+    GROUP BY service_name 
+    ORDER BY (CASE WHEN service_name NOT LIKE 'Port %' THEN 0 ELSE 1 END) ASC, count(*) DESC 
+    LIMIT 30
+  `).all() as any[];
 
   return {
     protocols: protoRows.map((r) => r.protocol),

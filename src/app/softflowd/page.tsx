@@ -19,7 +19,6 @@ import { IpProfileModal } from '@/components/profile/IpProfileModal';
 import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
 import { PortDetailModal } from '@/components/profile/PortDetailModal';
 import { NetflowLiveFeedModal } from '@/components/softflowd/NetflowLiveFeedModal';
-import { Radio, Layers } from 'lucide-react';
 
 export default function SoftflowdPage() {
   const router = useRouter();
