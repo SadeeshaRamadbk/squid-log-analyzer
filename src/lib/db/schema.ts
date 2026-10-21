@@ -296,10 +296,6 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_syslog_app_ts ON syslog_events(app_name, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_syslog_facility_ts ON syslog_events(facility_label, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_syslog_host_app_ts ON syslog_events(hostname, app_name, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
   `);
 
   // Migration for existing databases that don't have structured filterlog columns in syslog_events
@@ -317,13 +313,15 @@ export function initializeDatabase(db: Database.Database): void {
         ALTER TABLE syslog_events ADD COLUMN src_port INTEGER;
         ALTER TABLE syslog_events ADD COLUMN dst_port INTEGER;
         ALTER TABLE syslog_events ADD COLUMN tcp_flags TEXT;
-
-        CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
       `);
     }
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
+    `);
   } catch (err) {
     console.warn('[Schema] syslog_events column migration note:', err);
   }

@@ -20,6 +20,7 @@ import {
   Radio,
   Layers,
   Terminal,
+  Tags,
 } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
@@ -31,6 +32,7 @@ interface AppHeaderProps {
   onViewChange?: (view: 'squid' | 'softflowd' | 'split') => void;
   onOpenIpModal: () => void;
   onOpenBackupModal: () => void;
+  onOpenCategoriesModal?: () => void;
   onOpenConfigModal?: () => void;
   onOpenSquidConfig?: () => void;
   onOpenSyslogConfig?: () => void;
@@ -49,6 +51,7 @@ export function AppHeader({
   onViewChange,
   onOpenIpModal,
   onOpenBackupModal,
+  onOpenCategoriesModal,
   onOpenConfigModal,
   onOpenSquidConfig,
   onOpenSyslogConfig,
@@ -345,6 +348,19 @@ export function AppHeader({
               <Users className="w-3.5 h-3.5 text-amber-400" />
               <span>IP Aliases</span>
             </button>
+
+            {/* Domain Categories */}
+            {onOpenCategoriesModal && (
+              <button
+                type="button"
+                onClick={onOpenCategoriesModal}
+                className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Manage domain category rules and department usage summaries"
+              >
+                <Tags className="w-3.5 h-3.5 text-purple-400" />
+                <span>Domain Categories</span>
+              </button>
+            )}
 
             {/* Scheduled Word / AI Reports */}
             {onOpenReportsModal && (

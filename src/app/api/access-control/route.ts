@@ -48,10 +48,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let syncResult: any = null;
+
     if (action === 'block_domain') {
-      blockDomain(target, operator, reason);
+      syncResult = blockDomain(target, operator, reason);
     } else if (action === 'unblock_domain') {
-      unblockDomain(target, operator, reason);
+      syncResult = unblockDomain(target, operator, reason);
     } else if (action === 'grant_full_access') {
       grantFullAccessIp(target, operator, reason);
     } else if (action === 'revoke_full_access') {
@@ -60,7 +62,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, message: `Action ${action} completed for ${target}` });
+    return NextResponse.json({
+      success: true,
+      sync: syncResult,
+      message: `Action ${action} completed for ${target}`,
+    });
   } catch (error: any) {
     console.error('API /api/access-control POST error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

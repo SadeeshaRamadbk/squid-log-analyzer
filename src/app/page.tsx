@@ -12,6 +12,7 @@ import { LiveRequestsTable } from '@/components/dashboard/LiveRequestsTable';
 import { SquidConfigModal } from '@/components/dashboard/SquidConfigModal';
 import { RetentionBanner } from '@/components/dashboard/RetentionBanner';
 import { IpMappingModal } from '@/components/dashboard/IpMappingModal';
+import { DomainCategoriesModal } from '@/components/dashboard/DomainCategoriesModal';
 import { BackupRestoreModal } from '@/components/dashboard/BackupRestoreModal';
 import { IpProfileModal } from '@/components/profile/IpProfileModal';
 import { PfSenseConfigModal } from '@/components/softflowd/PfSenseConfigModal';
@@ -113,6 +114,7 @@ function DashboardContent() {
 
   // Modals state
   const [isIpModalOpen, setIsIpModalOpen] = useState(false);
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isSquidConfigOpen, setIsSquidConfigOpen] = useState(false);
   const [isPfSenseConfigOpen, setIsPfSenseConfigOpen] = useState(false);
@@ -674,6 +676,7 @@ function DashboardContent() {
         activeView={activeView}
         onViewChange={(v) => setActiveView(v)}
         onOpenIpModal={() => handleOpenIpAliasModal()}
+        onOpenCategoriesModal={() => setIsCategoriesModalOpen(true)}
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
         onOpenConfigModal={() => setIsPfSenseConfigOpen(true)}
         onOpenSquidConfig={() => setIsSquidConfigOpen(true)}
@@ -1031,6 +1034,11 @@ function DashboardContent() {
           setTargetIpForModal(undefined);
         }}
         onMappingsChanged={handleRefresh}
+      />
+
+      <DomainCategoriesModal
+        isOpen={isCategoriesModalOpen}
+        onClose={() => setIsCategoriesModalOpen(false)}
       />
 
       <BackupRestoreModal

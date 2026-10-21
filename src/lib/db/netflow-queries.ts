@@ -1,4 +1,5 @@
 import { getDatabase } from './index';
+import { triggerEnrichmentForIps } from '../enrichment';
 import { getSystemSettings, getTimezoneDayBounds, formatTimestamp, isInternalIp as isInternalIpSettings } from '@/lib/settings';
 import { getTimeBucketConfig, formatBucketLabel, NetflowTimePoint } from '@/lib/bucketing';
 import { isValidIp, isValidDate, sanitizeParam } from '@/lib/validation';
@@ -49,6 +50,8 @@ export interface TopDestinationRecord {
   packets: number;
   percentage: number;
   isInternal?: boolean;
+  org?: string | null;
+  hostname?: string | null;
 }
 
 export interface TopServiceRecord {
@@ -409,17 +412,27 @@ export function getTopDestinations(filters: NetflowFilters = {}, limit = 10): To
 
   const query = `
     SELECT
-      dst_ip AS dstIp,
-      COALESCE(SUM(flow_count), 0) AS flowCount,
-      COALESCE(SUM(bytes), 0) AS bytes,
-      COALESCE(SUM(packets), 0) AS packets
-    FROM ${table}
+      t.dst_ip AS dstIp,
+      COALESCE(SUM(t.flow_count), 0) AS flowCount,
+      COALESCE(SUM(t.bytes), 0) AS bytes,
+      COALESCE(SUM(t.packets), 0) AS packets,
+      e.org AS org,
+      e.hostname AS hostname
+    FROM ${table} t
+    LEFT JOIN ip_enrichment e ON t.dst_ip = e.ip
     ${where}
-    GROUP BY dst_ip
+    GROUP BY t.dst_ip
     ORDER BY bytes DESC
     LIMIT ?
   `;
   const rows = db.prepare(query).all(...params, limit) as any[];
+
+  // Trigger non-blocking enrichment for any un-cached remote endpoints
+  const missingIps = rows.filter((r) => !r.org && !r.hostname).map((r) => r.dstIp);
+  if (missingIps.length > 0) {
+    triggerEnrichmentForIps(missingIps);
+  }
+
   return rows.map((r) => ({
     dstIp: r.dstIp,
     flowCount: Number(r.flowCount),
@@ -427,6 +440,8 @@ export function getTopDestinations(filters: NetflowFilters = {}, limit = 10): To
     packets: Number(r.packets),
     percentage: totalBytes > 0 ? Math.round((Number(r.bytes) / totalBytes) * 1000) / 10 : 0,
     isInternal: false,
+    org: r.org || null,
+    hostname: r.hostname || null,
   }));
 }
 

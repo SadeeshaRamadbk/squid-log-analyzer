@@ -11,6 +11,8 @@ interface DestinationItem {
   bytes: number;
   packets: number;
   percentage: number;
+  org?: string | null;
+  hostname?: string | null;
 }
 
 interface TopDestinationsTableProps {
@@ -120,15 +122,38 @@ export function TopDestinationsTable({
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {items.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-2.5 pl-1 font-mono font-medium text-cyan-300">
-                    <button
-                      type="button"
-                      onClick={() => onSelectDstIp?.(item.dstIp)}
-                      title={`Filter by destination ${item.dstIp}`}
-                      className="hover:underline cursor-pointer"
-                    >
-                      {item.dstIp}
-                    </button>
+                  <td className="py-2.5 pl-1">
+                    {tab === 'external' && (item.org || item.hostname) ? (
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                          <span className="text-cyan-300 font-medium">{item.org || item.hostname}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
+                          <button
+                            type="button"
+                            onClick={() => onSelectDstIp?.(item.dstIp)}
+                            title={`Filter by destination ${item.dstIp}`}
+                            className="hover:underline hover:text-cyan-300 cursor-pointer"
+                          >
+                            {item.dstIp}
+                          </button>
+                          {item.hostname && item.org && item.hostname !== item.org && (
+                            <span className="text-slate-500 truncate max-w-[180px]" title={item.hostname}>
+                              ({item.hostname})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onSelectDstIp?.(item.dstIp)}
+                        title={`Filter by destination ${item.dstIp}`}
+                        className="font-mono font-medium text-cyan-300 hover:underline cursor-pointer"
+                      >
+                        {item.dstIp}
+                      </button>
+                    )}
                   </td>
                   <td className="py-2.5 text-right font-semibold text-slate-100 font-mono">
                     {formatBytes(item.bytes)}

@@ -64,6 +64,25 @@ export interface IpProfileData {
       tcpFlags: string;
     }>;
   };
+  syslog: {
+    totalEvents: number;
+    firewallBlocks: number;
+    recentEvents: Array<{
+      id: number;
+      timestamp: number;
+      formattedTime: string;
+      appName: string;
+      severity: number;
+      severityLabel: string;
+      action?: string | null;
+      message: string;
+      srcIp?: string | null;
+      dstIp?: string | null;
+      dstPort?: number | null;
+      protocol?: string | null;
+      tcpFlags?: string | null;
+    }>;
+  };
 }
 
 export interface IpSearchResult {
@@ -80,15 +99,32 @@ export interface IpSearchResult {
  */
 export function getIpProfile(targetIp: string): IpProfileData {
   const db = getDatabase();
-  const cleanIp = targetIp.trim();
+  const cleanInput = targetIp.trim();
   const tz = getSystemSettings().timezone || 'Asia/Colombo';
 
-  // 1. IP Mapping Info
-  const mappingRow = db.prepare(`
+  // 1. IP Mapping Info (support lookup by client_ip or employee user_name/alias)
+  let resolvedIp = cleanInput;
+  let mappingRow = db.prepare(`
     SELECT client_ip, user_name, department, notes, created_at, updated_at
     FROM ip_mappings
     WHERE client_ip = ?
-  `).get(cleanIp) as any;
+  `).get(cleanInput) as any;
+
+  if (!mappingRow) {
+    const nameMatch = db.prepare(`
+      SELECT client_ip, user_name, department, notes, created_at, updated_at
+      FROM ip_mappings
+      WHERE LOWER(user_name) = LOWER(?) OR LOWER(notes) LIKE LOWER(?)
+      LIMIT 1
+    `).get(cleanInput, `%${cleanInput}%`) as any;
+
+    if (nameMatch) {
+      mappingRow = nameMatch;
+      resolvedIp = nameMatch.client_ip;
+    }
+  }
+
+  const cleanIp = resolvedIp;
 
   const mapping = {
     userName: mappingRow?.user_name || null,
@@ -361,6 +397,56 @@ export function getIpProfile(targetIp: string): IpProfileData {
       })),
       recentFlows,
     },
+    syslog: (() => {
+      let totalEvents = 0;
+      let firewallBlocks = 0;
+      let recentEvents: any[] = [];
+
+      try {
+        const syslogSummaryRow = db.prepare(`
+          SELECT
+            count(*) AS totalEvents,
+            SUM(CASE WHEN action IN ('block', 'reject') OR (app_name = 'filterlog' AND (message LIKE '%block%' OR message LIKE '%BLOCK%')) THEN 1 ELSE 0 END) AS firewallBlocks
+          FROM syslog_events
+          WHERE src_ip = ? OR dst_ip = ? OR message LIKE ?
+        `).get(cleanIp, cleanIp, `%${cleanIp}%`) as any;
+
+        totalEvents = Number(syslogSummaryRow?.totalEvents || 0);
+        firewallBlocks = Number(syslogSummaryRow?.firewallBlocks || 0);
+
+        const recentSyslogRows = db.prepare(`
+          SELECT id, timestamp, app_name, severity, severity_label, action, message, src_ip, dst_ip, dst_port, protocol, tcp_flags
+          FROM syslog_events
+          WHERE src_ip = ? OR dst_ip = ? OR message LIKE ?
+          ORDER BY timestamp DESC
+          LIMIT 20
+        `).all(cleanIp, cleanIp, `%${cleanIp}%`) as any[];
+
+        recentEvents = recentSyslogRows.map((r) => ({
+          id: r.id,
+          timestamp: r.timestamp,
+          formattedTime: formatTimestamp(r.timestamp, tz),
+          appName: r.app_name,
+          severity: r.severity,
+          severityLabel: r.severity_label,
+          action: r.action || (r.message.toUpperCase().includes('BLOCK') ? 'block' : null),
+          message: r.message,
+          srcIp: r.src_ip,
+          dstIp: r.dst_ip,
+          dstPort: r.dst_port,
+          protocol: r.protocol,
+          tcpFlags: r.tcp_flags,
+        }));
+      } catch (err) {
+        console.warn('Error querying syslog for IP profile:', err);
+      }
+
+      return {
+        totalEvents,
+        firewallBlocks,
+        recentEvents,
+      };
+    })(),
   };
 }
 

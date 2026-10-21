@@ -6,15 +6,23 @@ import { SyslogMetrics } from '@/components/syslog/SyslogMetrics';
 import { SyslogCharts } from '@/components/syslog/SyslogCharts';
 import { SyslogFilters } from '@/components/syslog/SyslogFilters';
 import { SyslogTable } from '@/components/syslog/SyslogTable';
+import { FirewallBlocksView } from '@/components/syslog/FirewallBlocksView';
 import { PfSenseSyslogModal } from '@/components/syslog/PfSenseSyslogModal';
 import { BackupRestoreModal } from '@/components/dashboard/BackupRestoreModal';
 import { IpMappingModal } from '@/components/dashboard/IpMappingModal';
-import type { SyslogEventRow, SyslogOverviewStats } from '@/lib/db/syslog-queries';
+import { ShieldAlert, ListFilter } from 'lucide-react';
+import { formatNumber } from '@/lib/formatters';
+import type { SyslogEventRow, SyslogOverviewStats, FirewallBlocksOverview } from '@/lib/db/syslog-queries';
 
 export default function SyslogPage() {
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Filters State (default to Today)
+  const [activeTab, setActiveTab] = useState<'stream' | 'blocks'>('stream');
+  const [suppressNoise, setSuppressNoise] = useState(true);
+  const [blocksData, setBlocksData] = useState<FirewallBlocksOverview | null>(null);
+  const [loadingBlocks, setLoadingBlocks] = useState(false);
+
   const [search, setSearch] = useState('');
   const [severityLevel, setSeverityLevel] = useState<'all' | 'errors' | 'warnings' | 'notices' | 'info'>('all');
   const [actionFilter, setActionFilter] = useState<'all' | 'block' | 'pass'>('all');
@@ -105,11 +113,37 @@ export default function SyslogPage() {
     [startDate, endDate]
   );
 
+  // 3. Fetch firewall blocks intelligence
+  const fetchBlocksData = useCallback(async () => {
+    try {
+      setLoadingBlocks(true);
+      const params = new URLSearchParams({
+        suppressNoise: suppressNoise ? 'true' : 'false',
+      });
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const res = await fetch(`/api/syslog/blocks?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch firewall blocks');
+      const json = await res.json();
+      if (json.success) {
+        setBlocksData(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching firewall blocks:', err);
+    } finally {
+      setLoadingBlocks(false);
+    }
+  }, [startDate, endDate, suppressNoise]);
+
   // Load data on filter changes
   useEffect(() => {
     fetchEvents();
     fetchStats();
-  }, [fetchEvents, fetchStats]);
+    if (activeTab === 'blocks') {
+      fetchBlocksData();
+    }
+  }, [fetchEvents, fetchStats, fetchBlocksData, activeTab]);
 
   // Real-time SSE Live Stream
   useEffect(() => {
@@ -206,38 +240,86 @@ export default function SyslogPage() {
           />
         )}
 
-        {/* Filters Bar */}
-        <SyslogFilters
-          search={search}
-          onSearchChange={handleSearchChange}
-          severityLevel={severityLevel}
-          onSeverityChange={handleSeverityChange}
-          actionFilter={actionFilter}
-          onActionChange={(act) => {
-            setActionFilter(act);
-            setPage(1);
-          }}
-          selectedApp={selectedApp}
-          onAppChange={handleAppChange}
-          availableApps={availableApps}
-          startDate={startDate}
-          endDate={endDate}
-          onDateChange={handleDateChange}
-          isRealtime={isRealtime}
-          onToggleRealtime={() => setIsRealtime(!isRealtime)}
-          onRefresh={handleRefresh}
-          isLoading={loadingEvents}
-        />
+        {/* Sub-View Switcher: Live Stream vs Firewall Blocks Intelligence */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('stream')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'stream'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                : 'bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <ListFilter className="w-3.5 h-3.5" />
+            <span>Live Log Stream & Search</span>
+          </button>
 
-        {/* Live Syslog Stream Table */}
-        <SyslogTable
-          events={events}
-          total={total}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          isLoading={loadingEvents}
-        />
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('blocks');
+              fetchBlocksData();
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'blocks'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                : 'bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+            <span>Firewall Blocks View (filterlog)</span>
+            {stats && stats.firewallBlocks > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full font-mono text-[10px] bg-rose-950 text-rose-300 border border-rose-800/80">
+                {formatNumber(stats.firewallBlocks)}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'stream' ? (
+          <>
+            {/* Filters Bar */}
+            <SyslogFilters
+              search={search}
+              onSearchChange={handleSearchChange}
+              severityLevel={severityLevel}
+              onSeverityChange={handleSeverityChange}
+              actionFilter={actionFilter}
+              onActionChange={(act) => {
+                setActionFilter(act);
+                setPage(1);
+              }}
+              selectedApp={selectedApp}
+              onAppChange={handleAppChange}
+              availableApps={availableApps}
+              startDate={startDate}
+              endDate={endDate}
+              onDateChange={handleDateChange}
+              isRealtime={isRealtime}
+              onToggleRealtime={() => setIsRealtime(!isRealtime)}
+              onRefresh={handleRefresh}
+              isLoading={loadingEvents}
+            />
+
+            {/* Live Syslog Stream Table */}
+            <SyslogTable
+              events={events}
+              total={total}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              isLoading={loadingEvents}
+            />
+          </>
+        ) : (
+          <FirewallBlocksView
+            data={blocksData}
+            isLoading={loadingBlocks}
+            suppressNoise={suppressNoise}
+            onToggleSuppressNoise={() => setSuppressNoise(!suppressNoise)}
+          />
+        )}
       </main>
 
       {/* pfSense Setup Modal */}

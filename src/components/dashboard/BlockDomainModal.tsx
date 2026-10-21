@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldAlert, X } from 'lucide-react';
+import { ShieldAlert, X, CheckCircle2, Server, FileText } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthContext';
 
 interface BlockDomainModalProps {
   domain: string | null;
@@ -11,9 +12,11 @@ interface BlockDomainModalProps {
 }
 
 export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDomainModalProps) {
+  const { user } = useAuth();
   const [reason, setReason] = useState('Malicious / Unproductive Domain');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
 
   if (!isOpen || !domain) return null;
 
@@ -21,6 +24,8 @@ export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDo
     try {
       setLoading(true);
       setError(null);
+      setSyncSuccess(null);
+
       const res = await fetch('/api/access-control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,13 +33,17 @@ export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDo
           action: 'block_domain',
           target: domain,
           reason,
-          operator: 'admin',
+          operator: user?.username || 'admin',
         }),
       });
+
       const json = await res.json();
       if (json.success) {
-        onSuccess?.();
-        onClose();
+        setSyncSuccess(`Domain written to Squid ACL & pfSense alias. Audit entry recorded.`);
+        setTimeout(() => {
+          onSuccess?.();
+          onClose();
+        }, 1200);
       } else {
         setError(json.error || 'Failed to block domain');
       }
@@ -46,7 +55,7 @@ export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5 text-rose-400">
@@ -54,8 +63,8 @@ export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDo
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-100">Block Domain</h3>
-              <p className="text-xs text-slate-400">Add domain to proxy blocklist policy</p>
+              <h3 className="text-base font-bold text-slate-100">Confirm Policy Block</h3>
+              <p className="text-xs text-slate-400">Enforce proxy ACL & firewall alias blocklist</p>
             </div>
           </div>
           <button
@@ -67,25 +76,48 @@ export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDo
           </button>
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+        <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Target Domain</span>
-          <p className="text-sm font-bold text-slate-100 font-mono break-all">{domain}</p>
+          <p className="text-sm font-bold text-rose-300 font-mono break-all">{domain}</p>
+          <p className="text-[11px] text-slate-400">
+            Blocks all HTTP and CONNECT SSL tunnels matching <span className="font-mono text-slate-300">.{domain}</span> across all LAN workstations.
+          </p>
+        </div>
+
+        {/* Adapter Targets */}
+        <div className="space-y-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Adapter Write Targets:</span>
+          <div className="flex items-center gap-2 text-slate-300">
+            <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <span className="font-mono text-[11px]">data/squid_blocked_domains.acl</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-300">
+            <Server className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <span className="font-mono text-[11px]">data/pfsense_blocked_hosts.txt</span>
+          </div>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-300">Reason / Category</label>
+          <label className="text-xs font-semibold text-slate-300">Policy Reason / Audit Note</label>
           <input
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-rose-500"
-            placeholder="e.g., Gambling, Phishing, Streaming"
+            placeholder="e.g., Gambling, Phishing, Streaming, Unproductive"
           />
         </div>
 
         {error && (
           <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/40 text-rose-300 text-xs">
             {error}
+          </div>
+        )}
+
+        {syncSuccess && (
+          <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{syncSuccess}</span>
           </div>
         )}
 
@@ -100,10 +132,10 @@ export function BlockDomainModal({ domain, isOpen, onClose, onSuccess }: BlockDo
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={loading}
+            disabled={loading || !!syncSuccess}
             className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
           >
-            {loading ? 'Blocking...' : 'Confirm Block'}
+            {loading ? 'Writing to ACL...' : 'Confirm Block & Log Audit'}
           </button>
         </div>
       </div>

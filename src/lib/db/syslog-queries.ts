@@ -332,3 +332,237 @@ export function getSyslogFilterOptions(): { apps: string[]; facilities: string[]
     return { apps: [], facilities: [] };
   }
 }
+
+export interface FirewallBlockStatItem {
+  key: string;
+  count: number;
+  sublabel?: string;
+  lastSeen?: number;
+}
+
+export interface FirewallPortItem {
+  port: number;
+  protocol: string;
+  service: string;
+  count: number;
+}
+
+export interface FirewallInterfaceItem {
+  interface: string;
+  direction: string;
+  count: number;
+}
+
+export interface FirewallTrackerItem {
+  tracker: string;
+  count: number;
+}
+
+export interface FirewallBlocksOverview {
+  totalBlocks: number;
+  suppressedNoiseCount: number;
+  actionableBlocks: number;
+  uniqueSources: number;
+  uniqueDestinations: number;
+  topSources: FirewallBlockStatItem[];
+  topDestinations: FirewallBlockStatItem[];
+  topPorts: FirewallPortItem[];
+  interfaces: FirewallInterfaceItem[];
+  trackers: FirewallTrackerItem[];
+}
+
+const WELL_KNOWN_PORTS: Record<number, string> = {
+  21: 'FTP',
+  22: 'SSH',
+  23: 'Telnet',
+  25: 'SMTP',
+  53: 'DNS',
+  80: 'HTTP',
+  123: 'NTP',
+  135: 'MS RPC',
+  137: 'NetBIOS Name',
+  138: 'NetBIOS Datagram',
+  139: 'NetBIOS Session',
+  443: 'HTTPS',
+  445: 'SMB / IPC',
+  1433: 'MS SQL Server',
+  1900: 'SSDP Multicast',
+  3306: 'MySQL',
+  3389: 'RDP Remote Desktop',
+  5353: 'mDNS Multicast',
+  8080: 'HTTP Proxy/Alt',
+  8443: 'HTTPS Alt',
+};
+
+/**
+ * Fetch parsed firewall blocks analysis with noise suppression
+ */
+export function getFirewallBlockStats(params: {
+  startDate?: string;
+  endDate?: string;
+  timeWindow?: string;
+  suppressNoise?: boolean;
+} = {}): FirewallBlocksOverview {
+  const db = getDatabase();
+  const { startMs, endMs } = resolveTimeRange(params);
+  const suppress = params.suppressNoise !== false; // default to true
+
+  const baseConditions: string[] = [
+    "(action IN ('block', 'reject') OR (app_name = 'filterlog' AND (message LIKE '%block%' OR message LIKE '%BLOCK%')))"
+  ];
+  const queryParams: any[] = [];
+
+  if (startMs !== undefined) {
+    baseConditions.push('timestamp >= ?');
+    queryParams.push(startMs);
+  }
+  if (endMs !== undefined) {
+    baseConditions.push('timestamp <= ?');
+    queryParams.push(endMs);
+  }
+
+  const baseWhere = `WHERE ${baseConditions.join(' AND ')}`;
+
+  // Noise conditions (SSDP, late RST/ACK, broadcast, mDNS)
+  const noiseClause = `
+    (
+      (dst_ip = '239.255.255.250' AND dst_port = 1900)
+      OR (tcp_flags LIKE '%RST%' AND (tcp_flags LIKE '%ACK%' OR tcp_flags = 'RST'))
+      OR (dst_ip = '255.255.255.255' OR dst_ip LIKE '%.255')
+      OR (dst_ip = '224.0.0.251' AND dst_port = 5353)
+      OR (dst_port IN (137, 138) AND (dst_ip = '255.255.255.255' OR dst_ip LIKE '%.255'))
+    )
+  `;
+
+  // Total blocks and noise counts
+  const countRow = db.prepare(`
+    SELECT
+      count(*) AS total_blocks,
+      SUM(CASE WHEN ${noiseClause} THEN 1 ELSE 0 END) AS noise_blocks,
+      COUNT(DISTINCT src_ip) AS total_sources,
+      COUNT(DISTINCT dst_ip) AS total_destinations
+    FROM syslog_events
+    ${baseWhere}
+  `).get(...queryParams) as any;
+
+  const totalBlocks = countRow?.total_blocks || 0;
+  const suppressedNoiseCount = countRow?.noise_blocks || 0;
+  const actionableBlocks = Math.max(0, totalBlocks - suppressedNoiseCount);
+
+  // Active where clause for breakdowns
+  const activeConditions = [...baseConditions];
+  if (suppress) {
+    activeConditions.push(`NOT ${noiseClause}`);
+  }
+  const activeWhere = `WHERE ${activeConditions.join(' AND ')}`;
+
+  // 1. Top Blocked Sources (with employee alias join)
+  const topSourcesRows = db.prepare(`
+    SELECT
+      s.src_ip AS ip,
+      count(*) AS count,
+      MAX(s.timestamp) AS last_seen,
+      m.user_name AS user_name,
+      m.department AS department
+    FROM syslog_events s
+    LEFT JOIN ip_mappings m ON s.src_ip = m.client_ip
+    ${activeWhere} AND s.src_ip IS NOT NULL AND s.src_ip != ''
+    GROUP BY s.src_ip
+    ORDER BY count DESC
+    LIMIT 10
+  `).all(...queryParams) as any[];
+
+  const topSources: FirewallBlockStatItem[] = topSourcesRows.map((r) => ({
+    key: r.ip,
+    count: r.count,
+    sublabel: r.user_name ? `${r.user_name}${r.department ? ` (${r.department})` : ''}` : undefined,
+    lastSeen: r.last_seen,
+  }));
+
+  // 2. Top Blocked Destinations
+  const topDestRows = db.prepare(`
+    SELECT
+      dst_ip AS ip,
+      count(*) AS count,
+      MAX(timestamp) AS last_seen
+    FROM syslog_events
+    ${activeWhere} AND dst_ip IS NOT NULL AND dst_ip != ''
+    GROUP BY dst_ip
+    ORDER BY count DESC
+    LIMIT 10
+  `).all(...queryParams) as any[];
+
+  const topDestinations: FirewallBlockStatItem[] = topDestRows.map((r) => ({
+    key: r.ip,
+    count: r.count,
+    lastSeen: r.last_seen,
+  }));
+
+  // 3. Top Blocked Ports
+  const topPortsRows = db.prepare(`
+    SELECT
+      dst_port,
+      protocol,
+      count(*) AS count
+    FROM syslog_events
+    ${activeWhere} AND dst_port IS NOT NULL AND dst_port > 0
+    GROUP BY dst_port, protocol
+    ORDER BY count DESC
+    LIMIT 10
+  `).all(...queryParams) as any[];
+
+  const topPorts: FirewallPortItem[] = topPortsRows.map((r) => ({
+    port: r.dst_port,
+    protocol: r.protocol || 'TCP',
+    service: WELL_KNOWN_PORTS[r.dst_port] || 'Other Service',
+    count: r.count,
+  }));
+
+  // 4. Interface Breakdown
+  const ifaceRows = db.prepare(`
+    SELECT
+      COALESCE(interface, 'unknown') AS interface,
+      COALESCE(direction, 'in') AS direction,
+      count(*) AS count
+    FROM syslog_events
+    ${activeWhere}
+    GROUP BY interface, direction
+    ORDER BY count DESC
+  `).all(...queryParams) as any[];
+
+  const interfaces: FirewallInterfaceItem[] = ifaceRows.map((r) => ({
+    interface: r.interface,
+    direction: r.direction,
+    count: r.count,
+  }));
+
+  // 5. Rule Tracker Hits
+  const trackerRows = db.prepare(`
+    SELECT
+      COALESCE(proc_id, 'Default Deny') AS tracker,
+      count(*) AS count
+    FROM syslog_events
+    ${activeWhere}
+    GROUP BY tracker
+    ORDER BY count DESC
+    LIMIT 8
+  `).all(...queryParams) as any[];
+
+  const trackers: FirewallTrackerItem[] = trackerRows.map((r) => ({
+    tracker: r.tracker,
+    count: r.count,
+  }));
+
+  return {
+    totalBlocks,
+    suppressedNoiseCount,
+    actionableBlocks,
+    uniqueSources: countRow?.total_sources || 0,
+    uniqueDestinations: countRow?.total_destinations || 0,
+    topSources,
+    topDestinations,
+    topPorts,
+    interfaces,
+    trackers,
+  };
+}

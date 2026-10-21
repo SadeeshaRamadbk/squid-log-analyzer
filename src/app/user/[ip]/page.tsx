@@ -23,7 +23,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
   const [profile, setProfile] = useState<IpProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timelineFilter, setTimelineFilter] = useState<'all' | 'squid' | 'flows'>('all');
+  const [timelineFilter, setTimelineFilter] = useState<'all' | 'squid' | 'flows' | 'syslog'>('all');
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -169,7 +169,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
   const timelineItems: Array<{
     time: number;
     formatted: string;
-    type: 'squid' | 'flow';
+    type: 'squid' | 'flow' | 'syslog';
     title: string;
     subtitle: string;
     badge: string;
@@ -183,7 +183,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
       type: 'squid',
       title: `Blocked HTTP/S: ${b.domain}`,
       subtitle: b.url || b.resultCode,
-      badge: b.resultCode,
+      badge: `SQUID ${b.resultCode}`,
       isAlert: true,
     });
   }
@@ -195,9 +195,24 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
       type: 'flow',
       title: `${f.serviceName} Flow: ${f.direction === 'upload' ? 'Upload to' : 'Download from'} ${f.remoteIp}`,
       subtitle: `${formatBytes(f.bytes)} (${f.packets} packets, ${f.protocol})`,
-      badge: f.serviceName,
+      badge: `NETFLOW ${f.serviceName}`,
       isAlert: false,
     });
+  }
+
+  if (profile.syslog?.recentEvents) {
+    for (const s of profile.syslog.recentEvents) {
+      const isBlock = s.action === 'block' || s.action === 'reject' || (s.appName === 'filterlog' && s.message.toUpperCase().includes('BLOCK'));
+      timelineItems.push({
+        time: s.timestamp,
+        formatted: s.formattedTime,
+        type: 'syslog',
+        title: `${isBlock ? 'Firewall Drop' : 'Syslog Event'} (${s.appName}): ${s.protocol || ''} ${s.srcIp || ''} -> ${s.dstIp || ''}${s.dstPort ? `:${s.dstPort}` : ''}`,
+        subtitle: s.message,
+        badge: isBlock ? 'FIREWALL BLOCK' : `SYSLOG ${s.severityLabel.toUpperCase()}`,
+        isAlert: isBlock || s.severity <= 4,
+      });
+    }
   }
 
   timelineItems.sort((a, b) => b.time - a.time);
@@ -205,6 +220,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
   const filteredTimeline = timelineItems.filter((item) => {
     if (timelineFilter === 'squid') return item.type === 'squid';
     if (timelineFilter === 'flows') return item.type === 'flow';
+    if (timelineFilter === 'syslog') return item.type === 'syslog';
     return true;
   });
 
@@ -301,6 +317,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
                 {formatNumber(profile.squid.blockedCount)}
               </p>
             </div>
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-amber-900/40 text-center min-w-24">
+              <span className="text-[10px] text-amber-400 uppercase font-semibold">Firewall Drops</span>
+              <p className="text-sm font-bold text-amber-400 font-mono">
+                {formatNumber(profile.syslog?.firewallBlocks || 0)}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -385,6 +407,15 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
                 }`}
               >
                 Flows
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimelineFilter('syslog')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  timelineFilter === 'syslog' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400'
+                }`}
+              >
+                Firewall / Syslog ({profile.syslog?.recentEvents?.length || 0})
               </button>
             </div>
           </div>

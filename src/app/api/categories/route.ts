@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllCategoriesMap, setCustomDomainCategory, DomainCategory, getDomainCategory } from '@/lib/categories';
+import {
+  getAllCategoriesMap,
+  setCustomDomainCategory,
+  deleteCustomDomainCategory,
+  DomainCategory,
+  getDomainCategory,
+  getDepartmentCategorySummary,
+} from '@/lib/categories';
 import { getDatabase } from '@/lib/db';
+import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const mode = searchParams.get('mode'); // 'map' | 'share'
+    const mode = searchParams.get('mode'); // 'map' | 'share' | 'departments'
     const clientIp = searchParams.get('clientIp');
+
+    if (mode === 'departments') {
+      const departments = getDepartmentCategorySummary();
+      return NextResponse.json({ success: true, departments });
+    }
 
     if (mode === 'share') {
       const db = getDatabase();
@@ -58,8 +71,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-import { getUserFromRequest } from '@/lib/auth';
-
 export async function POST(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
@@ -84,6 +95,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: `Updated category for ${domain}` });
   } catch (error: any) {
     console.error('API /api/categories POST error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = getUserFromRequest(request);
+    if (user && user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Admin role required to delete domain category rule' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const domain = searchParams.get('domain');
+
+    if (!domain) {
+      return NextResponse.json({ success: false, error: 'Domain parameter is required' }, { status: 400 });
+    }
+
+    deleteCustomDomainCategory(domain);
+    return NextResponse.json({ success: true, message: `Reset category rule for ${domain}` });
+  } catch (error: any) {
+    console.error('API /api/categories DELETE error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
