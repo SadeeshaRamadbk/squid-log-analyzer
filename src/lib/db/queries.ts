@@ -186,12 +186,15 @@ export function getOverviewMetrics(filters: DashboardFilters = {}): SummaryMetri
 /**
  * Get Top Domains
  */
-export function getTopDomains(filters: DashboardFilters = {}, limit = 10): DomainStat[] {
+export function getTopDomains(filters: DashboardFilters = {}, limit = 10, totalRequestsHint?: number): DomainStat[] {
   const db = getDatabase();
   const { whereClause, params } = buildRawLogsFilterClause(filters);
 
-  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs ${whereClause}`).get(...params) as any;
-  const totalRequests = Number(totalRow?.total || 0);
+  let totalRequests = totalRequestsHint;
+  if (totalRequests === undefined) {
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs ${whereClause}`).get(...params) as any;
+    totalRequests = Number(totalRow?.total || 0);
+  }
 
   const query = `
     SELECT
@@ -211,19 +214,22 @@ export function getTopDomains(filters: DashboardFilters = {}, limit = 10): Domai
     requestCount: Number(r.requestCount),
     blockedCount: Number(r.blockedCount),
     bytes: Number(r.bytes),
-    percentage: totalRequests > 0 ? Math.round((Number(r.requestCount) / totalRequests) * 1000) / 10 : 0,
+    percentage: (totalRequests ?? 0) > 0 ? Math.round((Number(r.requestCount) / (totalRequests ?? 1)) * 1000) / 10 : 0,
   }));
 }
 
 /**
  * Get Top Client IPs
  */
-export function getTopClientIps(filters: DashboardFilters = {}, limit = 10): ClientIpStat[] {
+export function getTopClientIps(filters: DashboardFilters = {}, limit = 10, totalRequestsHint?: number): ClientIpStat[] {
   const db = getDatabase();
   const { whereClause, params } = buildRawLogsFilterClause(filters, 'r.');
 
-  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${whereClause}`).get(...params) as any;
-  const totalRequests = Number(totalRow?.total || 0);
+  let totalRequests = totalRequestsHint;
+  if (totalRequests === undefined) {
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${whereClause}`).get(...params) as any;
+    totalRequests = Number(totalRow?.total || 0);
+  }
 
   const query = `
     SELECT
@@ -262,7 +268,7 @@ export function getTopClientIps(filters: DashboardFilters = {}, limit = 10): Cli
     bytes: Number(r.bytes),
     downloadBytes: Number(r.downloadBytes || 0),
     uploadBytes: Number(r.uploadBytes || 0),
-    percentage: totalRequests > 0 ? Math.round((Number(r.requestCount) / totalRequests) * 1000) / 10 : 0,
+    percentage: (totalRequests ?? 0) > 0 ? Math.round((Number(r.requestCount) / (totalRequests ?? 1)) * 1000) / 10 : 0,
   }));
 }
 
@@ -273,8 +279,19 @@ export function getRequestsOverTime(filters: DashboardFilters = {}): SquidTimePo
   const db = getDatabase();
   const tz = getSystemSettings().timezone || 'Asia/Colombo';
 
-  const boundsRow = db.prepare('SELECT MIN(timestamp) as minTs, MAX(timestamp) as maxTs FROM raw_logs').get() as any;
-  const config = getTimeBucketConfig(filters, boundsRow?.minTs, boundsRow?.maxTs, tz);
+  let minTs: number | undefined;
+  let maxTs: number | undefined;
+
+  // Only query database bounds if no date range or time window is explicitly selected
+  // Probe B-Tree edges directly via index (0.1ms) instead of full table scan
+  if (!filters.timeWindow && !filters.startDate && !filters.endDate) {
+    try {
+      minTs = db.prepare('SELECT timestamp FROM raw_logs ORDER BY timestamp ASC LIMIT 1').pluck().get() as number | undefined;
+      maxTs = db.prepare('SELECT timestamp FROM raw_logs ORDER BY timestamp DESC LIMIT 1').pluck().get() as number | undefined;
+    } catch {}
+  }
+
+  const config = getTimeBucketConfig(filters, minTs, maxTs, tz);
 
   const conditions: string[] = ['timestamp >= ?', 'timestamp <= ?'];
   const params: any[] = [config.startMs, config.endMs];
@@ -408,10 +425,23 @@ export function getBlockedRequests(
   return { records, total };
 }
 
+let cachedDistinctClientIps: { data: DistinctClientIpInfo[]; expiresAt: number } | null = null;
+let cachedDateRange: { data: { minDate: string | null; maxDate: string | null }; expiresAt: number } | null = null;
+
+export function invalidateQueriesCache(): void {
+  cachedDistinctClientIps = null;
+  cachedDateRange = null;
+}
+
 /**
- * Get distinct client IPs for filter dropdown with user mapping
+ * Get distinct client IPs for filter dropdown with user mapping (60s in-memory cache)
  */
 export function getDistinctClientIps(): DistinctClientIpInfo[] {
+  const now = Date.now();
+  if (cachedDistinctClientIps && now < cachedDistinctClientIps.expiresAt) {
+    return cachedDistinctClientIps.data;
+  }
+
   const db = getDatabase();
   const rows = db.prepare(`
     SELECT DISTINCT
@@ -422,11 +452,14 @@ export function getDistinctClientIps(): DistinctClientIpInfo[] {
     LEFT JOIN ip_mappings m ON d.client_ip = m.client_ip
     ORDER BY d.client_ip ASC
   `).all() as any[];
-  return rows.map((r) => ({
+  const result: DistinctClientIpInfo[] = rows.map((r) => ({
     clientIp: r.clientIp,
     userName: r.userName || null,
     department: r.department || null,
   }));
+
+  cachedDistinctClientIps = { data: result, expiresAt: now + 60000 };
+  return result;
 }
 
 /**
@@ -517,15 +550,23 @@ export function getUnassignedIps(): UnassignedIpRecord[] {
 }
 
 /**
- * Get date range available in the database
+ * Get date range available in the database (60s in-memory cache)
  */
 export function getDateRange(): { minDate: string | null; maxDate: string | null } {
+  const now = Date.now();
+  if (cachedDateRange && now < cachedDateRange.expiresAt) {
+    return cachedDateRange.data;
+  }
+
   const db = getDatabase();
   const row = db.prepare(`SELECT MIN(date) as minDate, MAX(date) as maxDate FROM daily_summaries`).get() as any;
-  return {
+  const result = {
     minDate: row?.minDate || null,
     maxDate: row?.maxDate || null,
   };
+
+  cachedDateRange = { data: result, expiresAt: now + 60000 };
+  return result;
 }
 
 /**
@@ -589,10 +630,28 @@ export function getLiveRequests(
     params.push(`%${filters.resultCode.trim()}%`);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  let total = 0;
+  if (conditions.length === 0) {
+    // Fast path: Unfiltered total count from sqlite sequence table (0.01ms vs full table scan)
+    try {
+      const seqRow = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'raw_logs'").get() as any;
+      if (seqRow && seqRow.seq) {
+        total = Number(seqRow.seq);
+      } else {
+        const countRow = db.prepare('SELECT COUNT(*) as total FROM raw_logs').get() as any;
+        total = Number(countRow?.total || 0);
+      }
+    } catch {
+      const countRow = db.prepare('SELECT COUNT(*) as total FROM raw_logs').get() as any;
+      total = Number(countRow?.total || 0);
+    }
+  } else {
+    const where = `WHERE ${conditions.join(' AND ')}`;
+    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${where}`).get(...params) as any;
+    total = Number(totalRow?.total || 0);
+  }
 
-  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${where}`).get(...params) as any;
-  const total = Number(totalRow?.total || 0);
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const query = `
     SELECT

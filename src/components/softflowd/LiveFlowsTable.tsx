@@ -195,7 +195,7 @@ export function LiveFlowsTable({
 
       {/* Table Area */}
       <div className="overflow-x-auto max-h-[520px]">
-        {isLoading ? (
+        {isLoading && sortedRecords.length === 0 ? (
           <SkeletonTable rows={8} columns={7} />
         ) : sortedRecords.length === 0 ? (
           <div className="h-40 flex flex-col items-center justify-center text-slate-500 text-xs">

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import Database from 'better-sqlite3';
 import { getDatabasePath, closeDatabase, reopenDatabase } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
@@ -33,19 +35,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Stream uploaded file directly to disk to prevent V8 ArrayBuffer heap limits
+    const webStream = file.stream();
+    const nodeStream = Readable.fromWeb(webStream as any);
+    const writeStream = fs.createWriteStream(tempUploadedPath);
+    await pipeline(nodeStream, writeStream);
 
-    // Validate minimum file size and SQLite header
-    if (buffer.length < 100) {
+    const stats = fs.statSync(tempUploadedPath);
+
+    // Validate minimum file size
+    if (stats.size < 100) {
       return NextResponse.json(
         { success: false, error: 'The uploaded file is too small to be a valid SQLite database' },
         { status: 400 }
       );
     }
 
-    const header = buffer.subarray(0, 16);
-    if (!header.equals(SQLITE_HEADER)) {
+    // Read only the first 16 bytes from disk to verify SQLite header
+    const fd = fs.openSync(tempUploadedPath, 'r');
+    const headerBuffer = Buffer.alloc(16);
+    fs.readSync(fd, headerBuffer, 0, 16, 0);
+    fs.closeSync(fd);
+
+    if (!headerBuffer.equals(SQLITE_HEADER)) {
       return NextResponse.json(
         {
           success: false,
@@ -54,9 +66,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Save uploaded file to temp path to verify integrity before replacing live DB
-    fs.writeFileSync(tempUploadedPath, buffer);
 
     // Verify database opens and passes basic integrity check
     try {

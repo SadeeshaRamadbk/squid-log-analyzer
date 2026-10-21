@@ -170,7 +170,7 @@ export function BlockedRequestsList({
       />
 
       <div className="overflow-x-auto">
-        {isLoading ? (
+        {isLoading && sortedRecords.length === 0 ? (
           <SkeletonTable rows={8} columns={6} />
         ) : sortedRecords.length === 0 ? (
           <div className="h-32 flex flex-col items-center justify-center text-slate-500 text-xs">

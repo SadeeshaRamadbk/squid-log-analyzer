@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { AppHeader } from '@/components/navigation/AppHeader';
@@ -71,15 +71,21 @@ function DashboardContent() {
   // Real-Time auto-update state
   const [isRealTime, setIsRealTime] = useState(false);
 
-  // Squid Filter state
+  // Squid Filter state (defaulted to Today)
   const [squidFilters, setSquidFilters] = useState<{
     startDate?: string;
     endDate?: string;
     clientIp?: string;
     timeWindow?: '30m' | '1h';
-  }>({});
+  }>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return {
+      startDate: today,
+      endDate: today,
+    };
+  });
 
-  // Softflowd Filter state
+  // Softflowd Filter state (defaulted to Today)
   const [softflowdFilters, setSoftflowdFilters] = useState<{
     startDate?: string;
     endDate?: string;
@@ -91,10 +97,15 @@ function DashboardContent() {
     hideFirewallTraffic?: boolean;
     hideProxyHop?: boolean;
     trafficType?: 'all' | 'external' | 'internal';
-  }>({
-    hideFirewallTraffic: true,
-    hideProxyHop: true,
-    trafficType: 'all',
+  }>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return {
+      startDate: today,
+      endDate: today,
+      hideFirewallTraffic: true,
+      hideProxyHop: true,
+      trafficType: 'all',
+    };
   });
 
   // Tab state for Squid lower panel (Live stream vs Blocked requests)
@@ -245,8 +256,19 @@ function DashboardContent() {
   });
   const [loadingFlows, setLoadingFlows] = useState(false);
 
+  // In-flight request cancellation refs to prevent lag and race conditions
+  const squidStatsAbortRef = useRef<AbortController | null>(null);
+  const liveReqAbortRef = useRef<AbortController | null>(null);
+  const blockedAbortRef = useRef<AbortController | null>(null);
+  const netflowStatsAbortRef = useRef<AbortController | null>(null);
+  const flowsAbortRef = useRef<AbortController | null>(null);
+
   // Fetch Squid Stats
   const fetchSquidStats = useCallback(async () => {
+    if (squidStatsAbortRef.current) squidStatsAbortRef.current.abort();
+    const abortController = new AbortController();
+    squidStatsAbortRef.current = abortController;
+
     try {
       const params = new URLSearchParams();
       if (squidFilters.startDate) params.set('startDate', squidFilters.startDate);
@@ -254,19 +276,25 @@ function DashboardContent() {
       if (squidFilters.clientIp) params.set('clientIp', squidFilters.clientIp);
       if (squidFilters.timeWindow) params.set('timeWindow', squidFilters.timeWindow);
 
-      const res = await fetch(`/api/stats?${params.toString()}`);
+      const res = await fetch(`/api/stats?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setSquidStats(json.data);
       }
-    } catch (err) {
-      console.error('Failed to load Squid stats:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load Squid stats:', err);
+      }
     }
   }, [squidFilters]);
 
   // Fetch Squid Live Requests
-  const fetchLiveRequests = useCallback(async (page = 1) => {
-    setLoadingLiveReq(true);
+  const fetchLiveRequests = useCallback(async (page = 1, isSilent = false) => {
+    if (liveReqAbortRef.current) liveReqAbortRef.current.abort();
+    const abortController = new AbortController();
+    liveReqAbortRef.current = abortController;
+
+    if (!isSilent) setLoadingLiveReq(true);
     try {
       const params = new URLSearchParams();
       if (squidFilters.startDate) params.set('startDate', squidFilters.startDate);
@@ -276,7 +304,7 @@ function DashboardContent() {
       params.set('page', page.toString());
       params.set('limit', '25');
 
-      const res = await fetch(`/api/requests?${params.toString()}`);
+      const res = await fetch(`/api/requests?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setLiveReqData({
@@ -286,16 +314,24 @@ function DashboardContent() {
         });
         setLiveReqPage(page);
       }
-    } catch (err) {
-      console.error('Failed to load live requests:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load live requests:', err);
+      }
     } finally {
-      setLoadingLiveReq(false);
+      if (!abortController.signal.aborted && !isSilent) {
+        setLoadingLiveReq(false);
+      }
     }
   }, [squidFilters]);
 
   // Fetch Squid Blocked Requests
-  const fetchBlocked = useCallback(async (page = 1) => {
-    setLoadingBlocked(true);
+  const fetchBlocked = useCallback(async (page = 1, isSilent = false) => {
+    if (blockedAbortRef.current) blockedAbortRef.current.abort();
+    const abortController = new AbortController();
+    blockedAbortRef.current = abortController;
+
+    if (!isSilent) setLoadingBlocked(true);
     try {
       const params = new URLSearchParams();
       if (squidFilters.startDate) params.set('startDate', squidFilters.startDate);
@@ -305,7 +341,7 @@ function DashboardContent() {
       params.set('page', page.toString());
       params.set('limit', '25');
 
-      const res = await fetch(`/api/blocked?${params.toString()}`);
+      const res = await fetch(`/api/blocked?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setBlockedData({
@@ -315,15 +351,23 @@ function DashboardContent() {
         });
         setBlockedPage(page);
       }
-    } catch (err) {
-      console.error('Failed to load blocked logs:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load blocked logs:', err);
+      }
     } finally {
-      setLoadingBlocked(false);
+      if (!abortController.signal.aborted && !isSilent) {
+        setLoadingBlocked(false);
+      }
     }
   }, [squidFilters]);
 
   // Fetch NetFlow Stats
   const fetchNetflowStats = useCallback(async () => {
+    if (netflowStatsAbortRef.current) netflowStatsAbortRef.current.abort();
+    const abortController = new AbortController();
+    netflowStatsAbortRef.current = abortController;
+
     try {
       const params = new URLSearchParams();
       if (softflowdFilters.startDate) params.set('startDate', softflowdFilters.startDate);
@@ -337,19 +381,25 @@ function DashboardContent() {
       if (softflowdFilters.hideProxyHop !== undefined) params.set('hideProxyHop', String(softflowdFilters.hideProxyHop));
       if (softflowdFilters.trafficType) params.set('trafficType', softflowdFilters.trafficType);
 
-      const res = await fetch(`/api/netflow/stats?${params.toString()}`);
+      const res = await fetch(`/api/netflow/stats?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setNetflowStats(json.data);
       }
-    } catch (err) {
-      console.error('Failed to load NetFlow stats:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load NetFlow stats:', err);
+      }
     }
   }, [softflowdFilters]);
 
   // Fetch NetFlow Flows
-  const fetchFlows = useCallback(async (page = 1) => {
-    setLoadingFlows(true);
+  const fetchFlows = useCallback(async (page = 1, isSilent = false) => {
+    if (flowsAbortRef.current) flowsAbortRef.current.abort();
+    const abortController = new AbortController();
+    flowsAbortRef.current = abortController;
+
+    if (!isSilent) setLoadingFlows(true);
     try {
       const params = new URLSearchParams();
       if (softflowdFilters.startDate) params.set('startDate', softflowdFilters.startDate);
@@ -365,7 +415,7 @@ function DashboardContent() {
       params.set('page', page.toString());
       params.set('limit', '25');
 
-      const res = await fetch(`/api/netflow/flows?${params.toString()}`);
+      const res = await fetch(`/api/netflow/flows?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setFlowData({
@@ -375,27 +425,37 @@ function DashboardContent() {
         });
         setFlowPage(page);
       }
-    } catch (err) {
-      console.error('Failed to load flows:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load flows:', err);
+      }
     } finally {
-      setLoadingFlows(false);
+      if (!abortController.signal.aborted && !isSilent) {
+        setLoadingFlows(false);
+      }
     }
   }, [softflowdFilters]);
 
-  // Lazy Load for Squid
+  // Optimized Lazy Load for Squid (Only loads active tab, skipping redundant background queries)
   useEffect(() => {
     if (activeView !== 'squid' && activeView !== 'split') return;
     let isMounted = true;
     const run = async () => {
       setLoadingSquid(true);
-      await Promise.all([fetchSquidStats(), fetchLiveRequests(1), fetchBlocked(1)]);
+      const tasks: Promise<any>[] = [fetchSquidStats()];
+      if (squidLogTab === 'live') {
+        tasks.push(fetchLiveRequests(1));
+      } else {
+        tasks.push(fetchBlocked(1));
+      }
+      await Promise.all(tasks);
       if (isMounted) setLoadingSquid(false);
     };
     run();
     return () => {
       isMounted = false;
     };
-  }, [activeView, fetchSquidStats, fetchLiveRequests, fetchBlocked]);
+  }, [activeView, squidLogTab, fetchSquidStats, fetchLiveRequests, fetchBlocked]);
 
   // Lazy Load for NetFlow
   useEffect(() => {
@@ -423,12 +483,12 @@ function DashboardContent() {
       if (typeof document !== 'undefined' && document.hidden) return;
       if (activeView === 'squid' || activeView === 'split') {
         fetchSquidStats();
-        if (squidLogTab === 'live') fetchLiveRequests(liveReqPage);
-        else fetchBlocked(blockedPage);
+        if (squidLogTab === 'live') fetchLiveRequests(liveReqPage, true);
+        else fetchBlocked(blockedPage, true);
       }
       if (activeView === 'softflowd' || activeView === 'split') {
         fetchNetflowStats();
-        fetchFlows(flowPage);
+        fetchFlows(flowPage, true);
       }
     };
 

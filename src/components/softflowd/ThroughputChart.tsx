@@ -154,6 +154,7 @@ export function ThroughputChart({ data }: ThroughputChartProps) {
               fillOpacity={1}
               fill="url(#colorTotal)"
               name="bytes"
+              isAnimationActive={false}
             />
             <Area
               yAxisId="bytes"
@@ -164,6 +165,7 @@ export function ThroughputChart({ data }: ThroughputChartProps) {
               fillOpacity={1}
               fill="url(#colorDownload)"
               name="downloadBytes"
+              isAnimationActive={false}
             />
             <Area
               yAxisId="bytes"
@@ -174,6 +176,7 @@ export function ThroughputChart({ data }: ThroughputChartProps) {
               fillOpacity={1}
               fill="url(#colorUpload)"
               name="uploadBytes"
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>

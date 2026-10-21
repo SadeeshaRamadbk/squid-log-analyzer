@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
 
         try {
           const db = getDatabase();
-          
-          // Latest softflowd flow
+
+          // Latest softflowd flow (uses timestamp index)
           const latestFlow = db.prepare(`
             SELECT id, timestamp, src_ip, dst_ip, src_port, dst_port, protocol, service_name, bytes, packets
             FROM netflow_logs
@@ -44,30 +44,42 @@ export async function GET(request: NextRequest) {
             LIMIT 1
           `).get() as any;
 
-          // Latest Squid request
+          // Latest Squid request (uses timestamp index and correct schema columns)
           const latestSquid = db.prepare(`
-            SELECT id, timestamp, client_ip, domain, action, http_status, bytes
+            SELECT id, timestamp, client_ip, domain, method, result_code, is_blocked, bytes
             FROM raw_logs
             ORDER BY timestamp DESC
             LIMIT 1
           `).get() as any;
 
-          const flowCountRow = db.prepare('SELECT count(*) as count FROM netflow_logs').get() as any;
-          const squidCountRow = db.prepare('SELECT count(*) as count FROM raw_logs').get() as any;
+          // Instant count from sqlite_sequence (0.01ms) to eliminate background database CPU load
+          let totalFlows = 0;
+          let totalRequests = 0;
+
+          try {
+            const flowSeq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'netflow_logs'").get() as any;
+            totalFlows = flowSeq?.seq ? Number(flowSeq.seq) : 0;
+          } catch {}
+
+          try {
+            const squidSeq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'raw_logs'").get() as any;
+            totalRequests = squidSeq?.seq ? Number(squidSeq.seq) : 0;
+          } catch {}
 
           sendEvent('heartbeat', {
             timestamp: Date.now(),
             netflow: {
               latestFlow: latestFlow || null,
-              totalFlows: flowCountRow?.count || 0,
+              totalFlows,
             },
             squid: {
               latestRequest: latestSquid || null,
-              totalRequests: squidCountRow?.count || 0,
+              totalRequests,
             },
           });
         } catch (err: any) {
-          sendEvent('stream_error', { error: err.message });
+          console.warn('[SSE Stream] Heartbeat query error:', err?.message);
+          sendEvent('stream_error', { error: err?.message || 'Stream error' });
         }
       }, 2500);
 

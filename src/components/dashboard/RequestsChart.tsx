@@ -150,6 +150,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 fillOpacity={1}
                 fill="url(#colorRequests)"
                 name="requestCount"
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -159,6 +160,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 fillOpacity={1}
                 fill="url(#colorBlocked)"
                 name="blockedCount"
+                isAnimationActive={false}
               />
             </AreaChart>
           ) : (
@@ -227,6 +229,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 fillOpacity={1}
                 fill="url(#colorSquidTotal)"
                 name="bytes"
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -236,6 +239,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 fillOpacity={1}
                 fill="url(#colorSquidDown)"
                 name="downloadBytes"
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -245,6 +249,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 fillOpacity={1}
                 fill="url(#colorSquidUp)"
                 name="uploadBytes"
+                isAnimationActive={false}
               />
             </AreaChart>
           )}

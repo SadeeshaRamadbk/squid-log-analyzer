@@ -2,11 +2,14 @@ import type Database from 'better-sqlite3';
 import { seedDefaultUsers } from '../auth';
 
 export function initializeDatabase(db: Database.Database): void {
-  // Enforce WAL mode and optimal SQLite performance settings
+  // Enforce WAL mode and optimal SQLite performance settings for multi-GB scale
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
-  db.pragma('busy_timeout = 5000');
+  db.pragma('busy_timeout = 10000');
   db.pragma('foreign_keys = ON');
+  db.pragma('cache_size = -64000'); // 64 MB memory page cache (replaces default ~2MB)
+  db.pragma('mmap_size = 1073741824'); // 1 GB memory-mapped I/O for direct OS file caching
+  db.pragma('temp_store = MEMORY'); // Keep temporary tables, sorting, and GROUP BY in RAM
 
   // Create raw logs table
   // Requirement: Store full URL only for blocked requests
@@ -23,11 +26,17 @@ export function initializeDatabase(db: Database.Database): void {
       bytes INTEGER NOT NULL DEFAULT 0
     );
 
-    -- Required indexes: time, client IP, domain
+    -- Primary single-column and composite indexes for raw_logs (multi-GB fast queries)
     CREATE INDEX IF NOT EXISTS idx_raw_logs_timestamp ON raw_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_raw_logs_client_ip ON raw_logs(client_ip);
     CREATE INDEX IF NOT EXISTS idx_raw_logs_domain ON raw_logs(domain);
     CREATE INDEX IF NOT EXISTS idx_raw_logs_blocked ON raw_logs(is_blocked, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_raw_logs_ts_ip ON raw_logs(timestamp, client_ip);
+    CREATE INDEX IF NOT EXISTS idx_raw_logs_ip_ts ON raw_logs(client_ip, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_raw_logs_ts_domain_bytes ON raw_logs(timestamp, domain, bytes, is_blocked);
+    CREATE INDEX IF NOT EXISTS idx_raw_logs_ts_client_bytes ON raw_logs(timestamp, client_ip, bytes, is_blocked);
+    CREATE INDEX IF NOT EXISTS idx_raw_logs_ip_ts_desc ON raw_logs(client_ip, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_raw_logs_blocked_ts_ip ON raw_logs(is_blocked, timestamp DESC, client_ip);
 
     -- Required daily summary table: (date, client IP, domain, request count, bytes)
     CREATE TABLE IF NOT EXISTS daily_summaries (
@@ -41,10 +50,13 @@ export function initializeDatabase(db: Database.Database): void {
       CONSTRAINT uq_daily_ip_domain UNIQUE(date, client_ip, domain)
     );
 
-    -- Required indexes on summary table
+    -- Indexes on summary table (single and composite)
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_date ON daily_summaries(date);
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_client_ip ON daily_summaries(client_ip);
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_domain ON daily_summaries(domain);
+    CREATE INDEX IF NOT EXISTS idx_daily_date_ip ON daily_summaries(date, client_ip);
+    CREATE INDEX IF NOT EXISTS idx_daily_ip_date ON daily_summaries(client_ip, date);
+    CREATE INDEX IF NOT EXISTS idx_daily_domain_date ON daily_summaries(domain, date);
 
     -- Metadata tracking table for retention and ingestion status
     CREATE TABLE IF NOT EXISTS system_meta (
@@ -85,6 +97,10 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_netflow_dst_ip ON netflow_logs(dst_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_dst_port ON netflow_logs(dst_port);
     CREATE INDEX IF NOT EXISTS idx_netflow_protocol ON netflow_logs(protocol);
+    CREATE INDEX IF NOT EXISTS idx_netflow_ts_src ON netflow_logs(timestamp, src_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_ts_dst ON netflow_logs(timestamp, dst_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_src_ts ON netflow_logs(src_ip, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_netflow_dst_ts ON netflow_logs(dst_ip, timestamp);
 
     -- Daily aggregate summaries for softflowd
     CREATE TABLE IF NOT EXISTS netflow_daily_summaries (
@@ -194,6 +210,10 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_netflow_min_src ON netflow_minute_rollups(src_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_min_dst ON netflow_minute_rollups(dst_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_min_port ON netflow_minute_rollups(dst_port);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_ts_src ON netflow_minute_rollups(bucket_timestamp, src_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_ts_dst ON netflow_minute_rollups(bucket_timestamp, dst_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_src_ts ON netflow_minute_rollups(src_ip, bucket_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_netflow_min_dst_ts ON netflow_minute_rollups(dst_ip, bucket_timestamp);
 
     -- Performance: Hourly roll-up tables for long-term charts and reporting
     CREATE TABLE IF NOT EXISTS netflow_hourly_rollups (
@@ -213,6 +233,10 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_netflow_hr_src ON netflow_hourly_rollups(src_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_hr_dst ON netflow_hourly_rollups(dst_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_hr_port ON netflow_hourly_rollups(dst_port);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_ts_src ON netflow_hourly_rollups(bucket_timestamp, src_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_ts_dst ON netflow_hourly_rollups(bucket_timestamp, dst_ip);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_src_ts ON netflow_hourly_rollups(src_ip, bucket_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_netflow_hr_dst_ts ON netflow_hourly_rollups(dst_ip, bucket_timestamp);
 
     -- Security: Local user accounts & roles
     CREATE TABLE IF NOT EXISTS users (
@@ -240,10 +264,10 @@ export function initializeDatabase(db: Database.Database): void {
 
   // Backfill minute and hourly rollups from existing raw logs if empty
   try {
-    const minCount = db.prepare('SELECT count(*) as count FROM netflow_minute_rollups').get() as any;
-    if (!minCount || minCount.count === 0) {
-      const rawCount = db.prepare('SELECT count(*) as count FROM netflow_logs').get() as any;
-      if (rawCount && rawCount.count > 0) {
+    const hasMinRollup = db.prepare('SELECT 1 FROM netflow_minute_rollups LIMIT 1').get();
+    if (!hasMinRollup) {
+      const hasRawLogs = db.prepare('SELECT 1 FROM netflow_logs LIMIT 1').get();
+      if (hasRawLogs) {
         db.prepare(`
           INSERT OR IGNORE INTO netflow_minute_rollups (
             bucket_timestamp, src_ip, dst_ip, dst_port, protocol, service_name, flow_count, bytes, packets

@@ -597,23 +597,50 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
   return { records, total };
 }
 
+let cachedNetflowOptions: { data: { protocols: string[]; services: string[] }; expiresAt: number } | null = null;
+
+export function invalidateNetflowCache(): void {
+  cachedNetflowOptions = null;
+}
+
 /**
- * Get distinct protocols and services for filter dropdowns
+ * Get distinct protocols and services for filter dropdowns (served from rollups with 60s TTL cache)
  */
 export function getDistinctNetflowOptions(): { protocols: string[]; services: string[] } {
-  const db = getDatabase();
-  const protoRows = db.prepare('SELECT DISTINCT protocol FROM netflow_logs WHERE protocol IS NOT NULL ORDER BY protocol ASC').all() as any[];
-  const serviceRows = db.prepare(`
-    SELECT service_name 
-    FROM netflow_logs 
-    WHERE service_name IS NOT NULL AND service_name != ''
-    GROUP BY service_name 
-    ORDER BY (CASE WHEN service_name NOT LIKE 'Port %' THEN 0 ELSE 1 END) ASC, count(*) DESC 
-    LIMIT 30
-  `).all() as any[];
+  const now = Date.now();
+  if (cachedNetflowOptions && now < cachedNetflowOptions.expiresAt) {
+    return cachedNetflowOptions.data;
+  }
 
-  return {
-    protocols: protoRows.map((r) => r.protocol),
-    services: serviceRows.map((r) => r.service_name),
-  };
+  const db = getDatabase();
+
+  // Try reading from minute rollups first (orders of magnitude smaller than raw netflow_logs)
+  try {
+    const hasRollups = db.prepare('SELECT 1 FROM netflow_minute_rollups LIMIT 1').get();
+    const sourceTable = hasRollups ? 'netflow_minute_rollups' : 'netflow_logs';
+
+    const protoRows = db.prepare(`SELECT DISTINCT protocol FROM ${sourceTable} WHERE protocol IS NOT NULL ORDER BY protocol ASC`).all() as any[];
+    const serviceRows = db.prepare(`
+      SELECT service_name 
+      FROM ${sourceTable} 
+      WHERE service_name IS NOT NULL AND service_name != ''
+      GROUP BY service_name 
+      ORDER BY (CASE WHEN service_name NOT LIKE 'Port %' THEN 0 ELSE 1 END) ASC, count(*) DESC 
+      LIMIT 30
+    `).all() as any[];
+
+    const result = {
+      protocols: protoRows.length > 0 ? protoRows.map((r) => r.protocol) : ['TCP', 'UDP', 'ICMP'],
+      services: serviceRows.length > 0 ? serviceRows.map((r) => r.service_name) : ['HTTPS', 'DNS', 'HTTP', 'SSH', 'RDP', 'SMB'],
+    };
+
+    cachedNetflowOptions = { data: result, expiresAt: now + 60000 };
+    return result;
+  } catch (err) {
+    console.warn('Error reading distinct netflow options:', err);
+    return {
+      protocols: ['TCP', 'UDP', 'ICMP'],
+      services: ['HTTPS', 'DNS', 'HTTP', 'SSH', 'RDP', 'SMB'],
+    };
+  }
 }

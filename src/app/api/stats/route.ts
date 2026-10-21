@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
     const filters: DashboardFilters = { startDate, endDate, clientIp, timeWindow };
 
     const overview = getOverviewMetrics(filters);
-    const topDomains = getTopDomains(filters, 10);
-    const topClients = getTopClientIps(filters, 10);
+    const topDomains = getTopDomains(filters, 10, overview.totalRequests);
+    const topClients = getTopClientIps(filters, 10, overview.totalRequests);
     const requestsOverTime = getRequestsOverTime(filters);
     const availableClientIps = getDistinctClientIps();
     const dateRange = getDateRange();

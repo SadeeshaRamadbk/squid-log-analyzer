@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/navigation/AppHeader';
 import { SoftflowdMetrics } from '@/components/softflowd/SoftflowdMetrics';
@@ -30,8 +30,12 @@ export default function SoftflowdPage() {
     protocol?: string;
     serviceName?: string;
     timeWindow?: '30m' | '1h';
-  }>({
-    // Default filter
+  }>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return {
+      startDate: today,
+      endDate: today,
+    };
   });
 
   const [isRealTime, setIsRealTime] = useState(false);
@@ -111,8 +115,15 @@ export default function SoftflowdPage() {
   });
   const [loadingFlows, setLoadingFlows] = useState(false);
 
+  const statsAbortRef = useRef<AbortController | null>(null);
+  const flowsAbortRef = useRef<AbortController | null>(null);
+
   // Fetch Stats
   const fetchStats = useCallback(async () => {
+    if (statsAbortRef.current) statsAbortRef.current.abort();
+    const abortController = new AbortController();
+    statsAbortRef.current = abortController;
+
     try {
       const params = new URLSearchParams();
       if (filters.startDate) params.set('startDate', filters.startDate);
@@ -123,19 +134,25 @@ export default function SoftflowdPage() {
       if (filters.serviceName) params.set('serviceName', filters.serviceName);
       if (filters.timeWindow) params.set('timeWindow', filters.timeWindow);
 
-      const res = await fetch(`/api/netflow/stats?${params.toString()}`);
+      const res = await fetch(`/api/netflow/stats?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setStats(json.data);
       }
-    } catch (err) {
-      console.error('Failed to load NetFlow stats:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load NetFlow stats:', err);
+      }
     }
   }, [filters]);
 
   // Fetch Flows
-  const fetchFlows = useCallback(async (page = 1) => {
-    setLoadingFlows(true);
+  const fetchFlows = useCallback(async (page = 1, isSilent = false) => {
+    if (flowsAbortRef.current) flowsAbortRef.current.abort();
+    const abortController = new AbortController();
+    flowsAbortRef.current = abortController;
+
+    if (!isSilent) setLoadingFlows(true);
     try {
       const params = new URLSearchParams();
       if (filters.startDate) params.set('startDate', filters.startDate);
@@ -148,7 +165,7 @@ export default function SoftflowdPage() {
       params.set('page', page.toString());
       params.set('limit', '25');
 
-      const res = await fetch(`/api/netflow/flows?${params.toString()}`);
+      const res = await fetch(`/api/netflow/flows?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
       if (json.success) {
         setFlowData({
@@ -158,10 +175,14 @@ export default function SoftflowdPage() {
         });
         setFlowPage(page);
       }
-    } catch (err) {
-      console.error('Failed to load NetFlow flows:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load NetFlow flows:', err);
+      }
     } finally {
-      setLoadingFlows(false);
+      if (!abortController.signal.aborted && !isSilent) {
+        setLoadingFlows(false);
+      }
     }
   }, [filters]);
 
@@ -188,7 +209,7 @@ export default function SoftflowdPage() {
     const triggerRefresh = () => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchStats();
-      fetchFlows(flowPage);
+      fetchFlows(flowPage, true);
     };
 
     const startFallbackPolling = () => {
