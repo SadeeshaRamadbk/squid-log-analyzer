@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckCheck, Bell, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, Clock } from 'lucide-react';
+import { CheckCheck, Bell, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, Clock, Moon, User } from 'lucide-react';
 import type { SecurityAlert } from '@/lib/alerts';
 
 interface AlertsPanelProps {
@@ -25,6 +25,7 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
   const [dismissingOld, setDismissingOld] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const [snoozeMenuOpenId, setSnoozeMenuOpenId] = useState<number | null>(null);
 
   const fetchAlerts = async () => {
     try {
@@ -59,6 +60,20 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
       fetchAlerts();
     } catch (err) {
       console.error('Failed to update alert', err);
+    }
+  };
+
+  const handleSnooze = async (id: number, snoozeDuration: '1h' | '1d' | '7d') => {
+    try {
+      setSnoozeMenuOpenId(null);
+      await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'snooze', snoozeDuration }),
+      });
+      fetchAlerts();
+    } catch (err) {
+      console.error('Failed to snooze alert', err);
     }
   };
 
@@ -166,7 +181,7 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
 
       {/* Collapsible Alerts Body */}
       {isOpen && (
-        <div className="px-4 pb-4 pt-1 border-t border-slate-800/80 space-y-2 max-h-64 overflow-y-auto">
+        <div className="px-4 pb-4 pt-1 border-t border-slate-800/80 space-y-2 max-h-72 overflow-y-auto">
           {activeAlerts.map((alert) => (
             <div
               key={alert.id}
@@ -192,15 +207,39 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
                     {alert.severity}
                   </span>
                   <span className="font-semibold text-slate-100">{alert.title}</span>
-                  {alert.sourceIp && (
-                    <button
-                      type="button"
-                      onClick={() => onSelectIp?.(alert.sourceIp!)}
-                      className="font-mono text-cyan-300 hover:underline cursor-pointer"
-                    >
-                      [{alert.sourceIp}]
-                    </button>
+
+                  {/* Occurrence badge if grouped */}
+                  {alert.occurrenceCount && alert.occurrenceCount > 1 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                      x{alert.occurrenceCount}
+                    </span>
                   )}
+
+                  {/* Employee Name Alias or IP */}
+                  {alert.sourceIp && (
+                    <div className="inline-flex items-center gap-1">
+                      {alert.employeeName ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelectIp?.(alert.sourceIp!)}
+                          className="inline-flex items-center gap-1 font-semibold text-indigo-300 hover:text-indigo-200 hover:underline cursor-pointer"
+                        >
+                          <User className="w-3 h-3" />
+                          <span>{alert.employeeName}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">({alert.sourceIp})</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onSelectIp?.(alert.sourceIp!)}
+                          className="font-mono text-cyan-300 hover:underline cursor-pointer"
+                        >
+                          [{alert.sourceIp}]
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <span className="text-[10px] text-slate-400 font-mono ml-auto sm:ml-0 flex items-center gap-1">
                     <Clock className="w-3 h-3 text-slate-500" />
                     {formatTimeAgo(alert.timestamp)}
@@ -209,7 +248,7 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
                 <p className="text-slate-300 text-[11px]">{alert.description}</p>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
                 <button
                   type="button"
                   onClick={() => handleUpdate(alert.id, 'acknowledged')}
@@ -217,6 +256,45 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
                 >
                   Acknowledge
                 </button>
+
+                {/* Snooze Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setSnoozeMenuOpenId(snoozeMenuOpenId === alert.id ? null : alert.id)}
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-amber-300 text-[11px] font-medium transition-colors cursor-pointer border border-amber-500/20"
+                    title="Snooze this alert"
+                  >
+                    <Moon className="w-3 h-3" />
+                    <span>Snooze</span>
+                  </button>
+                  {snoozeMenuOpenId === alert.id && (
+                    <div className="absolute right-0 bottom-full mb-1 z-30 w-28 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(alert.id, '1h')}
+                        className="w-full text-left px-3 py-1 hover:bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                      >
+                        1 Hour
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(alert.id, '1d')}
+                        className="w-full text-left px-3 py-1 hover:bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                      >
+                        1 Day
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(alert.id, '7d')}
+                        className="w-full text-left px-3 py-1 hover:bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                      >
+                        7 Days
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => handleUpdate(alert.id, 'dismissed')}

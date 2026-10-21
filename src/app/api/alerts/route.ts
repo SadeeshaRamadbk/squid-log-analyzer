@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status, action, olderThanMinutes } = body;
+    const { id, status, action, olderThanMinutes, snoozeDuration } = body;
 
     // Batch dismiss active alerts older than cutoff
     if (action === 'dismiss_old' || status === 'dismiss_old') {
@@ -36,9 +36,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (!id || !['acknowledged', 'dismissed'].includes(status)) {
+    // Snooze alert
+    if (action === 'snooze' || status === 'snoozed') {
+      if (!id) {
+        return NextResponse.json({ success: false, error: 'Alert ID is required for snooze' }, { status: 400 });
+      }
+      let durationMs = 60 * 60 * 1000; // default 1h
+      if (snoozeDuration === '1d') durationMs = 24 * 60 * 60 * 1000;
+      else if (snoozeDuration === '7d') durationMs = 7 * 24 * 60 * 60 * 1000;
+
+      updateAlertStatus(Number(id), 'snoozed', durationMs);
+      return NextResponse.json({ success: true, message: `Alert snoozed for ${snoozeDuration || '1h'}` });
+    }
+
+    if (!id || !['acknowledged', 'dismissed', 'snoozed'].includes(status)) {
       return NextResponse.json(
-        { success: false, error: 'Valid alert ID and status (acknowledged/dismissed) required' },
+        { success: false, error: 'Valid alert ID and status (acknowledged/dismissed/snoozed) required' },
         { status: 400 }
       );
     }

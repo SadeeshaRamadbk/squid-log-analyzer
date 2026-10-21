@@ -1,6 +1,31 @@
 import { getDatabase } from './db';
 
-export interface SystemSettings {
+export interface AlertThresholdSettings {
+  blockedSpikeThreshold: number; // default: 25 blocks per 10 min
+  uploadSpikeThresholdMb: number; // default: 100 MB per 15 min
+  repeatedDeniedThreshold: number; // default: 8 denied attempts per 10 min
+  fanoutThreshold: number; // default: 35 external targets in 15 min
+  portScanThreshold: number; // default: 12 ports in 5 min
+  autoExpireHours: number; // default: 24 hours
+}
+
+export interface NotificationSettings {
+  smtpEnabled: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  smtpFrom: string;
+  smtpTo: string;
+  webhookEnabled: boolean;
+  webhookUrl: string;
+  webhookSecret?: string;
+  minSeverityForEmail: 'critical' | 'high' | 'medium' | 'low';
+  minSeverityForWebhook: 'critical' | 'high' | 'medium' | 'low';
+}
+
+export interface SystemSettings extends AlertThresholdSettings, NotificationSettings {
   timezone: string;
   lanCidrs: string[];
   firewallIp: string;
@@ -22,6 +47,27 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   retentionDaysSquid: 60,
   retentionDaysFlows: 7,
   anonymizeExports: false,
+  // Alert thresholds
+  blockedSpikeThreshold: 25,
+  uploadSpikeThresholdMb: 100,
+  repeatedDeniedThreshold: 8,
+  fanoutThreshold: 35,
+  portScanThreshold: 12,
+  autoExpireHours: 24,
+  // Notifications
+  smtpEnabled: false,
+  smtpHost: '',
+  smtpPort: 587,
+  smtpSecure: false,
+  smtpUser: '',
+  smtpPass: '',
+  smtpFrom: 'alerts@nipponbpo.local',
+  smtpTo: '',
+  webhookEnabled: false,
+  webhookUrl: '',
+  webhookSecret: '',
+  minSeverityForEmail: 'high',
+  minSeverityForWebhook: 'medium',
 };
 
 export { anonymizeUsername } from './privacy';

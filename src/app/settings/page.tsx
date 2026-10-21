@@ -24,6 +24,10 @@ import {
   Server,
   Network,
   Sliders,
+  Bell,
+  Mail,
+  Send,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { formatNumber } from '@/lib/formatters';
@@ -75,9 +79,9 @@ function SettingsContent() {
   const searchParams = useSearchParams();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
 
-  // Active Tab: 'users' | 'password' | 'retention' | 'network'
+  // Active Tab: 'users' | 'password' | 'retention' | 'network' | 'alerts'
   const initialTab = (searchParams.get('tab') as any) || 'users';
-  const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network' | 'alerts'>(initialTab);
 
   // User Accounts State
   const [usersList, setUsersList] = useState<UserItem[]>([]);
@@ -118,6 +122,35 @@ function SettingsContent() {
   const [hideProxyHop, setHideProxyHop] = useState(true);
   const [anonymizeExports, setAnonymizeExports] = useState(false);
 
+  // Alert Thresholds & Notification State
+  const [blockedSpikeThreshold, setBlockedSpikeThreshold] = useState<number>(25);
+  const [uploadSpikeThresholdMb, setUploadSpikeThresholdMb] = useState<number>(100);
+  const [repeatedDeniedThreshold, setRepeatedDeniedThreshold] = useState<number>(8);
+  const [fanoutThreshold, setFanoutThreshold] = useState<number>(35);
+  const [portScanThreshold, setPortScanThreshold] = useState<number>(12);
+  const [autoExpireHours, setAutoExpireHours] = useState<number>(24);
+
+  const [smtpEnabled, setSmtpEnabled] = useState<boolean>(false);
+  const [smtpHost, setSmtpHost] = useState<string>('');
+  const [smtpPort, setSmtpPort] = useState<number>(587);
+  const [smtpSecure, setSmtpSecure] = useState<boolean>(false);
+  const [smtpUser, setSmtpUser] = useState<string>('');
+  const [smtpPass, setSmtpPass] = useState<string>('');
+  const [smtpFrom, setSmtpFrom] = useState<string>('');
+  const [smtpTo, setSmtpTo] = useState<string>('');
+  const [minSeverityForEmail, setMinSeverityForEmail] = useState<'critical' | 'high' | 'medium' | 'low'>('high');
+
+  const [webhookEnabled, setWebhookEnabled] = useState<boolean>(false);
+  const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [webhookSecret, setWebhookSecret] = useState<string>('');
+  const [minSeverityForWebhook, setMinSeverityForWebhook] = useState<'critical' | 'high' | 'medium' | 'low'>('medium');
+
+  const [savingAlerts, setSavingAlerts] = useState<boolean>(false);
+  const [alertsMsg, setAlertsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testingEmail, setTestingEmail] = useState<boolean>(false);
+  const [testingWebhook, setTestingWebhook] = useState<boolean>(false);
+  const [testNotificationMsg, setTestNotificationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Admin Reset User Password Modal State
   const [resetTargetUser, setResetTargetUser] = useState<UserItem | null>(null);
   const [resetPasswordVal, setResetPasswordVal] = useState('');
@@ -152,7 +185,7 @@ function SettingsContent() {
       const storageData = await storageRes.json();
 
       if (settingsData.success && settingsData.settings) {
-        const s = settingsData.settings as SystemSettingsData;
+        const s = settingsData.settings as any;
         setRetentionSquid(s.retentionDaysSquid ?? 60);
         setRetentionFlows(s.retentionDaysFlows ?? 7);
         setTimezone(s.timezone || 'Asia/Colombo');
@@ -161,6 +194,28 @@ function SettingsContent() {
         setHideFirewallTraffic(s.hideFirewallTraffic ?? true);
         setHideProxyHop(s.hideProxyHop ?? true);
         setAnonymizeExports(s.anonymizeExports ?? false);
+
+        setBlockedSpikeThreshold(s.blockedSpikeThreshold ?? 25);
+        setUploadSpikeThresholdMb(s.uploadSpikeThresholdMb ?? 100);
+        setRepeatedDeniedThreshold(s.repeatedDeniedThreshold ?? 8);
+        setFanoutThreshold(s.fanoutThreshold ?? 35);
+        setPortScanThreshold(s.portScanThreshold ?? 12);
+        setAutoExpireHours(s.autoExpireHours ?? 24);
+
+        setSmtpEnabled(s.smtpEnabled ?? false);
+        setSmtpHost(s.smtpHost ?? '');
+        setSmtpPort(s.smtpPort ?? 587);
+        setSmtpSecure(s.smtpSecure ?? false);
+        setSmtpUser(s.smtpUser ?? '');
+        setSmtpPass(s.smtpPass ?? '');
+        setSmtpFrom(s.smtpFrom ?? '');
+        setSmtpTo(s.smtpTo ?? '');
+        setMinSeverityForEmail(s.minSeverityForEmail || 'high');
+
+        setWebhookEnabled(s.webhookEnabled ?? false);
+        setWebhookUrl(s.webhookUrl ?? '');
+        setWebhookSecret(s.webhookSecret ?? '');
+        setMinSeverityForWebhook(s.minSeverityForWebhook || 'medium');
       }
 
       if (storageData.success) {
@@ -442,6 +497,106 @@ function SettingsContent() {
     }
   };
 
+  // Handle Save Alert & Notification Preferences
+  const handleSaveAlertSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAlertsMsg(null);
+
+    try {
+      setSavingAlerts(true);
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blockedSpikeThreshold: Number(blockedSpikeThreshold),
+          uploadSpikeThresholdMb: Number(uploadSpikeThresholdMb),
+          repeatedDeniedThreshold: Number(repeatedDeniedThreshold),
+          fanoutThreshold: Number(fanoutThreshold),
+          portScanThreshold: Number(portScanThreshold),
+          autoExpireHours: Number(autoExpireHours),
+          smtpEnabled,
+          smtpHost: smtpHost.trim(),
+          smtpPort: Number(smtpPort),
+          smtpSecure,
+          smtpUser: smtpUser.trim(),
+          smtpPass: smtpPass.trim(),
+          smtpFrom: smtpFrom.trim(),
+          smtpTo: smtpTo.trim(),
+          minSeverityForEmail,
+          webhookEnabled,
+          webhookUrl: webhookUrl.trim(),
+          webhookSecret: webhookSecret.trim(),
+          minSeverityForWebhook,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setAlertsMsg({ type: 'success', text: 'Alert thresholds and notification dispatch settings updated successfully.' });
+        fetchSettingsAndStorage();
+      } else {
+        setAlertsMsg({ type: 'error', text: data.error || 'Failed to save alert settings.' });
+      }
+    } catch (err: any) {
+      setAlertsMsg({ type: 'error', text: err.message || 'Network error occurred.' });
+    } finally {
+      setSavingAlerts(false);
+    }
+  };
+
+  // Handle Test Notification Channel
+  const handleTestNotification = async (channel: 'smtp' | 'webhook') => {
+    setTestNotificationMsg(null);
+    if (channel === 'smtp') setTestingEmail(true);
+    else setTestingWebhook(true);
+
+    try {
+      const res = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel,
+          settings: {
+            smtpEnabled,
+            smtpHost: smtpHost.trim(),
+            smtpPort: Number(smtpPort),
+            smtpSecure,
+            smtpUser: smtpUser.trim(),
+            smtpPass: smtpPass.trim(),
+            smtpFrom: smtpFrom.trim(),
+            smtpTo: smtpTo.trim(),
+            minSeverityForEmail,
+            webhookEnabled,
+            webhookUrl: webhookUrl.trim(),
+            webhookSecret: webhookSecret.trim(),
+            minSeverityForWebhook,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTestNotificationMsg({
+          type: 'success',
+          text: `Success: ${data.message || `Test ${channel.toUpperCase()} message sent successfully!`}`,
+        });
+      } else {
+        setTestNotificationMsg({
+          type: 'error',
+          text: `Test failed: ${data.error || 'Failed to deliver test notification.'}`,
+        });
+      }
+    } catch (err: any) {
+      setTestNotificationMsg({
+        type: 'error',
+        text: `Error sending test notification: ${err.message || 'Network error'}`,
+      });
+    } finally {
+      if (channel === 'smtp') setTestingEmail(false);
+      else setTestingWebhook(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
@@ -569,6 +724,19 @@ function SettingsContent() {
           >
             <Network className="w-3.5 h-3.5" />
             <span>Network & Subnets</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('alerts')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'alerts'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 border border-purple-500'
+                : 'bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <Bell className="w-3.5 h-3.5" />
+            <span>Alerts & Notifications</span>
           </button>
         </div>
 
@@ -1406,6 +1574,438 @@ function SettingsContent() {
                 )}
               </form>
             </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: ALERTS & NOTIFICATIONS */}
+        {/* ========================================================================= */}
+        {activeTab === 'alerts' && (
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-purple-400" />
+                  <span>Security Alert Baselines & Notification Dispatch</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Configure per-host rolling baseline thresholds, auto-expiry, SMTP email alerts, and outbound webhooks.
+                </p>
+              </div>
+
+              {!isAdmin && (
+                <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Admin role required to modify alert parameters</span>
+                </div>
+              )}
+            </div>
+
+            {alertsMsg && (
+              <div
+                className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs ${
+                  alertsMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
+              >
+                {alertsMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                )}
+                <span>{alertsMsg.text}</span>
+              </div>
+            )}
+
+            {testNotificationMsg && (
+              <div
+                className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs ${
+                  testNotificationMsg.type === 'success'
+                    ? 'bg-blue-500/10 border-blue-500/20 text-blue-300'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
+              >
+                {testNotificationMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                )}
+                <span>{testNotificationMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveAlertSettings} className="space-y-6">
+              {/* Card 1: Baselines & Thresholds */}
+              <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <ShieldAlert className="w-4 h-4 text-purple-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Anomaly Detection & Threshold Baselines
+                  </h3>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  Alert evaluation compares current telemetry against these threshold values with a per-host rolling baseline (1.8x host historical average) to suppress false positives during peak business operations.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Blocked Requests Spike (per 10m)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="1000"
+                      value={blockedSpikeThreshold}
+                      onChange={(e) => setBlockedSpikeThreshold(Math.max(1, parseInt(e.target.value) || 1))}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                    <p className="text-[11px] text-slate-500">Squid or firewall blocks triggering spike alerts (default: 25)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Large Upload Spike (MB per 15m)
+                    </label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="100000"
+                      value={uploadSpikeThresholdMb}
+                      onChange={(e) => setUploadSpikeThresholdMb(Math.max(1, parseInt(e.target.value) || 10))}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                    <p className="text-[11px] text-slate-500">Flags potential exfiltration over NetFlow bytes (default: 100 MB)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Repeated Denied Requests (per 10m)
+                    </label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="500"
+                      value={repeatedDeniedThreshold}
+                      onChange={(e) => setRepeatedDeniedThreshold(Math.max(2, parseInt(e.target.value) || 2))}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                    <p className="text-[11px] text-slate-500">Repeated denied requests to the same target domain (default: 8)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Target Fan-Out Count (per 15m)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="500"
+                      value={fanoutThreshold}
+                      onChange={(e) => setFanoutThreshold(Math.max(5, parseInt(e.target.value) || 5))}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                    <p className="text-[11px] text-slate-500">Distinct external IPs contacted in brief window (default: 35)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Port Scan / Sweep Threshold (per 5m)
+                    </label>
+                    <input
+                      type="number"
+                      min="3"
+                      max="1000"
+                      value={portScanThreshold}
+                      onChange={(e) => setPortScanThreshold(Math.max(3, parseInt(e.target.value) || 3))}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                    <p className="text-[11px] text-slate-500">Distinct firewall blocked ports from one IP (default: 12)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Auto-Expire Stale Alerts (Hours)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="720"
+                      value={autoExpireHours}
+                      onChange={(e) => setAutoExpireHours(Math.max(1, parseInt(e.target.value) || 1))}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                    <p className="text-[11px] text-slate-500">Unresolved alerts older than this are archived automatically (default: 24)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Email (SMTP) Dispatch */}
+              <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                      Email Alert Dispatch (SMTP)
+                    </h3>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={smtpEnabled}
+                      onChange={(e) => setSmtpEnabled(e.target.checked)}
+                      disabled={!isAdmin}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-700 bg-slate-900"
+                    />
+                    <span className="text-slate-300">Enable Email Alerts</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1.5 lg:col-span-2">
+                    <label className="text-xs font-semibold text-slate-300">SMTP Host / Server</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. smtp.office365.com or 192.168.0.25"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Port</label>
+                    <input
+                      type="number"
+                      placeholder="587"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(parseInt(e.target.value) || 587)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Encryption</label>
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={smtpSecure}
+                        onChange={(e) => setSmtpSecure(e.target.checked)}
+                        disabled={!isAdmin}
+                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-700 bg-slate-900"
+                      />
+                      <span className="text-xs text-slate-300">SSL/TLS (Port 465)</span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">SMTP Username</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. alerts@company.com"
+                      value={smtpUser}
+                      onChange={(e) => setSmtpUser(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">SMTP Password</label>
+                    <input
+                      type="password"
+                      placeholder="App password or secret"
+                      value={smtpPass}
+                      onChange={(e) => setSmtpPass(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">From Address</label>
+                    <input
+                      type="email"
+                      placeholder="alerts@nipponbpo.local"
+                      value={smtpFrom}
+                      onChange={(e) => setSmtpFrom(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Minimum Severity</label>
+                    <select
+                      value={minSeverityForEmail}
+                      onChange={(e) => setMinSeverityForEmail(e.target.value as any)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
+                    >
+                      <option value="critical">Critical Only</option>
+                      <option value="high">High & Critical</option>
+                      <option value="medium">Medium, High & Critical</option>
+                      <option value="low">All Severities (Low+)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 lg:col-span-4">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Recipient Addresses (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="soc@nipponbpo.com, netadmin@nipponbpo.com"
+                      value={smtpTo}
+                      onChange={(e) => setSmtpTo(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleTestNotification('smtp')}
+                    disabled={testingEmail || !isAdmin}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {testingEmail ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                        <span>Connecting to SMTP...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Send Test Email</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3: Generic Webhook Dispatch */}
+              <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Send className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                      Generic Outbound Webhook Dispatch
+                    </h3>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={webhookEnabled}
+                      onChange={(e) => setWebhookEnabled(e.target.checked)}
+                      disabled={!isAdmin}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-700 bg-slate-900"
+                    />
+                    <span className="text-slate-300">Enable Webhook Alerts</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-semibold text-slate-300">Webhook Target URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://webhook.site/... or https://hooks.slack.com/services/..."
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Minimum Severity</label>
+                    <select
+                      value={minSeverityForWebhook}
+                      onChange={(e) => setMinSeverityForWebhook(e.target.value as any)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
+                    >
+                      <option value="critical">Critical Only</option>
+                      <option value="high">High & Critical</option>
+                      <option value="medium">Medium, High & Critical</option>
+                      <option value="low">All Severities (Low+)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-3">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Webhook Secret / Auth Header (Optional)
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Secret token delivered in X-Alert-Secret header"
+                      value={webhookSecret}
+                      onChange={(e) => setWebhookSecret(e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:ring-1 focus:ring-purple-500 outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleTestNotification('webhook')}
+                    disabled={testingWebhook || !isAdmin}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {testingWebhook ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                        <span>Sending Webhook POST...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Send Test Webhook</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {isAdmin && (
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingAlerts}
+                    className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-colors cursor-pointer flex items-center gap-2 shadow-lg shadow-purple-600/20 disabled:opacity-50"
+                  >
+                    {savingAlerts ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Alert Settings & Dispatch Rules</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </form>
           </div>
         )}
       </main>

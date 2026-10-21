@@ -142,10 +142,16 @@ export function initializeDatabase(db: Database.Database): void {
       source_ip TEXT,
       target TEXT,
       status TEXT NOT NULL DEFAULT 'active',
-      acknowledged_at INTEGER
+      acknowledged_at INTEGER,
+      snoozed_until INTEGER,
+      employee_name TEXT,
+      group_key TEXT,
+      occurrence_count INTEGER NOT NULL DEFAULT 1
     );
     CREATE INDEX IF NOT EXISTS idx_alerts_time ON security_alerts(timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_alerts_status ON security_alerts(status);
+    CREATE INDEX IF NOT EXISTS idx_alerts_group ON security_alerts(group_key, status);
+    CREATE INDEX IF NOT EXISTS idx_alerts_snooze ON security_alerts(snoozed_until);
 
     -- Reverse DNS & GeoIP/ASN enrichment cache with TTL
     CREATE TABLE IF NOT EXISTS ip_enrichment (
@@ -320,6 +326,25 @@ export function initializeDatabase(db: Database.Database): void {
     }
   } catch (err) {
     console.warn('[Schema] syslog_events column migration note:', err);
+  }
+
+  // Migration for existing databases that don't have snooze/grouping columns in security_alerts
+  try {
+    const alertCols = db.pragma('table_info(security_alerts)') as any[];
+    const hasSnooze = alertCols.some((c: any) => c.name === 'snoozed_until');
+    if (!hasSnooze) {
+      db.exec(`
+        ALTER TABLE security_alerts ADD COLUMN snoozed_until INTEGER;
+        ALTER TABLE security_alerts ADD COLUMN employee_name TEXT;
+        ALTER TABLE security_alerts ADD COLUMN group_key TEXT;
+        ALTER TABLE security_alerts ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1;
+
+        CREATE INDEX IF NOT EXISTS idx_alerts_group ON security_alerts(group_key, status);
+        CREATE INDEX IF NOT EXISTS idx_alerts_snooze ON security_alerts(snoozed_until);
+      `);
+    }
+  } catch (err) {
+    console.warn('[Schema] security_alerts column migration note:', err);
   }
 
   // Backfill minute and hourly rollups from existing raw logs if empty
