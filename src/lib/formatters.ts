@@ -12,6 +12,13 @@ export function formatNumber(num: number): string {
   return new Intl.NumberFormat().format(num);
 }
 
+export function formatCompactNumber(num: number): string {
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(num);
+}
+
 export function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   try {

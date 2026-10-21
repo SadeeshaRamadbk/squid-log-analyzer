@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Layers, ChevronLeft, ChevronRight, Tag, ArrowDownRight, ArrowUpRight, ArrowUpDown, Maximize2 } from 'lucide-react';
+import { Layers, ChevronLeft, ChevronRight, Tag, ArrowDownRight, ArrowUpRight, ArrowUpDown, ArrowUp, ArrowDown, Maximize2 } from 'lucide-react';
 import { formatBytes, formatNumber, formatTime } from '@/lib/formatters';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
@@ -109,6 +109,17 @@ export function LiveFlowsTable({
         : String(valB).localeCompare(String(valA));
     });
   }, [records, sortKey, sortDir]);
+
+  const getSortIcon = (key: keyof FlowRecord) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown className="w-3 h-3 opacity-60 text-slate-400 shrink-0" />;
+    }
+    return sortDir === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-indigo-400 font-bold opacity-100 shrink-0" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-indigo-400 font-bold opacity-100 shrink-0" />
+    );
+  };
 
   const handleExportCsv = () => {
     exportToCsv('pfsense_softflowd_flows', records, [
@@ -221,10 +232,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('timestamp')}
-                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Time</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('timestamp')}
                     </button>
                   </th>
                 )}
@@ -237,10 +248,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('direction')}
-                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Direction</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('direction')}
                     </button>
                   </th>
                 )}
@@ -253,10 +264,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('srcIp')}
-                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Source Host / User</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('srcIp')}
                     </button>
                   </th>
                 )}
@@ -269,10 +280,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('srcPort')}
-                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                      className="flex items-center justify-end gap-1.5 hover:text-white transition-colors cursor-pointer w-full"
                     >
                       <span>Src Port</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('srcPort')}
                     </button>
                   </th>
                 )}
@@ -285,10 +296,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('dstIp')}
-                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Destination Host</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('dstIp')}
                     </button>
                   </th>
                 )}
@@ -301,10 +312,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('serviceName')}
-                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Service / Dst Port</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('serviceName')}
                     </button>
                   </th>
                 )}
@@ -317,10 +328,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('protocol')}
-                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Proto</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('protocol')}
                     </button>
                   </th>
                 )}
@@ -334,10 +345,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('bytes')}
-                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                      className="flex items-center justify-end gap-1.5 hover:text-white transition-colors cursor-pointer w-full"
                     >
                       <span>Volume</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('bytes')}
                     </button>
                   </th>
                 )}
@@ -350,10 +361,10 @@ export function LiveFlowsTable({
                     <button
                       type="button"
                       onClick={() => handleSort('packets')}
-                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                      className="flex items-center justify-end gap-1.5 hover:text-white transition-colors cursor-pointer w-full"
                     >
                       <span>Packets</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('packets')}
                     </button>
                   </th>
                 )}
@@ -361,7 +372,7 @@ export function LiveFlowsTable({
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {sortedRecords.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-800/40 transition-colors group">
+                <tr key={r.id} className="hover:bg-slate-800/40 even:bg-slate-900/30 odd:bg-transparent transition-colors group">
                   {isVisible('timestamp') && (
                     <td
                       className="py-2.5 pl-2 font-mono text-slate-400 text-[11px] whitespace-nowrap"
@@ -529,14 +540,14 @@ export function LiveFlowsTable({
                     </td>
                   )}
                   {isVisible('bytes') && (
-                    <td className={`py-2.5 text-right font-semibold font-mono ${
+                    <td className={`py-2.5 text-right font-semibold font-mono tabular-nums ${
                       r.direction === 'download' ? 'text-emerald-400' : r.direction === 'upload' ? 'text-purple-400' : 'text-slate-100'
                     }`}>
                       {formatBytes(r.bytes)}
                     </td>
                   )}
                   {isVisible('packets') && (
-                    <td className="py-2.5 text-right pr-2 font-mono text-slate-400">
+                    <td className="py-2.5 text-right pr-2 font-mono tabular-nums text-slate-400">
                       {formatNumber(r.packets)}
                     </td>
                   )}

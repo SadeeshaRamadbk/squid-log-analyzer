@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Radio, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Globe, ArrowUpDown, Maximize2 } from 'lucide-react';
+import { Radio, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Globe, ArrowUpDown, ArrowUp, ArrowDown, Maximize2 } from 'lucide-react';
 import { formatBytes, formatTime } from '@/lib/formatters';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { exportToCsv } from '@/lib/exportCsv';
 import { maskEmployeeName } from '@/lib/privacy';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
@@ -85,6 +86,17 @@ export function LiveRequestsTable({
       setSortKey(key);
       setSortDir('desc');
     }
+  };
+
+  const getSortIcon = (key: keyof LiveRequestRecord) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 shrink-0" />;
+    }
+    return sortDir === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-indigo-400 opacity-100 font-bold shrink-0" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-indigo-400 opacity-100 font-bold shrink-0" />
+    );
   };
 
   const sortedRecords = useMemo(() => {
@@ -281,7 +293,7 @@ export function LiveRequestsTable({
                       className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Time</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('timestamp')}
                     </button>
                   </th>
                 )}
@@ -297,7 +309,7 @@ export function LiveRequestsTable({
                       className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Client Host / Employee</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('clientIp')}
                     </button>
                   </th>
                 )}
@@ -313,7 +325,7 @@ export function LiveRequestsTable({
                       className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Method</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('method')}
                     </button>
                   </th>
                 )}
@@ -329,7 +341,7 @@ export function LiveRequestsTable({
                       className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Destination Domain</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('domain')}
                     </button>
                   </th>
                 )}
@@ -345,7 +357,7 @@ export function LiveRequestsTable({
                       className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
                     >
                       <span>Result Code</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('resultCode')}
                     </button>
                   </th>
                 )}
@@ -361,7 +373,7 @@ export function LiveRequestsTable({
                       className="flex items-center justify-end gap-1 hover:text-emerald-300 transition-colors cursor-pointer w-full"
                     >
                       <span>Download ⬇</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('downloadBytes')}
                     </button>
                   </th>
                 )}
@@ -377,7 +389,7 @@ export function LiveRequestsTable({
                       className="flex items-center justify-end gap-1 hover:text-purple-300 transition-colors cursor-pointer w-full"
                     >
                       <span>Upload ⬆</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('uploadBytes')}
                     </button>
                   </th>
                 )}
@@ -393,7 +405,7 @@ export function LiveRequestsTable({
                       className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
                     >
                       <span>Total</span>
-                      <ArrowUpDown className="w-3 h-3 opacity-60" />
+                      {getSortIcon('bytes')}
                     </button>
                   </th>
                 )}
@@ -401,10 +413,13 @@ export function LiveRequestsTable({
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300 font-mono">
               {sortedRecords.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-800/40 transition-colors">
+                <tr
+                  key={r.id}
+                  className="even:bg-slate-950/30 odd:bg-slate-900/10 hover:bg-slate-800/60 transition-colors"
+                >
                   {isVisible('timestamp') && (
                     <td
-                      className="py-2.5 pl-1 text-slate-400 whitespace-nowrap text-[11px]"
+                      className="py-2.5 pl-1 text-slate-400 whitespace-nowrap text-[11px] tabular-nums"
                       title={formatTime(r.timestamp, true)}
                     >
                       {formatTime(r.timestamp)}
@@ -432,7 +447,7 @@ export function LiveRequestsTable({
                         <button
                           type="button"
                           onClick={() => (onViewProfile ? onViewProfile(r.clientIp) : onSelectIp?.(r.clientIp))}
-                          className="text-[11px] font-mono text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
+                          className="text-[11px] font-mono tabular-nums text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
                         >
                           {r.clientIp}
                         </button>
@@ -447,16 +462,18 @@ export function LiveRequestsTable({
                     </td>
                   )}
                   {isVisible('domain') && (
-                    <td className="py-2.5 max-w-[220px] truncate text-slate-200 font-sans" title={r.url || r.domain}>
-                      <button
-                        type="button"
-                        onClick={() => onViewDomain?.(r.domain)}
-                        aria-label={`View domain details for ${r.domain}`}
-                        className="flex items-center gap-1 hover:text-cyan-300 hover:underline cursor-pointer truncate"
-                      >
-                        <Globe className="w-3 h-3 text-cyan-400 shrink-0" />
-                        <span className="truncate">{r.domain}</span>
-                      </button>
+                    <td className="py-2.5 max-w-[220px] truncate text-slate-200 font-sans">
+                      <Tooltip content={r.url || r.domain}>
+                        <button
+                          type="button"
+                          onClick={() => onViewDomain?.(r.domain)}
+                          aria-label={`View domain details for ${r.domain}`}
+                          className="flex items-center gap-1 hover:text-cyan-300 hover:underline cursor-pointer truncate text-left focus:outline-none focus:underline"
+                        >
+                          <Globe className="w-3 h-3 text-cyan-400 shrink-0" />
+                          <span className="truncate">{r.domain}</span>
+                        </button>
+                      </Tooltip>
                     </td>
                   )}
                   {isVisible('resultCode') && (
@@ -467,17 +484,17 @@ export function LiveRequestsTable({
                     </td>
                   )}
                   {isVisible('downloadBytes') && (
-                    <td className="py-2.5 text-right font-medium text-emerald-400 whitespace-nowrap">
+                    <td className="py-2.5 text-right font-medium text-emerald-400 whitespace-nowrap tabular-nums">
                       {formatBytes(r.downloadBytes)}
                     </td>
                   )}
                   {isVisible('uploadBytes') && (
-                    <td className="py-2.5 text-right font-medium text-purple-400 whitespace-nowrap">
+                    <td className="py-2.5 text-right font-medium text-purple-400 whitespace-nowrap tabular-nums">
                       {formatBytes(r.uploadBytes)}
                     </td>
                   )}
                   {isVisible('bytes') && (
-                    <td className="py-2.5 text-right pr-1 font-semibold text-slate-100 whitespace-nowrap">
+                    <td className="py-2.5 text-right pr-1 font-semibold text-slate-100 whitespace-nowrap tabular-nums">
                       {formatBytes(r.bytes)}
                     </td>
                   )}

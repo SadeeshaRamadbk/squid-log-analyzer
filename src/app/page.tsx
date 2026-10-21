@@ -48,6 +48,8 @@ import { BlockDomainModal } from '@/components/dashboard/BlockDomainModal';
 import { ScheduledReportsModal } from '@/components/dashboard/ScheduledReportsModal';
 import { SquidLiveFeedModal } from '@/components/dashboard/SquidLiveFeedModal';
 import { NetflowLiveFeedModal } from '@/components/softflowd/NetflowLiveFeedModal';
+import { KeyboardShortcutsModal } from '@/components/common/KeyboardShortcutsModal';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { Radio, ShieldAlert, Network, Shield, Columns2, Layers } from 'lucide-react';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 
@@ -757,6 +759,10 @@ function DashboardContent() {
     }
   }, [activeView]);
 
+  const { shortcutsModalOpen, setShortcutsModalOpen } = useGlobalShortcuts({
+    onViewChange: (v) => setActiveView(v),
+  });
+
   const handleOpenIpAliasModal = (ip?: string) => {
     setTargetIpForModal(ip);
     setIsIpModalOpen(true);
@@ -764,21 +770,14 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top Shared Navigation Bar */}
+      {/* Top Shared Navigation Bar (Level 1) */}
       <AppHeader
         activeView={activeView}
         onViewChange={(v) => setActiveView(v)}
-        onOpenIpModal={() => handleOpenIpAliasModal()}
-        onOpenCategoriesModal={() => setIsCategoriesModalOpen(true)}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
-        onOpenConfigModal={() => setIsPfSenseConfigOpen(true)}
-        onOpenSquidConfig={() => setIsSquidConfigOpen(true)}
         onSelectProfile={(ip) => setProfileModalIp(ip)}
         onSelectDomain={(domain) => setSelectedDomain(domain)}
         onSelectPort={(port, protocol) => setSelectedPort({ port, protocol })}
-        onOpenReportsModal={() => setIsReportsModalOpen(true)}
-        isFilterSynced={isFilterSynced}
-        onToggleFilterSync={() => setIsFilterSynced((prev) => !prev)}
+        onOpenShortcuts={() => setShortcutsModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -1220,6 +1219,11 @@ function DashboardContent() {
         initialIp={softflowdFilters.srcIp}
         onViewProfile={(ip) => setProfileModalIp(ip)}
         onViewPort={(port, protocol) => setSelectedPort({ port, protocol })}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
       />
     </div>
   );

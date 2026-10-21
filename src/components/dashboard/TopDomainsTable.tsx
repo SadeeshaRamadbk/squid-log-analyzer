@@ -3,6 +3,7 @@
 import React from 'react';
 import { Globe, Download, ShieldAlert } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { exportToCsv } from '@/lib/exportCsv';
 
 interface TopDomainsTableProps {
@@ -59,34 +60,41 @@ export function TopDomainsTable({ domains, onViewDomain, onBlockDomain }: TopDom
             No domain records found.
           </div>
         ) : (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[540px]">
+            <caption className="sr-only">Top Destination Domains by Request Volume</caption>
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-medium">
-                <th className="pb-2.5 pl-1">Domain</th>
-                <th className="pb-2.5 text-right">Requests</th>
-                <th className="pb-2.5 text-right">Bandwidth</th>
-                <th className="pb-2.5 text-right">Blocked</th>
-                <th className="pb-2.5 pl-4 w-28">Share</th>
+              <tr className="border-b border-slate-800 text-slate-300 font-semibold bg-slate-950/40">
+                <th scope="col" className="pb-2.5 pl-2">Domain</th>
+                <th scope="col" className="pb-2.5 text-right pr-2">Requests</th>
+                <th scope="col" className="pb-2.5 text-right pr-2">Bandwidth</th>
+                <th scope="col" className="pb-2.5 text-right pr-2">Blocked</th>
+                <th scope="col" className="pb-2.5 pl-4 pr-2 w-28">Share</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {domains.map((item) => (
-                <tr key={item.domain} className="hover:bg-slate-800/40 transition-colors group">
-                  <td className="py-2.5 pl-1 font-mono font-medium text-slate-200 truncate max-w-[200px]">
+                <tr
+                  key={item.domain}
+                  className="even:bg-slate-950/30 odd:bg-slate-900/10 hover:bg-slate-800/60 transition-colors group"
+                >
+                  <td className="py-2.5 pl-2 font-mono font-medium text-slate-200 truncate max-w-[200px]">
                     <div className="flex items-center justify-between gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onViewDomain?.(item.domain)}
-                        className="hover:text-cyan-300 hover:underline cursor-pointer truncate text-left"
-                        title={`Inspect ${item.domain}`}
-                      >
-                        {item.domain}
-                      </button>
+                      <Tooltip content={item.domain}>
+                        <button
+                          type="button"
+                          onClick={() => onViewDomain?.(item.domain)}
+                          className="hover:text-cyan-300 hover:underline cursor-pointer truncate text-left focus:outline-none focus:underline"
+                          aria-label={`Inspect telemetry for domain ${item.domain}`}
+                        >
+                          {item.domain}
+                        </button>
+                      </Tooltip>
                       {onBlockDomain && (
                         <button
                           type="button"
                           onClick={() => onBlockDomain(item.domain)}
-                          className="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-300 transition-opacity px-1 py-0.5 rounded bg-rose-950/60 border border-rose-800/40 shrink-0 cursor-pointer"
+                          aria-label={`Block domain ${item.domain}`}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-[10px] text-rose-400 hover:text-rose-300 transition-opacity px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-800/40 shrink-0 cursor-pointer"
                           title="Block this domain"
                         >
                           + Block
@@ -94,13 +102,13 @@ export function TopDomainsTable({ domains, onViewDomain, onBlockDomain }: TopDom
                       )}
                     </div>
                   </td>
-                  <td className="py-2.5 text-right font-semibold text-slate-100">
+                  <td className="py-2.5 pr-2 text-right font-semibold text-slate-100 tabular-nums font-mono">
                     {formatNumber(item.requestCount)}
                   </td>
-                  <td className="py-2.5 text-right text-slate-400 font-mono">
+                  <td className="py-2.5 pr-2 text-right text-slate-300 font-mono tabular-nums">
                     {formatBytes(item.bytes)}
                   </td>
-                  <td className="py-2.5 text-right">
+                  <td className="py-2.5 pr-2 text-right tabular-nums font-mono">
                     {item.blockedCount > 0 ? (
                       <span className="inline-flex items-center gap-1 text-rose-400 font-medium">
                         <ShieldAlert className="w-3 h-3" />
@@ -110,15 +118,15 @@ export function TopDomainsTable({ domains, onViewDomain, onBlockDomain }: TopDom
                       <span className="text-slate-600">0</span>
                     )}
                   </td>
-                  <td className="py-2.5 pl-4">
-                    <div className="flex items-center gap-2">
+                  <td className="py-2.5 pl-4 pr-2">
+                    <div className="flex items-center gap-2 min-w-[50px]">
                       <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
                         <div
                           className="bg-emerald-500 h-full rounded-full"
                           style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
+                      <span className="text-[10px] text-slate-400 w-8 text-right font-mono tabular-nums">
                         {item.percentage}%
                       </span>
                     </div>

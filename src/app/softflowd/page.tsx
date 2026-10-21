@@ -19,9 +19,12 @@ import { IpProfileModal } from '@/components/profile/IpProfileModal';
 import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
 import { PortDetailModal } from '@/components/profile/PortDetailModal';
 import { NetflowLiveFeedModal } from '@/components/softflowd/NetflowLiveFeedModal';
+import { KeyboardShortcutsModal } from '@/components/common/KeyboardShortcutsModal';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 
 export default function SoftflowdPage() {
   const router = useRouter();
+  const { shortcutsModalOpen, setShortcutsModalOpen } = useGlobalShortcuts();
 
   useEffect(() => {
     document.title = 'pfSense Flows - Squid Analyzer';
@@ -299,16 +302,10 @@ export default function SoftflowdPage() {
       <AppHeader
         activeView="softflowd"
         onViewChange={(v) => router.push(v === 'softflowd' ? '/softflowd' : v === 'split' ? '/?view=split' : '/')}
-        onOpenIpModal={() => {
-          setTargetIpForModal(undefined);
-          setIsIpModalOpen(true);
-        }}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
-        onOpenConfigModal={() => setIsConfigModalOpen(true)}
-        onOpenSquidConfig={() => setIsSquidConfigOpen(true)}
         onSelectProfile={(ip) => setProfileModalIp(ip)}
         onSelectDomain={(domain) => setSelectedDomain(domain)}
         onSelectPort={(port, protocol) => setSelectedPort({ port, protocol })}
+        onOpenShortcuts={() => setShortcutsModalOpen(true)}
       />
 
       {/* Main Content */}
@@ -439,6 +436,11 @@ export default function SoftflowdPage() {
         initialIp={filters.srcIp}
         onViewProfile={(ip) => setProfileModalIp(ip)}
         onViewPort={(port, protocol) => setSelectedPort({ port, protocol })}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
       />
     </div>
   );

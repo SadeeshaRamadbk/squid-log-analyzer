@@ -10,12 +10,15 @@ import { FirewallBlocksView } from '@/components/syslog/FirewallBlocksView';
 import { PfSenseSyslogModal } from '@/components/syslog/PfSenseSyslogModal';
 import { BackupRestoreModal } from '@/components/dashboard/BackupRestoreModal';
 import { IpMappingModal } from '@/components/dashboard/IpMappingModal';
+import { KeyboardShortcutsModal } from '@/components/common/KeyboardShortcutsModal';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { ShieldAlert, ListFilter } from 'lucide-react';
 import { formatNumber } from '@/lib/formatters';
 import type { SyslogEventRow, SyslogOverviewStats, FirewallBlocksOverview } from '@/lib/db/syslog-queries';
 
 export default function SyslogPage() {
   const todayStr = new Date().toISOString().split('T')[0];
+  const { shortcutsModalOpen, setShortcutsModalOpen } = useGlobalShortcuts();
 
   useEffect(() => {
     document.title = 'pfSense Syslog - Squid Analyzer';
@@ -227,6 +230,7 @@ export default function SyslogPage() {
         onOpenSyslogConfig={() => setIsSyslogConfigOpen(true)}
         onOpenIpModal={() => setIsIpModalOpen(true)}
         onOpenBackupModal={() => setIsBackupOpen(true)}
+        onOpenShortcuts={() => setShortcutsModalOpen(true)}
       />
 
       {/* Main Body */}
@@ -345,6 +349,11 @@ export default function SyslogPage() {
         isOpen={isIpModalOpen}
         onClose={() => setIsIpModalOpen(false)}
         onMappingsChanged={handleRefresh}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
       />
     </div>
   );

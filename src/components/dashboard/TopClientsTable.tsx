@@ -105,8 +105,8 @@ export function TopClientsTable({
                     key={idx}
                     onMouseEnter={() => onHoverIp?.(item.clientIp)}
                     onMouseLeave={() => onHoverIp?.(null)}
-                    className={`transition-colors group ${
-                      isCorrelated ? 'bg-indigo-950/70 ring-2 ring-indigo-400' : 'hover:bg-slate-800/40'
+                    className={`transition-colors group even:bg-slate-950/30 odd:bg-slate-900/10 ${
+                      isCorrelated ? 'bg-indigo-950/70 ring-2 ring-indigo-400' : 'hover:bg-slate-800/60'
                     }`}
                   >
                     <td className="py-2.5 pl-1">
@@ -149,19 +149,19 @@ export function TopClientsTable({
                         </div>
                       </div>
                     </td>
-                    <td className="py-2.5 text-right font-mono text-emerald-400 hidden lg:table-cell">
+                    <td className="py-2.5 text-right font-mono tabular-nums text-emerald-400 hidden lg:table-cell">
                       {formatBytes(dl)}
                     </td>
-                    <td className="py-2.5 text-right font-mono text-purple-400 hidden lg:table-cell">
+                    <td className="py-2.5 text-right font-mono tabular-nums text-purple-400 hidden lg:table-cell">
                       {formatBytes(ul)}
                     </td>
-                    <td className="py-2.5 text-right font-mono font-semibold text-blue-300">
+                    <td className="py-2.5 text-right font-mono tabular-nums font-semibold text-blue-300">
                       {formatBytes(item.bytes)}
                     </td>
-                    <td className="py-2.5 text-right font-mono text-slate-200">
+                    <td className="py-2.5 text-right font-mono tabular-nums text-slate-200">
                       {formatNumber(item.requestCount)}
                     </td>
-                    <td className="py-2.5 text-right font-mono">
+                    <td className="py-2.5 text-right font-mono tabular-nums">
                       {item.blockedCount > 0 ? (
                         <span className="inline-flex items-center gap-1 text-rose-400 font-semibold">
                           <ShieldAlert className="w-3 h-3" />

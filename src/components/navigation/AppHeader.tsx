@@ -13,6 +13,7 @@ import {
   Terminal,
   Eye,
   EyeOff,
+  Keyboard,
 } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
@@ -33,6 +34,7 @@ interface AppHeaderProps {
   onOpenReportsModal?: () => void;
   onOpenSquidFeed?: () => void;
   onOpenNetflowFeed?: () => void;
+  onOpenShortcuts?: () => void;
   onSelectProfile?: (ip: string) => void;
   onSelectDomain?: (domain: string) => void;
   onSelectPort?: (port: number, protocol?: string) => void;
@@ -46,6 +48,7 @@ export function AppHeader({
   onSelectProfile,
   onSelectDomain,
   onSelectPort,
+  onOpenShortcuts,
 }: AppHeaderProps) {
   const pathname = usePathname();
   const currentView = activeView || (pathname.startsWith('/syslog') ? 'syslog' : pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
@@ -327,6 +330,19 @@ export function AppHeader({
 
             {/* Theme Toggle */}
             <ThemeToggle className="h-8 w-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700/80 flex items-center justify-center shrink-0 shadow-sm" />
+
+            {/* Keyboard Shortcuts Dialog Trigger (Press ?) */}
+            {onOpenShortcuts && (
+              <button
+                type="button"
+                onClick={onOpenShortcuts}
+                aria-label="Keyboard shortcuts (press ?)"
+                className="h-8 w-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700/80 flex items-center justify-center shrink-0 shadow-sm"
+                title="Keyboard Shortcuts Cheat Sheet (Press ?)"
+              >
+                <Keyboard className="w-3.5 h-3.5 text-indigo-400" />
+              </button>
+            )}
 
             {/* User Profile Pill & Sign Out */}
             {user && (

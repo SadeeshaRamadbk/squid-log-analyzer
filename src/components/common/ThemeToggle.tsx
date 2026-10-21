@@ -8,7 +8,8 @@ export function ThemeToggle({ className }: { className?: string } = {}) {
 
   useEffect(() => {
     const saved = localStorage.getItem('app-theme') as 'dark' | 'light' | null;
-    const isLight = saved === 'light' || document.documentElement.classList.contains('light-theme');
+    const systemPrefersLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    const isLight = saved !== null ? saved === 'light' : Boolean(systemPrefersLight);
     if (isLight) {
       setTheme('light');
       document.documentElement.classList.add('light-theme');

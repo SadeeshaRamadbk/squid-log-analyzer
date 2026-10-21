@@ -12,7 +12,7 @@ import {
   Legend,
 } from 'recharts';
 import { TrendingUp, BarChart2, Table as TableIcon, LineChart as ChartIcon, ShieldAlert, ArrowDown, ArrowUp } from 'lucide-react';
-import { formatDate, formatNumber, formatBytes } from '@/lib/formatters';
+import { formatDate, formatNumber, formatCompactNumber, formatBytes } from '@/lib/formatters';
 
 interface RequestsChartProps {
   data: Array<{
@@ -176,7 +176,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             {metricMode === 'requests' ? (
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
@@ -198,9 +198,11 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 <YAxis
                   stroke="#94a3b8"
                   fontSize={11}
+                  width={50}
+                  domain={[0, (dataMax: number) => (dataMax ? Math.ceil(dataMax * 1.15) : 'auto')]}
                   tickLine={false}
                   axisLine={{ stroke: '#475569' }}
-                  tickFormatter={(val) => formatNumber(val)}
+                  tickFormatter={(val) => formatCompactNumber(val)}
                 />
                 <Tooltip
                   contentStyle={{
@@ -248,7 +250,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 />
               </AreaChart>
             ) : (
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSquidTotal" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -274,6 +276,8 @@ export function RequestsChart({ data }: RequestsChartProps) {
                 <YAxis
                   stroke="#94a3b8"
                   fontSize={11}
+                  width={56}
+                  domain={[0, (dataMax: number) => (dataMax ? Math.ceil(dataMax * 1.15) : 'auto')]}
                   tickLine={false}
                   axisLine={{ stroke: '#475569' }}
                   tickFormatter={(val) => formatBytes(val, 0)}

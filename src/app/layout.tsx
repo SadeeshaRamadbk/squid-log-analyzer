@@ -18,7 +18,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('app-theme');if(t==='light'){document.documentElement.classList.add('light-theme');}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('app-theme');if(t==='light'||(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)){document.documentElement.classList.add('light-theme');}}catch(e){}})();`,
           }}
         />
       </head>

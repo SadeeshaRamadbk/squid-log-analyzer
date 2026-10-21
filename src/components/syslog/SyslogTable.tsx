@@ -219,11 +219,11 @@ export function SyslogTable({
                   <tr
                     key={event.id}
                     onClick={() => setSelectedEvent(event)}
-                    className={`hover:bg-slate-800/40 transition-colors cursor-pointer group ${
+                    className={`hover:bg-slate-800/40 even:bg-slate-900/25 odd:bg-transparent transition-colors cursor-pointer group ${
                       isErr
-                        ? 'bg-rose-950/10'
+                        ? 'bg-rose-950/20'
                         : isWarn
-                        ? 'bg-amber-950/10'
+                        ? 'bg-amber-950/20'
                         : ''
                     }`}
                   >

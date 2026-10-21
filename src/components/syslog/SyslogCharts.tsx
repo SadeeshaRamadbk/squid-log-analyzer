@@ -14,6 +14,7 @@ import {
   Legend,
 } from 'recharts';
 import { Activity, Layers, Table as TableIcon, LineChart as ChartIcon, AlertOctagon, AlertTriangle, Info } from 'lucide-react';
+import { formatCompactNumber } from '@/lib/formatters';
 import type { SyslogTimelineBucket, SyslogAppStat } from '@/lib/db/syslog-queries';
 
 interface SyslogChartsProps {
@@ -101,7 +102,7 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={timeline} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorErrors" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
@@ -118,7 +119,15 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                   <XAxis dataKey="timeLabel" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={{ stroke: '#475569' }} />
-                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={{ stroke: '#475569' }} />
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={10}
+                    width={44}
+                    domain={[0, (dataMax: number) => (dataMax ? Math.ceil(dataMax * 1.15) : 'auto')]}
+                    tickLine={false}
+                    axisLine={{ stroke: '#475569' }}
+                    tickFormatter={(val) => formatCompactNumber(val)}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#0f172a',

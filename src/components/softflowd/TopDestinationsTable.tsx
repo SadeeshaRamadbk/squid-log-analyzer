@@ -107,22 +107,26 @@ export function TopDestinationsTable({
               : 'No East-West internal traffic recorded.'}
           </div>
         ) : (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[560px]">
+            <caption className="sr-only">Top Destination Remote Endpoints &amp; Internal Traffic</caption>
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-medium">
-                <th className="pb-2.5 pl-1">
+              <tr className="border-b border-slate-800 text-slate-300 font-semibold bg-slate-950/40">
+                <th scope="col" className="pb-2.5 pl-2">
                   {tab === 'external' ? 'External Destination IP' : 'Internal Host IP'}
                 </th>
-                <th className="pb-2.5 text-right">Volume</th>
-                <th className="pb-2.5 text-right">Flows</th>
-                <th className="pb-2.5 text-right">Packets</th>
-                <th className="pb-2.5 pl-4 w-28">Share</th>
+                <th scope="col" className="pb-2.5 pr-2 text-right">Volume</th>
+                <th scope="col" className="pb-2.5 pr-2 text-right">Flows</th>
+                <th scope="col" className="pb-2.5 pr-2 text-right">Packets</th>
+                <th scope="col" className="pb-2.5 pl-4 pr-2 w-28">Share</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {items.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-2.5 pl-1">
+                <tr
+                  key={idx}
+                  className="even:bg-slate-950/30 odd:bg-slate-900/10 hover:bg-slate-800/60 transition-colors"
+                >
+                  <td className="py-2.5 pl-2">
                     {tab === 'external' && (item.org || item.hostname) ? (
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5 font-semibold text-slate-200">
@@ -155,24 +159,24 @@ export function TopDestinationsTable({
                       </button>
                     )}
                   </td>
-                  <td className="py-2.5 text-right font-semibold text-slate-100 font-mono">
+                  <td className="py-2.5 pr-2 text-right font-semibold text-slate-100 font-mono tabular-nums">
                     {formatBytes(item.bytes)}
                   </td>
-                  <td className="py-2.5 text-right text-slate-300 font-mono">
+                  <td className="py-2.5 pr-2 text-right text-slate-300 font-mono tabular-nums">
                     {formatNumber(item.flowCount)}
                   </td>
-                  <td className="py-2.5 text-right text-slate-400 font-mono">
+                  <td className="py-2.5 pr-2 text-right text-slate-400 font-mono tabular-nums">
                     {formatNumber(item.packets)}
                   </td>
-                  <td className="py-2.5 pl-4">
-                    <div className="flex items-center gap-2">
+                  <td className="py-2.5 pl-4 pr-2">
+                    <div className="flex items-center gap-2 min-w-[50px]">
                       <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
                         <div
                           className={tab === 'external' ? 'bg-cyan-500 h-full rounded-full' : 'bg-amber-500 h-full rounded-full'}
                           style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
+                      <span className="text-[10px] text-slate-400 w-8 text-right font-mono tabular-nums">
                         {item.percentage}%
                       </span>
                     </div>
