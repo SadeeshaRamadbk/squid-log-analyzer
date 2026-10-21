@@ -19,6 +19,7 @@ import {
   Sparkles,
   Radio,
   Layers,
+  Terminal,
 } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
@@ -26,12 +27,13 @@ import { ThemeToggle } from '../common/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
 
 interface AppHeaderProps {
-  activeView?: 'squid' | 'softflowd' | 'split';
+  activeView?: 'squid' | 'softflowd' | 'syslog' | 'split';
   onViewChange?: (view: 'squid' | 'softflowd' | 'split') => void;
   onOpenIpModal: () => void;
   onOpenBackupModal: () => void;
   onOpenConfigModal?: () => void;
   onOpenSquidConfig?: () => void;
+  onOpenSyslogConfig?: () => void;
   onOpenReportsModal?: () => void;
   onOpenSquidFeed?: () => void;
   onOpenNetflowFeed?: () => void;
@@ -49,6 +51,7 @@ export function AppHeader({
   onOpenBackupModal,
   onOpenConfigModal,
   onOpenSquidConfig,
+  onOpenSyslogConfig,
   onOpenReportsModal,
   onOpenSquidFeed,
   onOpenNetflowFeed,
@@ -59,7 +62,7 @@ export function AppHeader({
   onToggleFilterSync,
 }: AppHeaderProps) {
   const pathname = usePathname();
-  const currentView = activeView || (pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
+  const currentView = activeView || (pathname.startsWith('/syslog') ? 'syslog' : pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
   const { user, isAdmin, logout } = useAuth();
   const [setupMenuOpen, setSetupMenuOpen] = useState(false);
   const setupMenuRef = useRef<HTMLDivElement>(null);
@@ -75,7 +78,7 @@ export function AppHeader({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const hasSetupOptions = !!(onOpenSquidConfig || onOpenConfigModal);
+  const hasSetupOptions = !!(onOpenSquidConfig || onOpenConfigModal || onOpenSyslogConfig);
 
   return (
     <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 shadow-sm">
@@ -168,6 +171,20 @@ export function AppHeader({
                   <Columns2 className="w-3.5 h-3.5" />
                   <span>Split View</span>
                 </button>
+
+                <Link
+                  href="/syslog"
+                  role="tab"
+                  aria-selected={currentView === 'syslog'}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                    currentView === 'syslog'
+                      ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Syslog (Events)</span>
+                </Link>
               </>
             ) : (
               <>
@@ -197,6 +214,20 @@ export function AppHeader({
                 >
                   <Shield className="w-3.5 h-3.5" />
                   <span>pfSense (Flows)</span>
+                </Link>
+
+                <Link
+                  href="/syslog"
+                  role="tab"
+                  aria-selected={currentView === 'syslog'}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                    currentView === 'syslog'
+                      ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Syslog (Events)</span>
                 </Link>
 
                 <Link
@@ -411,9 +442,32 @@ export function AppHeader({
                           <span>pfSense softflowd Setup</span>
                         </button>
                       )}
+                      {onOpenSyslogConfig && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSetupMenuOpen(false);
+                            onOpenSyslogConfig();
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                        >
+                          <Terminal className="w-3.5 h-3.5 text-purple-400" />
+                          <span>pfSense Syslog Setup</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
+              ) : currentView === 'syslog' && onOpenSyslogConfig ? (
+                <button
+                  type="button"
+                  onClick={onOpenSyslogConfig}
+                  className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="pfSense Syslog Forwarding Setup Guide"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Syslog Setup</span>
+                </button>
               ) : currentView === 'squid' && onOpenSquidConfig ? (
                 <button
                   type="button"

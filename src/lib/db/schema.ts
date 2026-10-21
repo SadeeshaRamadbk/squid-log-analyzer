@@ -260,6 +260,27 @@ export function initializeDatabase(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(token);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
+
+    -- Syslog Infrastructure & Operational Events (pfSense, Squid, daemons, firewall)
+    CREATE TABLE IF NOT EXISTS syslog_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,            -- Unix epoch in milliseconds
+      facility INTEGER NOT NULL,             -- Syslog facility numerical code (0-23)
+      facility_label TEXT NOT NULL,          -- e.g. 'daemon', 'auth', 'kernel', 'local0'
+      severity INTEGER NOT NULL,             -- Syslog severity numerical code (0-7)
+      severity_label TEXT NOT NULL,          -- e.g. 'error', 'warning', 'info'
+      hostname TEXT NOT NULL,                -- e.g. 'pfsense.nipponbpo.local', '192.168.0.1'
+      app_name TEXT NOT NULL,                -- e.g. 'squid', 'filterlog', 'dhcpd', 'openvpn', 'dpinger'
+      proc_id TEXT,                          -- PID or process identifier
+      message TEXT NOT NULL,                 -- Parsed message body
+      raw_message TEXT                       -- Raw syslog line received
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_syslog_timestamp ON syslog_events(timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_severity_ts ON syslog_events(severity, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_app_ts ON syslog_events(app_name, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_facility_ts ON syslog_events(facility_label, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_host_app_ts ON syslog_events(hostname, app_name, timestamp DESC);
   `);
 
   // Backfill minute and hourly rollups from existing raw logs if empty

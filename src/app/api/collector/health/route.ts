@@ -43,6 +43,30 @@ export async function GET() {
       }
     }
 
+    // Syslog status
+    let lastSyslogTime = 0;
+    let totalSyslogEvents = 0;
+    let syslogPerSecond = 0;
+    let syslogStatus: 'green' | 'amber' | 'red' = 'red';
+
+    try {
+      const syslogRow = db.prepare('SELECT MAX(timestamp) AS lastSyslogTime, COUNT(*) AS totalSyslogEvents FROM syslog_events').get() as any;
+      lastSyslogTime = Number(syslogRow?.lastSyslogTime || 0);
+      totalSyslogEvents = Number(syslogRow?.totalSyslogEvents || 0);
+
+      const recentSyslogRow = db.prepare('SELECT COUNT(*) AS count FROM syslog_events WHERE timestamp >= ?').get(sixtySecAgo) as any;
+      syslogPerSecond = Math.round(((Number(recentSyslogRow?.count || 0)) / 60) * 10) / 10;
+
+      if (lastSyslogTime > 0) {
+        const diffSec = (now - lastSyslogTime) / 1000;
+        if (diffSec <= 60) {
+          syslogStatus = 'green';
+        } else if (diffSec <= 600) {
+          syslogStatus = 'amber';
+        }
+      }
+    } catch {}
+
     return NextResponse.json({
       success: true,
       data: {
@@ -60,6 +84,14 @@ export async function GET() {
           formattedLastSquid: lastSquidTime > 0 ? formatTimestamp(lastSquidTime, tz) : 'No logs yet',
           totalSquidLogs,
           port: settings.squidPort || 3128,
+        },
+        syslog: {
+          status: syslogStatus,
+          lastSyslogTime,
+          formattedLastSyslog: lastSyslogTime > 0 ? formatTimestamp(lastSyslogTime, tz) : 'No events yet',
+          eventsPerSecond: syslogPerSecond,
+          totalSyslogEvents,
+          port: parseInt(process.env.SYSLOG_PORT || '1514', 10),
         },
         systemTime: formatTimestamp(now, tz),
         timezone: tz,

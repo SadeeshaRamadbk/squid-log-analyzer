@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, RefreshCw, Radio, CheckCircle } from 'lucide-react';
+import { Activity, RefreshCw, Radio, CheckCircle, Terminal } from 'lucide-react';
 
 interface HealthData {
   netflow: {
@@ -17,6 +17,14 @@ interface HealthData {
     lastSquidTime: number;
     formattedLastSquid: string;
     totalSquidLogs: number;
+    port: number;
+  };
+  syslog?: {
+    status: 'green' | 'amber' | 'red';
+    lastSyslogTime: number;
+    formattedLastSyslog: string;
+    eventsPerSecond: number;
+    totalSyslogEvents: number;
     port: number;
   };
   systemTime: string;
@@ -62,14 +70,13 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
     );
   }
 
-  const overallStatus =
-    health.netflow.status === 'red' || health.squid.status === 'red'
-      ? health.netflow.status === 'green' || health.squid.status === 'green'
-        ? 'amber'
-        : 'red'
-      : health.netflow.status === 'amber' || health.squid.status === 'amber'
-      ? 'amber'
-      : 'green';
+  const statuses = [health.netflow.status, health.squid.status];
+  if (health.syslog) statuses.push(health.syslog.status);
+
+  const allGreen = statuses.every((s) => s === 'green');
+  const anyGreenOrAmber = statuses.some((s) => s === 'green' || s === 'amber');
+
+  const overallStatus = allGreen ? 'green' : anyGreenOrAmber ? 'amber' : 'red';
 
   const dotColor =
     overallStatus === 'green'
@@ -184,6 +191,46 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
                 </div>
               </div>
             </div>
+
+            {/* pfSense Syslog Status */}
+            {health.syslog && (
+              <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-200 flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-purple-400" /> pfSense Syslog UDP
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                      health.syslog.status === 'green'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : health.syslog.status === 'amber'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    }`}
+                  >
+                    {health.syslog.status === 'green' ? 'Receiving' : health.syslog.status === 'amber' ? 'Idle' : 'No Traffic'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 space-y-0.5 font-mono">
+                  <div className="flex justify-between">
+                    <span>Syslog Port:</span>
+                    <span className="text-slate-200">UDP {health.syslog.port}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Event Rate:</span>
+                    <span className="text-purple-300 font-semibold">{health.syslog.eventsPerSecond} events/sec</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Ingested:</span>
+                    <span className="text-slate-300">{health.syslog.totalSyslogEvents.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Last Event:</span>
+                    <span className="text-slate-300">{health.syslog.formattedLastSyslog}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="text-[10px] text-slate-500 text-center font-mono pt-1">
               Timezone: {health.timezone} &bull; {health.systemTime}

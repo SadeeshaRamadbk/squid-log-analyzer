@@ -13,6 +13,8 @@
     "retention": "tsx src/lib/db/retention.ts",
     "seed-demo": "tsx src/ingestion/demo-generator.ts",
     "seed-flows": "tsx src/netflow-collector/demo-flow-generator.ts",
+    "syslog": "tsx src/syslog-collector/index.ts",
+    "seed-syslog": "tsx src/syslog-collector/demo-syslog-generator.ts",
     "clear-db": "tsx src/lib/db/clear.ts",
     "backup": "tsx src/lib/db/backup.ts",
     "restore": "tsx src/lib/db/restore.ts"

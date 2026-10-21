@@ -8,10 +8,12 @@ export interface RetentionResult {
   deletedRows: number;
   squidDeletedRows: number;
   netflowDeletedRows: number;
+  syslogDeletedRows?: number;
   minuteRollupsDeletedRows: number;
   hourlyRollupsDeletedRows: number;
   squidRetentionDays: number;
   netflowRetentionDays: number;
+  syslogRetentionDays?: number;
   cutoffDate: string;
   cutoffTimestamp: number;
   executedAt: string;
@@ -21,6 +23,7 @@ export interface RetentionResult {
 export interface RetentionOptions {
   squidDays?: number;
   netflowDays?: number;
+  syslogDays?: number;
   minuteRollupDays?: number;
   hourlyRollupDays?: number;
   runVacuum?: boolean;
@@ -35,19 +38,22 @@ export function runRetentionJob(options: RetentionOptions | number = {}): Retent
 
   const squidDays = opts.squidDays ?? Number(process.env.RETENTION_DAYS) ?? 60;
   const netflowDays = opts.netflowDays ?? Number(process.env.NETFLOW_RETENTION_DAYS) ?? 7;
+  const syslogDays = opts.syslogDays ?? Number(process.env.SYSLOG_RETENTION_DAYS) ?? 14;
   const minuteRollupDays = opts.minuteRollupDays ?? 14;
   const hourlyRollupDays = opts.hourlyRollupDays ?? 90;
 
   const now = Date.now();
   const squidCutoff = now - squidDays * 24 * 60 * 60 * 1000;
   const netflowCutoff = now - netflowDays * 24 * 60 * 60 * 1000;
+  const syslogCutoff = now - syslogDays * 24 * 60 * 60 * 1000;
   const minuteRollupCutoff = now - minuteRollupDays * 24 * 60 * 60 * 1000;
   const hourlyRollupCutoff = now - hourlyRollupDays * 24 * 60 * 60 * 1000;
 
-  console.log(`[Retention Job] Pruning logs (Squid > ${squidDays}d, NetFlow > ${netflowDays}d)...`);
+  console.log(`[Retention Job] Pruning logs (Squid > ${squidDays}d, NetFlow > ${netflowDays}d, Syslog > ${syslogDays}d)...`);
 
   let squidDeleted = 0;
   let netflowDeleted = 0;
+  let syslogDeleted = 0;
   let minRollupDeleted = 0;
   let hrRollupDeleted = 0;
 
@@ -60,17 +66,23 @@ export function runRetentionJob(options: RetentionOptions | number = {}): Retent
     const infoNetflow = db.prepare('DELETE FROM netflow_logs WHERE timestamp < ?').run(netflowCutoff);
     netflowDeleted = infoNetflow.changes;
 
-    // 3. Delete expired minute roll-ups (> 14 days)
+    // 3. Delete expired Syslog events (default 14 days)
+    try {
+      const infoSyslog = db.prepare('DELETE FROM syslog_events WHERE timestamp < ?').run(syslogCutoff);
+      syslogDeleted = infoSyslog.changes;
+    } catch {}
+
+    // 4. Delete expired minute roll-ups (> 14 days)
     const infoMin = db.prepare('DELETE FROM netflow_minute_rollups WHERE bucket_timestamp < ?').run(minuteRollupCutoff);
     minRollupDeleted = infoMin.changes;
 
-    // 4. Delete expired hourly roll-ups (> 90 days)
+    // 5. Delete expired hourly roll-ups (> 90 days)
     const infoHr = db.prepare('DELETE FROM netflow_hourly_rollups WHERE bucket_timestamp < ?').run(hourlyRollupCutoff);
     hrRollupDeleted = infoHr.changes;
   });
 
   runDeletes();
-  const totalDeleted = squidDeleted + netflowDeleted + minRollupDeleted + hrRollupDeleted;
+  const totalDeleted = squidDeleted + netflowDeleted + syslogDeleted + minRollupDeleted + hrRollupDeleted;
 
   // Run WAL checkpoint and optimize pragma
   let walCheckpointResult = null;
@@ -100,10 +112,12 @@ export function runRetentionJob(options: RetentionOptions | number = {}): Retent
     deletedRows: totalDeleted,
     squidDeletedRows: squidDeleted,
     netflowDeletedRows: netflowDeleted,
+    syslogDeletedRows: syslogDeleted,
     minuteRollupsDeletedRows: minRollupDeleted,
     hourlyRollupsDeletedRows: hrRollupDeleted,
     squidRetentionDays: squidDays,
     netflowRetentionDays: netflowDays,
+    syslogRetentionDays: syslogDays,
     cutoffDate: new Date(netflowCutoff).toISOString(),
     cutoffTimestamp: netflowCutoff,
     executedAt: new Date().toISOString(),
@@ -111,16 +125,18 @@ export function runRetentionJob(options: RetentionOptions | number = {}): Retent
 
   metaStmt.run('last_retention_run', JSON.stringify(executionPayload), now);
 
-  console.log(`[Retention Job] Cleaned ${totalDeleted} records total (Squid: ${squidDeleted}, NetFlow raw: ${netflowDeleted}, Minute rollups: ${minRollupDeleted}, Hourly rollups: ${hrRollupDeleted}).`);
+  console.log(`[Retention Job] Cleaned ${totalDeleted} records total (Squid: ${squidDeleted}, NetFlow raw: ${netflowDeleted}, Syslog: ${syslogDeleted}, Minute rollups: ${minRollupDeleted}, Hourly rollups: ${hrRollupDeleted}).`);
 
   return {
     deletedRows: totalDeleted,
     squidDeletedRows: squidDeleted,
     netflowDeletedRows: netflowDeleted,
+    syslogDeletedRows: syslogDeleted,
     minuteRollupsDeletedRows: minRollupDeleted,
     hourlyRollupsDeletedRows: hrRollupDeleted,
     squidRetentionDays: squidDays,
     netflowRetentionDays: netflowDays,
+    syslogRetentionDays: syslogDays,
     cutoffDate: new Date(netflowCutoff).toISOString(),
     cutoffTimestamp: netflowCutoff,
     executedAt: new Date().toISOString(),

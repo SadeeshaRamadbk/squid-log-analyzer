@@ -4,6 +4,18 @@ dotenv.config();
 
 import { getDatabase } from './index';
 
+export function clearSyslogData(): void {
+  const db = getDatabase();
+  console.log('[DB] Clearing syslog events from database...');
+  db.transaction(() => {
+    db.prepare('DELETE FROM syslog_events').run();
+    try {
+      db.prepare("DELETE FROM sqlite_sequence WHERE name = 'syslog_events'").run();
+    } catch {}
+  })();
+  console.log('[DB] Syslog events cleared successfully.');
+}
+
 export function clearAllData(): void {
   const db = getDatabase();
   console.log('[DB] Clearing all dummy records from database...');
@@ -13,8 +25,9 @@ export function clearAllData(): void {
     db.prepare('DELETE FROM daily_summaries').run();
     db.prepare('DELETE FROM netflow_logs').run();
     db.prepare('DELETE FROM netflow_daily_summaries').run();
+    db.prepare('DELETE FROM syslog_events').run();
     db.prepare('DELETE FROM system_meta').run();
-    db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('raw_logs', 'daily_summaries', 'netflow_logs', 'netflow_daily_summaries')").run();
+    db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('raw_logs', 'daily_summaries', 'netflow_logs', 'netflow_daily_summaries', 'syslog_events')").run();
   });
 
   clear();
