@@ -1,40 +1,31 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Network,
   Shield,
-  Database,
-  Users,
-  HelpCircle,
   Columns2,
-  Link2,
-  FileCode,
   LogOut,
   UserCheck,
-  ChevronDown,
   Settings,
-  Sparkles,
-  Radio,
-  Layers,
   Terminal,
-  Tags,
   Eye,
   EyeOff,
 } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { DensityToggle } from '../common/DensityToggle';
 import { useAuth } from '../auth/AuthContext';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface AppHeaderProps {
   activeView?: 'squid' | 'softflowd' | 'syslog' | 'split';
   onViewChange?: (view: 'squid' | 'softflowd' | 'split') => void;
-  onOpenIpModal: () => void;
-  onOpenBackupModal: () => void;
+  onOpenIpModal?: () => void;
+  onOpenBackupModal?: () => void;
   onOpenCategoriesModal?: () => void;
   onOpenConfigModal?: () => void;
   onOpenSquidConfig?: () => void;
@@ -52,28 +43,14 @@ interface AppHeaderProps {
 export function AppHeader({
   activeView,
   onViewChange,
-  onOpenIpModal,
-  onOpenBackupModal,
-  onOpenCategoriesModal,
-  onOpenConfigModal,
-  onOpenSquidConfig,
-  onOpenSyslogConfig,
-  onOpenReportsModal,
-  onOpenSquidFeed,
-  onOpenNetflowFeed,
   onSelectProfile,
   onSelectDomain,
   onSelectPort,
-  isFilterSynced,
-  onToggleFilterSync,
 }: AppHeaderProps) {
   const pathname = usePathname();
   const currentView = activeView || (pathname.startsWith('/syslog') ? 'syslog' : pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
   const { user, isAdmin, logout } = useAuth();
   const isPrivacyMode = usePrivacyMode();
-  const [setupMenuOpen, setSetupMenuOpen] = useState(false);
-  const setupMenuRef = useRef<HTMLDivElement>(null);
-  const setupButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLElement>, viewName: 'squid' | 'softflowd' | 'split' | 'syslog') => {
     const tabs: ('squid' | 'softflowd' | 'split' | 'syslog')[] = ['squid', 'softflowd', 'split', 'syslog'];
@@ -112,37 +89,14 @@ export function AppHeader({
     } catch {}
   };
 
-  // Close setup dropdown on outside click or Escape key
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (setupMenuRef.current && !setupMenuRef.current.contains(event.target as Node)) {
-        setSetupMenuOpen(false);
-      }
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && setupMenuOpen) {
-        setSetupMenuOpen(false);
-        setupButtonRef.current?.focus();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [setupMenuOpen]);
-
-  const hasSetupOptions = !!(onOpenSquidConfig || onOpenConfigModal || onOpenSyslogConfig);
-
   return (
     <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 shadow-sm">
       <div className="max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* ============================================================== */}
-        {/* ROW 1: Brand Identity, Segmented Navigation Tabs, & Session */}
+        {/* LEVEL 1: Brand, Nav Tabs, Quick Search (Ctrl+K), & User/Theme */}
         {/* ============================================================== */}
-        <div className="py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/50">
+        <div className="py-2.5 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
           
           {/* Brand Identity & Environment */}
           <Link
@@ -177,7 +131,7 @@ export function AppHeader({
           <nav
             role="tablist"
             aria-label="Module Views"
-            className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800 text-xs shadow-inner"
+            className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800 text-xs shadow-inner overflow-x-auto scrollbar-none shrink-0"
           >
             {onViewChange ? (
               <>
@@ -334,8 +288,19 @@ export function AppHeader({
             )}
           </nav>
 
-          {/* Right: Collector Status, Theme & User Session */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Quick Search (Ctrl+K) */}
+          <div className="flex-1 min-w-[200px] max-w-xs xl:max-w-sm hidden md:block">
+            {onSelectProfile && (
+              <GlobalIpSearch
+                onSelectProfile={onSelectProfile}
+                onSelectDomain={onSelectDomain}
+                onSelectPort={onSelectPort}
+              />
+            )}
+          </div>
+
+          {/* Right: Collector Status, Privacy, Density, Theme & User Session */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto lg:ml-0">
             {/* Collector Health Indicator */}
             <CollectorHealthBadge className="h-8 inline-flex items-center gap-2 px-2.5 rounded-lg bg-slate-950/80 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition-colors cursor-pointer shadow-sm" />
 
@@ -356,6 +321,9 @@ export function AppHeader({
               {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
               <span className="hidden md:inline font-sans">{isPrivacyMode ? 'Privacy ON' : 'Privacy'}</span>
             </button>
+
+            {/* Density Toggle */}
+            <DensityToggle />
 
             {/* Theme Toggle */}
             <ThemeToggle className="h-8 w-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700/80 flex items-center justify-center shrink-0 shadow-sm" />
@@ -402,222 +370,15 @@ export function AppHeader({
           </div>
         </div>
 
-        {/* ============================================================== */}
-        {/* ROW 2: Global IP Search & Operational Tools Toolbar */}
-        {/* ============================================================== */}
-        <div className="py-2 flex flex-wrap items-center justify-between gap-3">
-          
-          {/* Left: Global IP / Domain / Port Search */}
-          <div className="w-full sm:w-72 md:w-80 lg:w-96">
-            {onSelectProfile && (
-              <GlobalIpSearch
-                onSelectProfile={onSelectProfile}
-                onSelectDomain={onSelectDomain}
-                onSelectPort={onSelectPort}
-              />
-            )}
-          </div>
-
-          {/* Right: Operational Action Buttons with Standardized Sizing & Even Gaps */}
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            {/* Filter Sync (Only when Split View is active) */}
-            {onToggleFilterSync && currentView === 'split' && (
-              <button
-                type="button"
-                onClick={onToggleFilterSync}
-                className={`h-8 px-3 rounded-lg border font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm ${
-                  isFilterSynced
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : 'bg-slate-800/80 text-slate-400 border-slate-700/80 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-                title="Sync IP and Date filters across both panels in real-time"
-              >
-                <Link2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{isFilterSynced ? 'Synced' : 'Sync Filters'}</span>
-              </button>
-            )}
-
-            {/* IP Aliases */}
-            <button
-              type="button"
-              onClick={onOpenIpModal}
-              className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title="Manage Workstation IP to Employee & Department mappings"
-            >
-              <Users className="w-3.5 h-3.5 text-amber-400" />
-              <span>IP Aliases</span>
-            </button>
-
-            {/* Domain Categories */}
-            {onOpenCategoriesModal && (
-              <button
-                type="button"
-                onClick={onOpenCategoriesModal}
-                className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                title="Manage domain category rules and department usage summaries"
-              >
-                <Tags className="w-3.5 h-3.5 text-purple-400" />
-                <span>Domain Categories</span>
-              </button>
-            )}
-
-            {/* Scheduled Word / AI Reports */}
-            {onOpenReportsModal && (
-              <button
-                type="button"
-                onClick={onOpenReportsModal}
-                className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                title="Generate automated executive Word reports with AI summaries"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Reports (AI)</span>
-              </button>
-            )}
-
-            {/* Quick Live Feed Details Popups */}
-            {onOpenSquidFeed && (
-              <button
-                type="button"
-                onClick={onOpenSquidFeed}
-                className="h-8 px-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-500/10"
-                title="Open Squid Proxy Live Feed popup with complete logs & deep filters"
-              >
-                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span>Squid Feed</span>
-              </button>
-            )}
-
-            {onOpenNetflowFeed && (
-              <button
-                type="button"
-                onClick={onOpenNetflowFeed}
-                className="h-8 px-3 rounded-lg border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-indigo-200 transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm shadow-indigo-500/10"
-                title="Open pfSense NetFlow Live Feed popup with session telemetry & socket filters"
-              >
-                <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                <span>NetFlow Feed</span>
-              </button>
-            )}
-
-            {/* System Settings */}
-            <Link
-              href="/settings"
-              className={`h-8 px-3 rounded-lg border font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm ${
-                pathname === '/settings'
-                  ? 'bg-purple-600 text-white border-purple-500 shadow-purple-600/30'
-                  : 'border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white'
-              }`}
-              title="System Settings, Users & Retention"
-            >
-              <Settings className="w-3.5 h-3.5 text-purple-400" />
-              <span>Settings</span>
-            </Link>
-
-            {/* Setup / Configuration Options Dropdown or Contextual Button */}
-            {hasSetupOptions && (
-              currentView === 'split' ? (
-                <div ref={setupMenuRef} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setSetupMenuOpen((prev) => !prev)}
-                    className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                    title="Configuration and setup guides for Squid & pfSense"
-                    aria-expanded={setupMenuOpen}
-                  >
-                    <Settings className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Setup</span>
-                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${setupMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {setupMenuOpen && (
-                    <div className="absolute right-0 mt-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl p-1 z-50 text-xs space-y-0.5 animate-in fade-in duration-100">
-                      {onOpenSquidConfig && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSetupMenuOpen(false);
-                            onOpenSquidConfig();
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
-                        >
-                          <FileCode className="w-3.5 h-3.5 text-blue-400" />
-                          <span>Squid Proxy Setup</span>
-                        </button>
-                      )}
-                      {onOpenConfigModal && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSetupMenuOpen(false);
-                            onOpenConfigModal();
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
-                        >
-                          <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>pfSense softflowd Setup</span>
-                        </button>
-                      )}
-                      {onOpenSyslogConfig && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSetupMenuOpen(false);
-                            onOpenSyslogConfig();
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
-                        >
-                          <Terminal className="w-3.5 h-3.5 text-purple-400" />
-                          <span>pfSense Syslog Setup</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : currentView === 'syslog' && onOpenSyslogConfig ? (
-                <button
-                  type="button"
-                  onClick={onOpenSyslogConfig}
-                  className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  title="pfSense Syslog Forwarding Setup Guide"
-                >
-                  <Terminal className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Syslog Setup</span>
-                </button>
-              ) : currentView === 'squid' && onOpenSquidConfig ? (
-                <button
-                  type="button"
-                  onClick={onOpenSquidConfig}
-                  className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  title="Squid log forwarding setup"
-                >
-                  <FileCode className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Squid Setup</span>
-                </button>
-              ) : onOpenConfigModal ? (
-                <button
-                  type="button"
-                  onClick={onOpenConfigModal}
-                  className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  title="pfSense softflowd NetFlow setup"
-                >
-                  <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>pfSense Setup</span>
-                </button>
-              ) : null
-            )}
-
-            {/* Database Backup & Restore */}
-            <button
-              type="button"
-              onClick={onOpenBackupModal}
-              className="h-8 px-3 rounded-lg border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title="Backup and Restore SQLite database"
-            >
-              <Database className="w-3.5 h-3.5 text-blue-400" />
-              <span>Backup</span>
-            </button>
-          </div>
-
+        {/* Small Screen Quick Search (visible on mobile < md) */}
+        <div className="pb-2.5 md:hidden">
+          {onSelectProfile && (
+            <GlobalIpSearch
+              onSelectProfile={onSelectProfile}
+              onSelectDomain={onSelectDomain}
+              onSelectPort={onSelectPort}
+            />
+          )}
         </div>
 
       </div>

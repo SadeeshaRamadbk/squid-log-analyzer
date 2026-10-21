@@ -98,22 +98,22 @@ export function SoftflowdMetrics({ metrics, isLoading }: SoftflowdMetricsProps) 
             title={card.tooltip}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400 tracking-wide uppercase">
+              <span className="text-xs font-semibold text-slate-400 tracking-wide uppercase">
                 {card.title}
               </span>
               <div className={`p-2 rounded-lg ${card.bgColor} ${card.color}`}>
                 <Icon className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2">
-              <div className="text-2xl font-bold tracking-tight text-slate-100">
+            <div className="mt-2.5">
+              <div className="text-[28px] xl:text-[30px] font-extrabold tracking-tight text-slate-100 tabular-nums leading-none">
                 {isLoading ? (
-                  <span className="inline-block w-16 h-7 bg-slate-800 rounded animate-pulse" />
+                  <span className="inline-block w-20 h-7 bg-slate-800 rounded animate-pulse" />
                 ) : (
                   card.value
                 )}
               </div>
-              <p className="mt-1 text-xs text-slate-400">{card.subtitle}</p>
+              <p className="mt-1.5 text-xs text-slate-400 font-medium">{card.subtitle}</p>
             </div>
           </div>
         );

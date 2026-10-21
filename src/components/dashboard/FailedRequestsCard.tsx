@@ -54,9 +54,23 @@ export function FailedRequestsCard({
 
   if (loading && !data) {
     return (
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center gap-2 text-xs text-slate-400">
-        <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-        <span>Evaluating proxy error rates...</span>
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4 animate-pulse">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-800" />
+            <div className="space-y-1.5">
+              <div className="w-48 h-4 rounded bg-slate-800" />
+              <div className="w-32 h-3 rounded bg-slate-800/60" />
+            </div>
+          </div>
+          <div className="w-32 h-6 rounded-lg bg-slate-800" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="h-16 rounded-xl bg-slate-800/40 border border-slate-800/60" />
+          <div className="h-16 rounded-xl bg-slate-800/40 border border-slate-800/60" />
+          <div className="h-16 rounded-xl bg-slate-800/40 border border-slate-800/60" />
+          <div className="h-16 rounded-xl bg-slate-800/40 border border-slate-800/60" />
+        </div>
       </div>
     );
   }

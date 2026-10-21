@@ -45,10 +45,49 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Display Density & Typography Scale Tokens (WCAG 2.2 AA) */
+:root {
+  --density-font-body: 14px;
+  --density-font-secondary: 12px;
+  --density-font-table: 13px;
+  --density-table-py: 0.5rem;
+  --density-table-px: 0.75rem;
+}
+
+html[data-density="compact"] {
+  --density-font-body: 13px;
+  --density-font-secondary: 11px;
+  --density-font-table: 12px;
+  --density-table-py: 0.25rem;
+  --density-table-px: 0.5rem;
+}
+
+html[data-density="normal"] {
+  --density-font-body: 14px;
+  --density-font-secondary: 12px;
+  --density-font-table: 13px;
+  --density-table-py: 0.5rem;
+  --density-table-px: 0.75rem;
+}
+
+html[data-density="comfortable"] {
+  --density-font-body: 15px;
+  --density-font-secondary: 13px;
+  --density-font-table: 14px;
+  --density-table-py: 0.75rem;
+  --density-table-px: 1rem;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  font-size: var(--density-font-body, 14px);
+  line-height: 1.5;
+}
+
+table td, table th {
+  font-size: var(--density-font-table, 13px);
 }
 
 /* =========================================================================

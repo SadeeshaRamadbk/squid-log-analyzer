@@ -1,6 +1,26 @@
 'use client';
 
-import { Clock, Radio, RefreshCw, X, Filter, Link2, Server, Shield, Layers } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Clock,
+  Radio,
+  RefreshCw,
+  X,
+  Filter,
+  Link2,
+  Server,
+  Shield,
+  Layers,
+  Users,
+  Sparkles,
+  Database,
+  ChevronDown,
+  SlidersHorizontal,
+  Tags,
+  FileCode,
+  HelpCircle,
+  Terminal,
+} from 'lucide-react';
 import { DateRangeSelector } from '../common/DateRangeSelector';
 import { SavedViewsDropdown, SavedViewItem } from './SavedViewsDropdown';
 
@@ -30,6 +50,15 @@ interface GlobalFilterBarProps {
   availableServices?: string[];
   activeView: 'squid' | 'softflowd' | 'split';
   onApplySavedView?: (view: SavedViewItem) => void;
+  onOpenIpModal?: () => void;
+  onOpenCategoriesModal?: () => void;
+  onOpenBackupModal?: () => void;
+  onOpenReportsModal?: () => void;
+  onOpenSquidConfig?: () => void;
+  onOpenConfigModal?: () => void;
+  onOpenSyslogConfig?: () => void;
+  onOpenSquidFeed?: () => void;
+  onOpenNetflowFeed?: () => void;
 }
 
 export function GlobalFilterBar({
@@ -46,7 +75,49 @@ export function GlobalFilterBar({
   availableServices = ['HTTPS', 'DNS', 'HTTP', 'SSH', 'RDP', 'SMB'],
   activeView,
   onApplySavedView,
+  onOpenIpModal,
+  onOpenCategoriesModal,
+  onOpenBackupModal,
+  onOpenReportsModal,
+  onOpenSquidConfig,
+  onOpenConfigModal,
+  onOpenSyslogConfig,
+  onOpenSquidFeed,
+  onOpenNetflowFeed,
 }: GlobalFilterBarProps) {
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
+  const toolsButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
+        setToolsMenuOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && toolsMenuOpen) {
+        setToolsMenuOpen(false);
+        toolsButtonRef.current?.focus();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [toolsMenuOpen]);
+
+  const hasMoreTools = Boolean(
+    onOpenCategoriesModal ||
+    onOpenSquidFeed ||
+    onOpenNetflowFeed ||
+    onOpenSquidConfig ||
+    onOpenConfigModal ||
+    onOpenSyslogConfig ||
+    onOpenBackupModal
+  );
   const handleTimePreset = (preset: '30m' | '1h' | 'today' | '7d' | '30d' | 'all') => {
     const today = new Date().toISOString().split('T')[0];
     const next = { ...filters };
@@ -327,8 +398,172 @@ export function GlobalFilterBar({
           </div>
         </div>
 
-        {/* Right Side: Actions (Sync, Real-Time toggle, Refresh button) */}
-        <div className="flex items-center gap-2 ml-auto">
+        {/* Right Side: Operational Action Buttons & Live Controls */}
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          {/* IP Aliases */}
+          {onOpenIpModal && (
+            <button
+              type="button"
+              onClick={onOpenIpModal}
+              className="h-7 px-2.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Manage Workstation IP to Employee & Department mappings"
+            >
+              <Users className="w-3.5 h-3.5 text-amber-400" />
+              <span>IP Aliases</span>
+            </button>
+          )}
+
+          {/* Scheduled Word / AI Reports */}
+          {onOpenReportsModal && (
+            <button
+              type="button"
+              onClick={onOpenReportsModal}
+              className="h-7 px-2.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Generate automated executive Word reports with AI summaries"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden xl:inline">Reports (AI)</span>
+            </button>
+          )}
+
+          {/* Tools & Setup Dropdown */}
+          {hasMoreTools && (
+            <div ref={toolsMenuRef} className="relative">
+              <button
+                ref={toolsButtonRef}
+                type="button"
+                onClick={() => setToolsMenuOpen((prev) => !prev)}
+                className="h-7 px-2.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                aria-expanded={toolsMenuOpen}
+                aria-haspopup="menu"
+                title="Operations, Live Feeds & Setup Guides"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Tools</span>
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${toolsMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {toolsMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-1.5 w-56 rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl p-1 z-50 text-xs space-y-0.5 animate-in fade-in duration-100"
+                >
+                  {onOpenCategoriesModal && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenCategoriesModal();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Tags className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Domain Categories</span>
+                    </button>
+                  )}
+                  {onOpenSquidFeed && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenSquidFeed();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-emerald-300 hover:text-emerald-200 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Squid Live Feed</span>
+                    </button>
+                  )}
+                  {onOpenNetflowFeed && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenNetflowFeed();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-indigo-300 hover:text-indigo-200 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>NetFlow Live Feed</span>
+                    </button>
+                  )}
+                  {onOpenSquidConfig && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenSquidConfig();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Squid Setup Guide</span>
+                    </button>
+                  )}
+                  {onOpenConfigModal && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenConfigModal();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>pfSense softflowd Setup</span>
+                    </button>
+                  )}
+                  {onOpenSyslogConfig && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenSyslogConfig();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Terminal className="w-3.5 h-3.5 text-purple-400" />
+                      <span>pfSense Syslog Setup</span>
+                    </button>
+                  )}
+                  {onOpenBackupModal && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        onOpenBackupModal();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Database className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Backup &amp; Restore</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Backup Database Quick Button */}
+          {onOpenBackupModal && (
+            <button
+              type="button"
+              onClick={onOpenBackupModal}
+              className="h-7 px-2.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-sm hidden lg:inline-flex"
+              title="Backup and Restore SQLite database"
+            >
+              <Database className="w-3.5 h-3.5 text-blue-400" />
+              <span>Backup</span>
+            </button>
+          )}
+
           {onToggleFilterSync && activeView === 'split' && (
             <button
               type="button"

@@ -30,9 +30,18 @@ export function FirewallBlocksView({
 }: FirewallBlocksViewProps) {
   if (isLoading && !data) {
     return (
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
-        <Activity className="w-8 h-8 animate-spin mx-auto text-purple-400 mb-3" />
-        <p className="text-sm font-semibold text-slate-300">Analyzing firewall filterlog telemetry...</p>
+      <div className="space-y-6 animate-pulse">
+        <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 h-20" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 h-24" />
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 h-24" />
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 h-24" />
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 h-24" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64 rounded-2xl bg-slate-900/70 border border-slate-800" />
+          <div className="h-64 rounded-2xl bg-slate-900/70 border border-slate-800" />
+        </div>
       </div>
     );
   }

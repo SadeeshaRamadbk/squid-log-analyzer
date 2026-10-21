@@ -22,16 +22,13 @@ import { TopDestinationsTable } from '@/components/softflowd/TopDestinationsTabl
 import { TopServicesTable } from '@/components/softflowd/TopServicesTable';
 import { LiveFlowsTable, FlowRecord } from '@/components/softflowd/LiveFlowsTable';
 
+import { SkeletonChart } from '@/components/common/SkeletonChart';
+
 const RequestsChart = dynamic(
   () => import('@/components/dashboard/RequestsChart').then((m) => m.RequestsChart),
   {
     ssr: false,
-    loading: () => (
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 h-80 flex items-center justify-center text-slate-500">
-        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
-        Loading analytics chart...
-      </div>
-    ),
+    loading: () => <SkeletonChart height="h-[368px]" />,
   }
 );
 
@@ -39,12 +36,7 @@ const ThroughputChart = dynamic(
   () => import('@/components/softflowd/ThroughputChart').then((m) => m.ThroughputChart),
   {
     ssr: false,
-    loading: () => (
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 h-80 flex items-center justify-center text-slate-500">
-        <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mr-2" />
-        Loading throughput chart...
-      </div>
-    ),
+    loading: () => <SkeletonChart height="h-[368px]" />,
   }
 );
 import { DomainDetailModal } from '@/components/profile/DomainDetailModal';
@@ -799,13 +791,7 @@ function DashboardContent() {
             : 'Split View Telemetry Correlation'}
         </h1>
 
-        {/* Retention & DB Status Banner */}
-        <RetentionBanner onRetentionTriggered={handleRefresh} />
-
-        {/* Security Alerts & Anomalies Feed */}
-        <AlertsPanel onSelectIp={(ip) => setProfileModalIp(ip)} />
-
-        {/* Global Time Range & Unified Filter Bar with Removable Chips */}
+        {/* LEVEL 2: Global Time Range, Scope Filters & Operational Action Buttons */}
         <GlobalFilterBar
           filters={{
             startDate: isFilterSynced ? (squidFilters.startDate || softflowdFilters.startDate) : (activeView === 'softflowd' ? softflowdFilters.startDate : squidFilters.startDate),
@@ -830,7 +816,21 @@ function DashboardContent() {
           availableServices={netflowStats.filterOptions.services}
           activeView={activeView}
           onApplySavedView={handleApplySavedView}
+          onOpenIpModal={() => handleOpenIpAliasModal()}
+          onOpenCategoriesModal={() => setIsCategoriesModalOpen(true)}
+          onOpenBackupModal={() => setIsBackupModalOpen(true)}
+          onOpenReportsModal={() => setIsReportsModalOpen(true)}
+          onOpenSquidFeed={() => setIsSquidFeedOpen(true)}
+          onOpenNetflowFeed={() => setIsNetflowFeedOpen(true)}
+          onOpenSquidConfig={() => setIsSquidConfigOpen(true)}
+          onOpenConfigModal={() => setIsPfSenseConfigOpen(true)}
         />
+
+        {/* Collapsible Retention & DB Storage Status Banner (1-line strip when collapsed) */}
+        <RetentionBanner activeView={activeView} onRetentionTriggered={handleRefresh} />
+
+        {/* Collapsible Security Alerts & Anomalies Feed (1-line strip when collapsed) */}
+        <AlertsPanel onSelectIp={(ip) => setProfileModalIp(ip)} />
 
         {/* ========================================================
             VIEW MODE 1: SQUID PROXY (HTTP/S FOCUSED VIEW)

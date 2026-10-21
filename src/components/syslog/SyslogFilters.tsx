@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, RefreshCw, Radio, Filter, Calendar } from 'lucide-react';
+import { Search, RefreshCw, Radio, Filter, Calendar, X } from 'lucide-react';
 
 interface SyslogFiltersProps {
   search: string;
@@ -48,6 +48,62 @@ export function SyslogFilters({
   const handleSetAllTime = () => {
     onDateChange('', '');
   };
+
+  const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+
+  if (search) {
+    chips.push({
+      key: 'search',
+      label: `Search: "${search}"`,
+      onRemove: () => onSearchChange(''),
+    });
+  }
+
+  if (selectedApp) {
+    chips.push({
+      key: 'app',
+      label: `Service: ${selectedApp}`,
+      onRemove: () => onAppChange(''),
+    });
+  }
+
+  if (startDate || endDate) {
+    const label =
+      startDate === endDate
+        ? `Date: ${startDate}`
+        : `Range: ${startDate || 'start'} → ${endDate || 'now'}`;
+    chips.push({
+      key: 'date-range',
+      label,
+      onRemove: () => onDateChange('', ''),
+    });
+  }
+
+  if (severityLevel !== 'all') {
+    chips.push({
+      key: 'severity',
+      label: `Severity: ${severityLevel}`,
+      onRemove: () => onSeverityChange('all'),
+    });
+  }
+
+  if (actionFilter && actionFilter !== 'all') {
+    chips.push({
+      key: 'action',
+      label: `Firewall: ${actionFilter}`,
+      onRemove: () => onActionChange?.('all'),
+    });
+  }
+
+  const handleClearAll = () => {
+    onSearchChange('');
+    onAppChange('');
+    onDateChange('', '');
+    onSeverityChange('all');
+    onActionChange?.('all');
+  };
+
+  const hasActiveFilters = chips.length > 0;
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-sm">
@@ -253,6 +309,40 @@ export function SyslogFilters({
           </div>
         )}
       </div>
+
+      {/* Unified Active Filter Chips Bar */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80 text-xs">
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <Filter className="w-3 h-3 text-indigo-400" /> Active Filters:
+          </span>
+
+          {chips.map((chip) => (
+            <span
+              key={chip.key}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-medium animate-in fade-in zoom-in-95 duration-100"
+            >
+              <span>{chip.label}</span>
+              <button
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={`Remove filter ${chip.label}`}
+                className="hover:bg-indigo-500/30 rounded-full p-0.5 transition-colors cursor-pointer text-indigo-200 hover:text-white"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          ))}
+
+          <button
+            type="button"
+            onClick={handleClearAll}
+            className="text-[11px] text-slate-400 hover:text-rose-300 underline transition-colors cursor-pointer ml-1"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
     </div>
   );
 }

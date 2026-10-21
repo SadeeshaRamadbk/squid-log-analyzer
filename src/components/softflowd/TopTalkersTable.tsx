@@ -82,16 +82,16 @@ export function TopTalkersTable({
             No source host traffic recorded.
           </div>
         ) : (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[620px]">
             <caption className="sr-only">Top Talkers and Host Bandwidth Breakdown</caption>
             <thead>
               <tr className="border-b border-slate-800 text-slate-300 font-semibold">
-                <th scope="col" className="pb-2.5 pl-1">Host / Employee</th>
-                <th scope="col" className="pb-2.5 text-right text-emerald-400 hidden lg:table-cell">Download ⬇</th>
-                <th scope="col" className="pb-2.5 text-right text-purple-400 hidden lg:table-cell">Upload ⬆</th>
-                <th scope="col" className="pb-2.5 text-right text-blue-300">Volume</th>
-                <th scope="col" className="pb-2.5 text-right">Flows</th>
-                <th scope="col" className="pb-2.5 pl-2 w-20">Share</th>
+                <th scope="col" className="pb-2.5 pl-1 min-w-[170px]">Host / Employee</th>
+                <th scope="col" className="pb-2.5 text-right text-emerald-400 hidden lg:table-cell min-w-[85px]">Download ⬇</th>
+                <th scope="col" className="pb-2.5 text-right text-purple-400 hidden lg:table-cell min-w-[85px]">Upload ⬆</th>
+                <th scope="col" className="pb-2.5 text-right text-blue-300 min-w-[80px]">Volume</th>
+                <th scope="col" className="pb-2.5 text-right min-w-[60px]">Flows</th>
+                <th scope="col" className="pb-2.5 pl-3 w-28 min-w-[100px]">Share</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
@@ -158,15 +158,15 @@ export function TopTalkersTable({
                   <td className="py-2.5 text-right font-mono text-slate-200">
                     {formatNumber(item.flowCount)}
                   </td>
-                  <td className="py-2.5 pl-2">
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden min-w-[36px]">
+                  <td className="py-2.5 pl-3">
+                    <div className="flex items-center gap-2 min-w-[90px]">
+                      <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden min-w-[50px]">
                         <div
                           className="bg-indigo-500 h-full rounded-full"
                           style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 w-7 text-right font-mono">
+                      <span className="text-xs text-slate-400 w-8 text-right font-mono tabular-nums">
                         {item.percentage}%
                       </span>
                     </div>

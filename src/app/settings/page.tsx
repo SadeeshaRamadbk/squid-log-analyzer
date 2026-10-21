@@ -80,9 +80,41 @@ function SettingsContent() {
   const searchParams = useSearchParams();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
 
-  // Active Tab: 'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit'
+  // Active Tab: 'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit' | 'appearance'
   const initialTab = (searchParams.get('tab') as any) || 'users';
-  const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit' | 'appearance'>(initialTab);
+  const [currentDensity, setCurrentDensity] = useState<'compact' | 'normal' | 'comfortable'>('normal');
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    try {
+      const d = (localStorage.getItem('app-density') as any) || 'normal';
+      setCurrentDensity(d);
+      const t = (localStorage.getItem('app-theme') as any) || 'dark';
+      setCurrentTheme(t);
+    } catch {}
+  }, []);
+
+  const handleSetDensity = (d: 'compact' | 'normal' | 'comfortable') => {
+    setCurrentDensity(d);
+    try {
+      localStorage.setItem('app-density', d);
+      document.documentElement.setAttribute('data-density', d);
+      window.dispatchEvent(new CustomEvent('density-change', { detail: { density: d } }));
+    } catch {}
+  };
+
+  const handleSetTheme = (t: 'dark' | 'light') => {
+    setCurrentTheme(t);
+    try {
+      localStorage.setItem('app-theme', t);
+      if (t === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     document.title = 'Settings & Access Control - Squid Analyzer';
@@ -755,6 +787,19 @@ function SettingsContent() {
           >
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>System Audit Log</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('appearance')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'appearance'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 border border-purple-500'
+                : 'bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Display &amp; Accessibility</span>
           </button>
         </div>
 
@@ -2032,6 +2077,133 @@ function SettingsContent() {
         {/* ========================================================================= */}
         {activeTab === 'audit' && (
           <AuditLogTable />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 7: DISPLAY & ACCESSIBILITY */}
+        {/* ========================================================================= */}
+        {activeTab === 'appearance' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Display Density */}
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-purple-400" />
+                  <span>Display Density &amp; Typography Scale</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Configure UI font scaling and table cell compactness to match your display size and comfort. Settings persist in local storage.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSetDensity('compact')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentDensity === 'compact'
+                      ? 'bg-purple-600/20 border-purple-500 ring-1 ring-purple-500 shadow-sm'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-slate-200 flex items-center justify-between">
+                    <span>Compact Mode</span>
+                    {currentDensity === 'compact' && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Dense data tables with 12px text and 4px padding. Perfect for 1366x768 screens and dense NOC monitoring.
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSetDensity('normal')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentDensity === 'normal'
+                      ? 'bg-purple-600/20 border-purple-500 ring-1 ring-purple-500 shadow-sm'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-slate-200 flex items-center justify-between">
+                    <span>Normal Mode (Default)</span>
+                    {currentDensity === 'normal' && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    WCAG 2.2 AA compliant typography: 14px body text, 13px table text, and 8px cell padding.
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSetDensity('comfortable')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentDensity === 'comfortable'
+                      ? 'bg-purple-600/20 border-purple-500 ring-1 ring-purple-500 shadow-sm'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-slate-200 flex items-center justify-between">
+                    <span>Comfortable Mode</span>
+                    {currentDensity === 'comfortable' && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Spacious layout with 15px body, 14px table text, and 12px cell padding for high-resolution 1440p and 4K displays.
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Color Theme Selector */}
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-amber-400" />
+                  <span>Color Theme</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  High-contrast dark theme (navy/slate) or soft eye-friendly light theme meeting WCAG 2.2 AA standards (&gt;= 4.5:1 text contrast).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSetTheme('dark')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentTheme === 'dark'
+                      ? 'bg-purple-600/20 border-purple-500 ring-1 ring-purple-500 shadow-sm'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-slate-200 flex items-center justify-between">
+                    <span>Dark Theme (NOC Default)</span>
+                    {currentTheme === 'dark' && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Deep navy background with high-contrast glowing indicators and muted borders.
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSetTheme('light')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentTheme === 'light'
+                      ? 'bg-purple-600/20 border-purple-500 ring-1 ring-purple-500 shadow-sm'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-slate-200 flex items-center justify-between">
+                    <span>Light Theme (High Contrast)</span>
+                    {currentTheme === 'light' && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Soft neutral canvas with deep contrast typography, zebra striping, and rich data pills.
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

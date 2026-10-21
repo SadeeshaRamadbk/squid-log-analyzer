@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, RefreshCw, Server, Clock, Radio, Network, Tag, ShieldCheck, Layers } from 'lucide-react';
+import { X, RefreshCw, Server, Clock, Radio, Network, Tag, ShieldCheck, Layers, Filter } from 'lucide-react';
 import { DateRangeSelector } from '../common/DateRangeSelector';
 
 interface SoftflowdFiltersProps {
@@ -87,7 +87,108 @@ export function SoftflowdFilters({
     }
   };
 
-  const hasActiveFilters = Boolean(startDate || endDate || srcIp || dstIp || protocol || serviceName || timeWindow);
+  const baseFilter = {
+    startDate,
+    endDate,
+    srcIp,
+    dstIp,
+    protocol,
+    serviceName,
+    timeWindow,
+    hideFirewallTraffic,
+    hideProxyHop,
+    trafficType,
+  };
+
+  const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+
+  if (timeWindow === '30m') {
+    chips.push({
+      key: 'time-30m',
+      label: 'Window: Last 30m',
+      onRemove: () => onFilterChange({ ...baseFilter, timeWindow: undefined }),
+    });
+  } else if (timeWindow === '1h') {
+    chips.push({
+      key: 'time-1h',
+      label: 'Window: Last 1h',
+      onRemove: () => onFilterChange({ ...baseFilter, timeWindow: undefined }),
+    });
+  } else if (startDate || endDate) {
+    const label =
+      startDate === endDate
+        ? `Date: ${startDate}`
+        : `Range: ${startDate || 'start'} → ${endDate || 'now'}`;
+    chips.push({
+      key: 'date-range',
+      label,
+      onRemove: () => onFilterChange({ ...baseFilter, startDate: undefined, endDate: undefined }),
+    });
+  }
+
+  if (srcIp) {
+    const match = availableClientIps.find(
+      (item) => (typeof item === 'string' ? item : item.clientIp) === srcIp
+    );
+    const userLabel =
+      match && typeof match === 'object' && match.userName
+        ? `${srcIp} (${match.userName})`
+        : srcIp;
+    chips.push({
+      key: 'src-ip',
+      label: `Src: ${userLabel}`,
+      onRemove: () => onFilterChange({ ...baseFilter, srcIp: undefined }),
+    });
+  }
+
+  if (dstIp) {
+    chips.push({
+      key: 'dst-ip',
+      label: `Dst: ${dstIp}`,
+      onRemove: () => onFilterChange({ ...baseFilter, dstIp: undefined }),
+    });
+  }
+
+  if (protocol) {
+    chips.push({
+      key: 'protocol',
+      label: `Proto: ${protocol}`,
+      onRemove: () => onFilterChange({ ...baseFilter, protocol: undefined }),
+    });
+  }
+
+  if (serviceName) {
+    chips.push({
+      key: 'service',
+      label: `Service: ${serviceName}`,
+      onRemove: () => onFilterChange({ ...baseFilter, serviceName: undefined }),
+    });
+  }
+
+  if (trafficType && trafficType !== 'all') {
+    chips.push({
+      key: 'traffic',
+      label: `Traffic: ${trafficType}`,
+      onRemove: () => onFilterChange({ ...baseFilter, trafficType: 'all' }),
+    });
+  }
+
+  const handleClearAll = () => {
+    onFilterChange({
+      startDate: undefined,
+      endDate: undefined,
+      srcIp: undefined,
+      dstIp: undefined,
+      protocol: undefined,
+      serviceName: undefined,
+      timeWindow: undefined,
+      hideFirewallTraffic: true,
+      hideProxyHop: true,
+      trafficType: 'all',
+    });
+  };
+
+  const hasActiveFilters = chips.length > 0;
 
   return (
     <div className="relative z-20 bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm backdrop-blur-md space-y-3">
@@ -420,32 +521,41 @@ export function SoftflowdFilters({
           }
         />
 
-        {/* Clear Filters */}
-        {hasActiveFilters && (
+      </div>
+
+      {/* Unified Active Filter Chips Bar */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80 text-xs">
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <Filter className="w-3 h-3 text-indigo-400" /> Active Filters:
+          </span>
+
+          {chips.map((chip) => (
+            <span
+              key={chip.key}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-medium animate-in fade-in zoom-in-95 duration-100"
+            >
+              <span>{chip.label}</span>
+              <button
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={`Remove filter ${chip.label}`}
+                className="hover:bg-indigo-500/30 rounded-full p-0.5 transition-colors cursor-pointer text-indigo-200 hover:text-white"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          ))}
+
           <button
             type="button"
-            onClick={() =>
-              onFilterChange({
-                startDate: undefined,
-                endDate: undefined,
-                srcIp: undefined,
-                dstIp: undefined,
-                protocol: undefined,
-                serviceName: undefined,
-                timeWindow: undefined,
-                hideFirewallTraffic: true,
-                hideProxyHop: true,
-                trafficType: 'all',
-              })
-            }
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer ml-auto"
-            title="Reset all filters"
+            onClick={handleClearAll}
+            className="text-[11px] text-slate-400 hover:text-rose-300 underline transition-colors cursor-pointer ml-1"
           >
-            <X className="w-3.5 h-3.5" />
-            Reset
+            Clear all
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
