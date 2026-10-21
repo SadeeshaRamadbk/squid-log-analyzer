@@ -37,7 +37,7 @@ export function sanitizePagination(
   rawPage: any,
   rawLimit: any,
   defaultLimit = 25,
-  maxLimit = 250
+  maxLimit = 500
 ): { page: number; limit: number; offset: number } {
   let page = parseInt(String(rawPage), 10);
   if (isNaN(page) || page < 1) page = 1;

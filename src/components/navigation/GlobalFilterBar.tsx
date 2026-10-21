@@ -2,6 +2,7 @@
 
 import { Clock, Radio, RefreshCw, X, Filter, Link2, Server, Shield, Layers } from 'lucide-react';
 import { DateRangeSelector } from '../common/DateRangeSelector';
+import { SavedViewsDropdown, SavedViewItem } from './SavedViewsDropdown';
 
 export interface GlobalFilterState {
   timeWindow?: '30m' | '1h';
@@ -28,6 +29,7 @@ interface GlobalFilterBarProps {
   availableProtocols?: string[];
   availableServices?: string[];
   activeView: 'squid' | 'softflowd' | 'split';
+  onApplySavedView?: (view: SavedViewItem) => void;
 }
 
 export function GlobalFilterBar({
@@ -43,6 +45,7 @@ export function GlobalFilterBar({
   availableProtocols = ['TCP', 'UDP', 'ICMP'],
   availableServices = ['HTTPS', 'DNS', 'HTTP', 'SSH', 'RDP', 'SMB'],
   activeView,
+  onApplySavedView,
 }: GlobalFilterBarProps) {
   const handleTimePreset = (preset: '30m' | '1h' | 'today' | '7d' | '30d' | 'all') => {
     const today = new Date().toISOString().split('T')[0];
@@ -367,6 +370,14 @@ export function GlobalFilterBar({
               </>
             )}
           </button>
+
+          {onApplySavedView && (
+            <SavedViewsDropdown
+              currentFilters={filters}
+              currentView={activeView}
+              onApplyView={onApplySavedView}
+            />
+          )}
 
           <button
             type="button"

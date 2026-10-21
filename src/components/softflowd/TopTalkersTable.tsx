@@ -79,15 +79,15 @@ export function TopTalkersTable({
             No source host traffic recorded.
           </div>
         ) : (
-          <table className="w-full text-left text-xs min-w-[620px]">
+          <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 font-medium">
                 <th className="pb-2.5 pl-1">Host / Employee</th>
-                <th className="pb-2.5 text-right text-emerald-400">Download ⬇</th>
-                <th className="pb-2.5 text-right text-purple-400">Upload ⬆</th>
-                <th className="pb-2.5 text-right text-blue-300">Total</th>
+                <th className="pb-2.5 text-right text-emerald-400 hidden lg:table-cell">Download ⬇</th>
+                <th className="pb-2.5 text-right text-purple-400 hidden lg:table-cell">Upload ⬆</th>
+                <th className="pb-2.5 text-right text-blue-300">Volume</th>
                 <th className="pb-2.5 text-right">Flows</th>
-                <th className="pb-2.5 pl-4 w-24">Share</th>
+                <th className="pb-2.5 pl-2 w-20">Share</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
@@ -120,7 +120,7 @@ export function TopTalkersTable({
                           )}
                         </div>
                       ) : null}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
                           onClick={() => (onViewProfile ? onViewProfile(item.srcIp) : onSelectIp?.(item.srcIp))}
@@ -133,19 +133,19 @@ export function TopTalkersTable({
                           <button
                             type="button"
                             onClick={() => onEditAlias(item.srcIp)}
-                            className="opacity-0 group-hover:opacity-100 text-[10px] text-amber-400 hover:text-amber-300 inline-flex items-center gap-0.5 cursor-pointer"
-                            title="Assign User Name to this IP"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-sans font-medium transition-colors cursor-pointer shadow-xs"
+                            title="Assign alias or employee name to this host"
                           >
-                            + Name
+                            + Name this host
                           </button>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td className="py-2.5 text-right font-mono text-emerald-400">
+                  <td className="py-2.5 text-right font-mono text-emerald-400 hidden lg:table-cell">
                     {formatBytes(item.downloadBytes ?? 0)}
                   </td>
-                  <td className="py-2.5 text-right font-mono text-purple-400">
+                  <td className="py-2.5 text-right font-mono text-purple-400 hidden lg:table-cell">
                     {formatBytes(item.uploadBytes ?? 0)}
                   </td>
                   <td className="py-2.5 text-right font-mono font-semibold text-blue-300">
@@ -154,15 +154,15 @@ export function TopTalkersTable({
                   <td className="py-2.5 text-right font-mono text-slate-200">
                     {formatNumber(item.flowCount)}
                   </td>
-                  <td className="py-2.5 pl-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <td className="py-2.5 pl-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden min-w-[36px]">
                         <div
                           className="bg-indigo-500 h-full rounded-full"
                           style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
+                      <span className="text-[10px] text-slate-400 w-7 text-right font-mono">
                         {item.percentage}%
                       </span>
                     </div>

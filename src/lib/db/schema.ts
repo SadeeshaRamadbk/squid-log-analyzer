@@ -58,6 +58,22 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_daily_ip_date ON daily_summaries(client_ip, date);
     CREATE INDEX IF NOT EXISTS idx_daily_domain_date ON daily_summaries(domain, date);
 
+    -- Hourly rollups for Squid proxy logs (fast timeline aggregations)
+    CREATE TABLE IF NOT EXISTS proxy_hourly_rollups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bucket_timestamp INTEGER NOT NULL,
+      client_ip TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      blocked_count INTEGER NOT NULL DEFAULT 0,
+      bytes INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT uq_proxy_hr UNIQUE(bucket_timestamp, client_ip, domain)
+    );
+    CREATE INDEX IF NOT EXISTS idx_proxy_hr_time ON proxy_hourly_rollups(bucket_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_proxy_hr_client ON proxy_hourly_rollups(client_ip);
+    CREATE INDEX IF NOT EXISTS idx_proxy_hr_domain ON proxy_hourly_rollups(domain);
+    CREATE INDEX IF NOT EXISTS idx_proxy_hr_time_client ON proxy_hourly_rollups(bucket_timestamp, client_ip);
+
     -- Metadata tracking table for retention and ingestion status
     CREATE TABLE IF NOT EXISTS system_meta (
       key TEXT PRIMARY KEY,
@@ -382,6 +398,32 @@ export function initializeDatabase(db: Database.Database): void {
     }
   } catch (e) {
     console.warn('[Schema] Roll-up migration warning:', e);
+  }
+
+  // Backfill proxy hourly rollups from raw_logs if empty
+  try {
+    const hasProxyRollup = db.prepare('SELECT 1 FROM proxy_hourly_rollups LIMIT 1').get();
+    if (!hasProxyRollup) {
+      const hasRawSquid = db.prepare('SELECT 1 FROM raw_logs LIMIT 1').get();
+      if (hasRawSquid) {
+        db.prepare(`
+          INSERT OR IGNORE INTO proxy_hourly_rollups (
+            bucket_timestamp, client_ip, domain, request_count, blocked_count, bytes
+          )
+          SELECT
+            CAST((timestamp / 3600000) AS INTEGER) * 3600000 AS bucket_timestamp,
+            client_ip,
+            domain,
+            COUNT(*) AS request_count,
+            SUM(is_blocked) AS blocked_count,
+            SUM(bytes) AS bytes
+          FROM raw_logs
+          GROUP BY CAST((timestamp / 3600000) AS INTEGER) * 3600000, client_ip, domain
+        `).run();
+      }
+    }
+  } catch (e) {
+    console.warn('[Schema] Proxy roll-up migration warning:', e);
   }
 
   // Seed default admin and viewer accounts

@@ -62,6 +62,15 @@ import type { LiveRequestRecord } from '@/lib/db/queries';
 function DashboardContent() {
   const searchParams = useSearchParams();
   const initialView = (searchParams.get('view') as 'squid' | 'softflowd' | 'split') || 'squid';
+  const qStartDate = searchParams.get('startDate') || undefined;
+  const qEndDate = searchParams.get('endDate') || undefined;
+  const qTimeWindow = (searchParams.get('timeWindow') as '30m' | '1h') || undefined;
+  const qClientIp = searchParams.get('clientIp') || undefined;
+  const qProtocol = searchParams.get('protocol') || undefined;
+  const qServiceName = searchParams.get('serviceName') || undefined;
+  const qTrafficType = (searchParams.get('trafficType') as 'all' | 'external' | 'internal') || undefined;
+  const qTab = (searchParams.get('tab') as 'live' | 'blocked') || 'live';
+  const qLimit = parseInt(searchParams.get('limit') || '50', 10);
 
   // Multitasking View Mode: 'squid' | 'softflowd' | 'split'
   const [activeView, setActiveView] = useState<'squid' | 'softflowd' | 'split'>(initialView);
@@ -72,21 +81,28 @@ function DashboardContent() {
   // Real-Time auto-update state
   const [isRealTime, setIsRealTime] = useState(false);
 
-  // Squid Filter state (defaulted to Today)
+  // Squid Filter state (initialized from URL or defaulted to Today)
   const [squidFilters, setSquidFilters] = useState<{
     startDate?: string;
     endDate?: string;
     clientIp?: string;
     timeWindow?: '30m' | '1h';
   }>(() => {
+    if (qTimeWindow) {
+      return { timeWindow: qTimeWindow, clientIp: qClientIp };
+    }
+    if (qStartDate) {
+      return { startDate: qStartDate, endDate: qEndDate || qStartDate, clientIp: qClientIp };
+    }
     const today = new Date().toISOString().split('T')[0];
     return {
       startDate: today,
       endDate: today,
+      clientIp: qClientIp,
     };
   });
 
-  // Softflowd Filter state (defaulted to Today)
+  // Softflowd Filter state (initialized from URL or defaulted to Today)
   const [softflowdFilters, setSoftflowdFilters] = useState<{
     startDate?: string;
     endDate?: string;
@@ -101,16 +117,19 @@ function DashboardContent() {
   }>(() => {
     const today = new Date().toISOString().split('T')[0];
     return {
-      startDate: today,
-      endDate: today,
+      startDate: qTimeWindow ? undefined : (qStartDate || today),
+      endDate: qTimeWindow ? undefined : (qEndDate || qStartDate || today),
+      timeWindow: qTimeWindow,
+      protocol: qProtocol,
+      serviceName: qServiceName,
+      trafficType: qTrafficType || 'all',
       hideFirewallTraffic: true,
       hideProxyHop: true,
-      trafficType: 'all',
     };
   });
 
   // Tab state for Squid lower panel (Live stream vs Blocked requests)
-  const [squidLogTab, setSquidLogTab] = useState<'live' | 'blocked'>('live');
+  const [squidLogTab, setSquidLogTab] = useState<'live' | 'blocked'>(qTab);
 
   // Modals state
   const [isIpModalOpen, setIsIpModalOpen] = useState(false);
@@ -169,6 +188,7 @@ function DashboardContent() {
 
   // Squid Live Requests state
   const [liveReqPage, setLiveReqPage] = useState(1);
+  const [liveReqPageSize, setLiveReqPageSize] = useState<number>(!isNaN(qLimit) && qLimit > 0 ? qLimit : 50);
   const [liveReqData, setLiveReqData] = useState<{
     records: LiveRequestRecord[];
     total: number;
@@ -298,7 +318,7 @@ function DashboardContent() {
   }, [squidFilters]);
 
   // Fetch Squid Live Requests
-  const fetchLiveRequests = useCallback(async (page = 1, isSilent = false) => {
+  const fetchLiveRequests = useCallback(async (page = 1, isSilent = false, pageSize = liveReqPageSize) => {
     if (liveReqAbortRef.current) liveReqAbortRef.current.abort();
     const abortController = new AbortController();
     liveReqAbortRef.current = abortController;
@@ -311,7 +331,7 @@ function DashboardContent() {
       if (squidFilters.clientIp) params.set('clientIp', squidFilters.clientIp);
       if (squidFilters.timeWindow) params.set('timeWindow', squidFilters.timeWindow);
       params.set('page', page.toString());
-      params.set('limit', '25');
+      params.set('limit', pageSize.toString());
 
       const res = await fetch(`/api/requests?${params.toString()}`, { signal: abortController.signal });
       const json = await res.json();
@@ -332,7 +352,7 @@ function DashboardContent() {
         setLoadingLiveReq(false);
       }
     }
-  }, [squidFilters]);
+  }, [squidFilters, liveReqPageSize]);
 
   // Fetch Squid Blocked Requests
   const fetchBlocked = useCallback(async (page = 1, isSilent = false) => {
@@ -664,6 +684,76 @@ function DashboardContent() {
     setFlowPage(1);
   };
 
+  const handleApplySavedView = useCallback((savedView: any) => {
+    if (savedView.view) {
+      setActiveView(savedView.view);
+    }
+    const f = savedView.filters || {};
+    setSquidFilters({
+      startDate: f.startDate,
+      endDate: f.endDate,
+      timeWindow: f.timeWindow,
+      clientIp: f.clientIp,
+    });
+    setSoftflowdFilters((prev) => ({
+      ...prev,
+      startDate: f.startDate,
+      endDate: f.endDate,
+      timeWindow: f.timeWindow,
+      trafficType: f.trafficType || prev.trafficType || 'all',
+      hideFirewallTraffic: f.hideFirewallTraffic !== undefined ? f.hideFirewallTraffic : true,
+      hideProxyHop: f.hideProxyHop !== undefined ? f.hideProxyHop : true,
+      protocol: f.protocol,
+      serviceName: f.serviceName,
+    }));
+    setLiveReqPage(1);
+    setBlockedPage(1);
+    setFlowPage(1);
+  }, []);
+
+  // Synchronize dashboard filters to the browser URL for shareable bookmarks
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+
+    url.searchParams.set('view', activeView);
+
+    if (squidFilters.timeWindow) {
+      url.searchParams.set('timeWindow', squidFilters.timeWindow);
+      url.searchParams.delete('startDate');
+      url.searchParams.delete('endDate');
+    } else {
+      url.searchParams.delete('timeWindow');
+      if (squidFilters.startDate) url.searchParams.set('startDate', squidFilters.startDate);
+      else url.searchParams.delete('startDate');
+      if (squidFilters.endDate) url.searchParams.set('endDate', squidFilters.endDate);
+      else url.searchParams.delete('endDate');
+    }
+
+    if (squidFilters.clientIp) url.searchParams.set('clientIp', squidFilters.clientIp);
+    else url.searchParams.delete('clientIp');
+
+    if (softflowdFilters.protocol) url.searchParams.set('protocol', softflowdFilters.protocol);
+    else url.searchParams.delete('protocol');
+
+    if (softflowdFilters.serviceName) url.searchParams.set('serviceName', softflowdFilters.serviceName);
+    else url.searchParams.delete('serviceName');
+
+    if (softflowdFilters.trafficType && softflowdFilters.trafficType !== 'all') {
+      url.searchParams.set('trafficType', softflowdFilters.trafficType);
+    } else {
+      url.searchParams.delete('trafficType');
+    }
+
+    if (squidLogTab !== 'live') url.searchParams.set('tab', squidLogTab);
+    else url.searchParams.delete('tab');
+
+    if (liveReqPageSize !== 50) url.searchParams.set('limit', String(liveReqPageSize));
+    else url.searchParams.delete('limit');
+
+    window.history.replaceState(null, '', url.pathname + url.search);
+  }, [activeView, squidFilters, softflowdFilters, squidLogTab, liveReqPageSize]);
+
   const handleOpenIpAliasModal = (ip?: string) => {
     setTargetIpForModal(ip);
     setIsIpModalOpen(true);
@@ -720,6 +810,7 @@ function DashboardContent() {
           availableProtocols={netflowStats.filterOptions.protocols}
           availableServices={netflowStats.filterOptions.services}
           activeView={activeView}
+          onApplySavedView={handleApplySavedView}
         />
 
         {/* ========================================================
@@ -794,6 +885,11 @@ function DashboardContent() {
                   total={liveReqData.total}
                   page={liveReqPage}
                   totalPages={liveReqData.totalPages}
+                  pageSize={liveReqPageSize}
+                  onPageSizeChange={(newSize) => {
+                    setLiveReqPageSize(newSize);
+                    fetchLiveRequests(1, false, newSize);
+                  }}
                   isLoading={loadingLiveReq}
                   onPageChange={(p) => fetchLiveRequests(p)}
                   onSelectIp={handleSelectClientIp}
@@ -953,6 +1049,11 @@ function DashboardContent() {
                   total={liveReqData.total}
                   page={liveReqPage}
                   totalPages={liveReqData.totalPages}
+                  pageSize={liveReqPageSize}
+                  onPageSizeChange={(newSize) => {
+                    setLiveReqPageSize(newSize);
+                    fetchLiveRequests(1, false, newSize);
+                  }}
                   isLoading={loadingLiveReq}
                   onPageChange={(p) => fetchLiveRequests(p)}
                   onSelectIp={handleSelectClientIp}

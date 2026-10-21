@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Database, Clock, HardDrive, CheckCircle2 } from 'lucide-react';
+import { Database, Clock, HardDrive, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatNumber } from '@/lib/formatters';
 
 interface RetentionInfo {
@@ -38,6 +38,24 @@ export function RetentionBanner({ activeView = 'squid', onRetentionTriggered }: 
   const [info, setInfo] = useState<RetentionInfo | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('retention_banner_collapsed');
+      if (saved === 'true') setIsCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('retention_banner_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const fetchStatus = async () => {
     try {
@@ -84,6 +102,48 @@ export function RetentionBanner({ activeView = 'squid', onRetentionTriggered }: 
 
   const isPfSense = activeView === 'softflowd';
   const isSplit = activeView === 'split';
+
+  if (isCollapsed) {
+    return (
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2 flex items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-slate-300">
+            <Database className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="font-semibold text-[11px]">Storage:</span>
+            <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">WAL</span>
+            {info?.dbSizeFormatted && (
+              <span className="font-mono text-slate-300 text-[11px]">{info.dbSizeFormatted}</span>
+            )}
+          </div>
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <span className="text-[11px] text-slate-400 hidden sm:inline">
+            {isPfSense
+              ? `Flows: ${info ? formatNumber(info.netflow.rawFlowCount) : '...'}`
+              : isSplit
+              ? `Squid: ${info ? formatNumber(info.squid.rawLogCount) : '...'} | Flows: ${info ? formatNumber(info.netflow.rawFlowCount) : '...'}`
+              : `Proxy: ${info ? formatNumber(info.squid.rawLogCount) : '...'} raw | Daily: ${info ? formatNumber(info.squid.summaryCount) : '...'}`}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {statusMsg && (
+            <span className="text-emerald-400 font-medium inline-flex items-center gap-1 text-[11px]">
+              <CheckCircle2 className="w-3 h-3" />
+              {statusMsg}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
+            title="Expand storage and retention details"
+          >
+            <span>Expand</span>
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
@@ -183,6 +243,14 @@ export function RetentionBanner({ activeView = 'squid', onRetentionTriggered }: 
           title="Run SQLite optimization and enforce retention policy"
         >
           {isRunning ? 'Running Purge...' : 'Run Purge Now'}
+        </button>
+        <button
+          type="button"
+          onClick={toggleCollapse}
+          className="p-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+          title="Collapse storage bar"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

@@ -24,8 +24,16 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
   const [loading, setLoading] = useState(false);
   const [dismissingOld, setDismissingOld] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [snoozeMenuOpenId, setSnoozeMenuOpenId] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('alerts_banner_collapsed');
+      if (saved === 'true') setIsCollapsed(true);
+    } catch {}
+  }, []);
 
   const fetchAlerts = async () => {
     try {
@@ -106,6 +114,45 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
     return null;
   }
 
+  if (isCollapsed) {
+    return (
+      <div className="bg-slate-900/90 border border-amber-500/30 rounded-xl px-4 py-2 flex items-center justify-between text-xs shadow-md">
+        <div className="flex items-center gap-2.5">
+          <Bell className="w-3.5 h-3.5 text-amber-400" />
+          <span className="font-semibold text-slate-200 text-xs">Security Alerts:</span>
+          <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 text-[11px] font-mono">
+            {activeAlerts.length} active ({criticalCount} critical)
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {oldAlertsCount > 0 && (
+            <button
+              type="button"
+              onClick={handleDismissOld}
+              disabled={dismissingOld}
+              className="text-[11px] text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+            >
+              Dismiss old ({oldAlertsCount})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setIsCollapsed(false);
+              try {
+                localStorage.setItem('alerts_banner_collapsed', 'false');
+              } catch {}
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
+          >
+            <span>Expand</span>
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-slate-900/90 border border-amber-500/30 rounded-xl shadow-lg transition-all duration-200">
       {/* Header bar / Collapsible toggle */}
@@ -175,6 +222,20 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
                 <ChevronDown className="w-3.5 h-3.5" />
               </>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsCollapsed(true);
+              try {
+                localStorage.setItem('alerts_banner_collapsed', 'true');
+              } catch {}
+            }}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            title="Collapse alerts banner"
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Radio, ChevronLeft, ChevronRight, Globe, ArrowUpDown, Maximize2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Radio, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Globe, ArrowUpDown, Maximize2 } from 'lucide-react';
 import { formatBytes, formatTime } from '@/lib/formatters';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
@@ -39,6 +39,21 @@ export function LiveRequestsTable({
 }: LiveRequestsTableProps) {
   const [sortKey, setSortKey] = useState<keyof LiveRequestRecord>('timestamp');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [jumpPage, setJumpPage] = useState<string>(String(page));
+
+  useEffect(() => {
+    setJumpPage(String(page));
+  }, [page]);
+
+  const handleJumpSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const target = parseInt(jumpPage, 10);
+    if (!isNaN(target) && target >= 1 && target <= totalPages && target !== page) {
+      onPageChange(target);
+    } else {
+      setJumpPage(String(page));
+    }
+  };
 
   // Column visibility state
   const [columns, setColumns] = useState<ColumnDef[]>([
@@ -161,28 +176,64 @@ export function LiveRequestsTable({
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400">
-                Page {page} of {totalPages}
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-slate-400 font-mono text-[11px] hidden sm:inline">
+                {((page - 1) * pageSize + 1).toLocaleString()} - {Math.min(page * pageSize, total).toLocaleString()} of {total.toLocaleString()}
               </span>
               <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onPageChange(1)}
+                  disabled={page <= 1 || isLoading}
+                  aria-label="First page"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+                  title="First page"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => onPageChange(page - 1)}
                   disabled={page <= 1 || isLoading}
                   aria-label="Previous page"
-                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+                  title="Previous page"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
+
+                <form onSubmit={handleJumpSubmit} className="flex items-center gap-1">
+                  <span className="text-slate-500 text-[11px]">Pg</span>
+                  <input
+                    type="text"
+                    value={jumpPage}
+                    onChange={(e) => setJumpPage(e.target.value)}
+                    onBlur={() => handleJumpSubmit()}
+                    className="w-11 px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-center font-mono text-xs focus:outline-none focus:border-indigo-500"
+                    title="Jump to page number"
+                  />
+                  <span className="text-slate-500 text-[11px]">/ {totalPages.toLocaleString()}</span>
+                </form>
+
                 <button
                   type="button"
                   onClick={() => onPageChange(page + 1)}
                   disabled={page >= totalPages || isLoading}
                   aria-label="Next page"
-                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+                  title="Next page"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPageChange(totalPages)}
+                  disabled={page >= totalPages || isLoading}
+                  aria-label="Last page"
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+                  title="Last page"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -194,6 +245,7 @@ export function LiveRequestsTable({
       <TableToolbar
         totalRecords={total}
         pageSize={pageSize}
+        pageSizeOptions={[25, 50, 100, 250, 500]}
         onPageSizeChange={onPageSizeChange}
         columns={columns}
         onToggleColumn={toggleColumn}
@@ -390,6 +442,58 @@ export function LiveRequestsTable({
           </table>
         )}
       </div>
+
+      {/* Bottom Pagination Bar */}
+      {totalPages > 1 && sortedRecords.length > 10 && (
+        <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="text-slate-400 font-mono text-[11px]">
+            Showing <span className="text-slate-200">{((page - 1) * pageSize + 1).toLocaleString()}</span> to{' '}
+            <span className="text-slate-200">{Math.min(page * pageSize, total).toLocaleString()}</span> of{' '}
+            <span className="text-slate-200">{total.toLocaleString()}</span> requests
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onPageChange(1)}
+              disabled={page <= 1 || isLoading}
+              className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+              title="First page"
+            >
+              <ChevronsLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onPageChange(page - 1)}
+              disabled={page <= 1 || isLoading}
+              className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+              title="Previous page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-slate-300 font-mono text-xs px-2">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page >= totalPages || isLoading}
+              className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+              title="Next page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onPageChange(totalPages)}
+              disabled={page >= totalPages || isLoading}
+              className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition-colors cursor-pointer"
+              title="Last page"
+            >
+              <ChevronsRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

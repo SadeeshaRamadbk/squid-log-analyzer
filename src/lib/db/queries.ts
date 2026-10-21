@@ -632,7 +632,7 @@ export function getLiveRequests(
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${where}`).get(...params) as any;
+  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r LEFT JOIN ip_mappings m ON r.client_ip = m.client_ip ${where}`).get(...params) as any;
   const total = Number(totalRow?.total || 0);
 
   const query = `
