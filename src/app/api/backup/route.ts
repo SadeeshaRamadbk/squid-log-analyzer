@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { Readable } from 'stream';
-import { getDatabase } from '@/lib/db';
+import Database from 'better-sqlite3';
+import { getDatabasePath } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -18,15 +19,12 @@ export async function GET(request: NextRequest) {
   const tempBackupPath = path.join(os.tmpdir(), `squid_backup_${Date.now()}_${Math.random().toString(36).substring(7)}.db`);
 
   try {
-    const db = getDatabase();
-
-    // Use better-sqlite3 native online backup which safely consolidates WAL frames
-    // Use 1000 page steps for faster backup execution
-    await db.backup(tempBackupPath, {
-      progress() {
-        return 1000;
-      },
-    });
+    const dbPath = getDatabasePath();
+    // Readonly connection takes an isolated snapshot that is immune to concurrent log ingestion resets
+    const readonlyDb = new Database(dbPath, { readonly: true });
+    readonlyDb.pragma('busy_timeout = 30000');
+    readonlyDb.prepare('VACUUM INTO ?').run(tempBackupPath);
+    readonlyDb.close();
 
     const stats = fs.statSync(tempBackupPath);
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);

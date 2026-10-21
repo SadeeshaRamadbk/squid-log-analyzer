@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
-import { getDatabase } from './index';
+import cp from 'child_process';
+import { getDatabase, getDatabasePath } from './index';
 
 export interface BackupProgressInfo {
   jobId: string;
@@ -24,14 +25,14 @@ export interface BackupProgressInfo {
 interface BackupJobInternal extends BackupProgressInfo {
   tempFilePath: string;
   finalFilePath: string;
-  lastProgressUpdate: number;
-  lastCopiedPages: number;
+  childProcess?: cp.ChildProcess | null;
+  pollInterval?: NodeJS.Timeout | null;
 }
 
 class BackupManager {
   private activeJob: BackupJobInternal | null = null;
   private readonly exportsDir: string;
-  private readonly pageSize: number = 4096; // Standard SQLite page size
+  private readonly defaultPageSize: number = 4096;
 
   constructor() {
     this.exportsDir = path.resolve(process.cwd(), 'backups', 'exports');
@@ -75,16 +76,17 @@ class BackupManager {
   public getJob(jobId?: string): BackupProgressInfo | null {
     if (!this.activeJob) return null;
     if (jobId && this.activeJob.jobId !== jobId) {
-      // Check if maybe it completed and the file exists
       return null;
     }
 
-    const { tempFilePath, finalFilePath, lastProgressUpdate, lastCopiedPages, ...publicInfo } = this.activeJob;
+    const { tempFilePath, finalFilePath, childProcess, pollInterval, ...publicInfo } = this.activeJob;
     return publicInfo;
   }
 
   /**
-   * Start a new backup preparation job
+   * Start a new backup preparation job using an isolated point-in-time VACUUM snapshot
+   * This guarantees that ongoing background writes from log ingestion / NetFlow collectors
+   * will NOT trigger SQLite backup resets or infinite loops.
    */
   public async startBackupJob(): Promise<BackupProgressInfo> {
     // If a job is already actively preparing, return it
@@ -92,8 +94,35 @@ class BackupManager {
       return this.getJob()!;
     }
 
+    // Clean up any stale job child process
+    if (this.activeJob && this.activeJob.childProcess) {
+      try {
+        this.activeJob.childProcess.kill();
+      } catch {}
+    }
+    if (this.activeJob && this.activeJob.pollInterval) {
+      clearInterval(this.activeJob.pollInterval);
+    }
+
     this.ensureDir(this.exportsDir);
     this.cleanupOldExports();
+
+    const sourceDbPath = getDatabasePath();
+    const db = getDatabase();
+
+    // Check page size and total page count for progress calculations
+    let pageSize = this.defaultPageSize;
+    let pageCount = 0;
+    try {
+      const pSize = db.pragma('page_size', { simple: true }) as number;
+      if (pSize && typeof pSize === 'number') pageSize = pSize;
+      const pCount = db.pragma('page_count', { simple: true }) as number;
+      if (pCount && typeof pCount === 'number') pageCount = pCount;
+    } catch {}
+
+    const sourceStats = fs.existsSync(sourceDbPath) ? fs.statSync(sourceDbPath) : null;
+    const totalEstimatedBytes = sourceStats ? sourceStats.size : pageCount * pageSize;
+    const totalPages = pageCount > 0 ? pageCount : Math.max(1, Math.ceil(totalEstimatedBytes / pageSize));
 
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const jobId = `backup_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -104,113 +133,140 @@ class BackupManager {
     const job: BackupJobInternal = {
       jobId,
       status: 'preparing',
-      totalPages: 0,
-      remainingPages: 0,
+      totalPages,
+      remainingPages: totalPages,
       copiedPages: 0,
       progressPercent: 0,
       copiedBytes: 0,
-      totalEstimatedBytes: 0,
+      totalEstimatedBytes,
       speedBytesPerSec: 0,
       etaSeconds: 0,
       tempFilePath,
       finalFilePath,
       filename,
       createdAt: Date.now(),
-      lastProgressUpdate: Date.now(),
-      lastCopiedPages: 0,
       downloadUrl: `/api/backup/download?jobId=${jobId}`,
+      childProcess: null,
+      pollInterval: null,
     };
 
     this.activeJob = job;
 
-    // Run the backup asynchronously so API returns immediately to start polling
-    (async () => {
-      try {
-        const db = getDatabase();
+    let workerScript = path.resolve(process.cwd(), 'src', 'lib', 'db', 'vacuum-worker.js');
+    if (!fs.existsSync(workerScript)) {
+      workerScript = path.resolve(__dirname, 'vacuum-worker.js');
+    }
 
-        // Check SQLite page size
-        let pageSize = this.pageSize;
+    try {
+      const child = cp.spawn(process.execPath, [workerScript, sourceDbPath, tempFilePath], {
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      });
+      job.childProcess = child;
+
+      let lastTime = Date.now();
+      let lastBytesCopied = 0;
+
+      // Monitor growing destination snapshot file size
+      job.pollInterval = setInterval(() => {
         try {
-          const pragmaPageSize = db.pragma('page_size', { simple: true }) as number;
-          if (pragmaPageSize && typeof pragmaPageSize === 'number') {
-            pageSize = pragmaPageSize;
-          }
-        } catch {}
+          if (!fs.existsSync(tempFilePath)) return;
 
-        let lastTime = Date.now();
-        let lastPagesCopied = 0;
+          const stats = fs.statSync(tempFilePath);
+          const copiedBytes = stats.size;
+          const copiedPages = Math.min(totalPages, Math.ceil(copiedBytes / pageSize));
+          const remainingPages = Math.max(0, totalPages - copiedPages);
 
-        await db.backup(tempFilePath, {
-          progress({ totalPages, remainingPages }) {
-            const copiedPages = totalPages - remainingPages;
-            const progressPercent = totalPages > 0 ? Math.min(99, Math.round((copiedPages / totalPages) * 100)) : 0;
-            const copiedBytes = copiedPages * pageSize;
-            const totalEstimatedBytes = totalPages * pageSize;
+          const now = Date.now();
+          const elapsedSec = (now - lastTime) / 1000;
 
-            const now = Date.now();
-            const elapsedSinceLast = (now - lastTime) / 1000;
+          if (elapsedSec >= 0.3) {
+            const bytesDelta = copiedBytes - lastBytesCopied;
+            const currentSpeed = elapsedSec > 0 ? bytesDelta / elapsedSec : 0;
+            const smoothSpeed = job.speedBytesPerSec > 0 ? job.speedBytesPerSec * 0.7 + currentSpeed * 0.3 : currentSpeed;
 
-            let speed = job.speedBytesPerSec;
-            let eta = job.etaSeconds;
+            const remainingBytes = Math.max(0, totalEstimatedBytes - copiedBytes);
+            const eta = smoothSpeed > 0 ? Math.max(0, Math.round(remainingBytes / smoothSpeed)) : 0;
 
-            if (elapsedSinceLast >= 0.5) {
-              const pagesDelta = copiedPages - lastPagesCopied;
-              const bytesDelta = pagesDelta * pageSize;
-              const currentSpeed = elapsedSinceLast > 0 ? bytesDelta / elapsedSinceLast : 0;
-              speed = speed > 0 ? speed * 0.7 + currentSpeed * 0.3 : currentSpeed;
-
-              const remainingBytes = remainingPages * pageSize;
-              eta = speed > 0 ? Math.max(0, Math.round(remainingBytes / speed)) : 0;
-
-              lastTime = now;
-              lastPagesCopied = copiedPages;
-            }
-
-            job.totalPages = totalPages;
-            job.remainingPages = remainingPages;
-            job.copiedPages = copiedPages;
-            job.progressPercent = progressPercent;
-            job.copiedBytes = copiedBytes;
-            job.totalEstimatedBytes = totalEstimatedBytes;
-            job.speedBytesPerSec = Math.round(speed);
+            job.speedBytesPerSec = Math.round(smoothSpeed);
             job.etaSeconds = eta;
-            job.lastProgressUpdate = now;
+            lastTime = now;
+            lastBytesCopied = copiedBytes;
+          }
 
-            // Return 1000 pages (~4MB per step) for fast copy with high-frequency progress
-            return 1000;
-          },
-        });
+          const percent = totalEstimatedBytes > 0
+            ? Math.min(99, Math.round((copiedBytes / totalEstimatedBytes) * 100))
+            : Math.min(99, Math.round((copiedPages / totalPages) * 100));
 
-        // Rename temp file to final file
-        if (fs.existsSync(tempFilePath)) {
-          fs.renameSync(tempFilePath, finalFilePath);
-        }
+          job.copiedBytes = copiedBytes;
+          job.copiedPages = copiedPages;
+          job.remainingPages = remainingPages;
+          job.progressPercent = Math.max(job.progressPercent, percent);
+        } catch {}
+      }, 250);
 
-        const stats = fs.statSync(finalFilePath);
-        job.status = 'ready';
-        job.progressPercent = 100;
-        job.remainingPages = 0;
-        job.copiedPages = job.totalPages;
-        job.fileSizeBytes = stats.size;
-        job.copiedBytes = stats.size;
-        job.totalEstimatedBytes = stats.size;
-        job.etaSeconds = 0;
-        job.completedAt = Date.now();
+      child.on('message', (msg: any) => {
+        if (msg && msg.success) {
+          if (job.pollInterval) clearInterval(job.pollInterval);
 
-        console.log(`[BackupManager] Backup completed successfully for job ${jobId}: ${filename} (${(stats.size / (1024 * 1024)).toFixed(1)} MB)`);
-      } catch (err: any) {
-        console.error(`[BackupManager] Backup failed for job ${jobId}:`, err);
-        job.status = 'error';
-        job.error = err?.message || 'Database snapshot creation failed';
-        if (fs.existsSync(tempFilePath)) {
           try {
-            fs.unlinkSync(tempFilePath);
-          } catch {}
-        }
-      }
-    })();
+            if (fs.existsSync(tempFilePath)) {
+              fs.renameSync(tempFilePath, finalFilePath);
+            }
+            const finalStats = fs.statSync(finalFilePath);
+            job.status = 'ready';
+            job.progressPercent = 100;
+            job.remainingPages = 0;
+            job.copiedPages = job.totalPages;
+            job.fileSizeBytes = finalStats.size;
+            job.copiedBytes = finalStats.size;
+            job.totalEstimatedBytes = finalStats.size;
+            job.etaSeconds = 0;
+            job.completedAt = Date.now();
 
-    const { tempFilePath: _, finalFilePath: __, lastProgressUpdate: ___, lastCopiedPages: ____, ...info } = job;
+            console.log(
+              `[BackupManager] Backup completed successfully for job ${jobId}: ${filename} (${(finalStats.size / (1024 * 1024)).toFixed(1)} MB)`
+            );
+          } catch (finErr: any) {
+            job.status = 'error';
+            job.error = finErr.message || 'Error finalizing backup file';
+          }
+        } else if (msg && msg.error) {
+          if (job.pollInterval) clearInterval(job.pollInterval);
+          job.status = 'error';
+          job.error = msg.error;
+          if (fs.existsSync(tempFilePath)) {
+            try { fs.unlinkSync(tempFilePath); } catch {}
+          }
+        }
+      });
+
+      child.on('error', (err) => {
+        if (job.pollInterval) clearInterval(job.pollInterval);
+        console.error(`[BackupManager] Worker error for job ${jobId}:`, err);
+        job.status = 'error';
+        job.error = err.message || 'Worker process failed';
+        if (fs.existsSync(tempFilePath)) {
+          try { fs.unlinkSync(tempFilePath); } catch {}
+        }
+      });
+
+      child.on('exit', (code) => {
+        if (job.pollInterval) clearInterval(job.pollInterval);
+        if (code !== 0 && job.status === 'preparing') {
+          job.status = 'error';
+          job.error = `Worker process exited unexpectedly with code ${code}`;
+          if (fs.existsSync(tempFilePath)) {
+            try { fs.unlinkSync(tempFilePath); } catch {}
+          }
+        }
+      });
+    } catch (err: any) {
+      console.error(`[BackupManager] Failed to launch worker for job ${jobId}:`, err);
+      job.status = 'error';
+      job.error = err.message || 'Failed to start backup worker process';
+    }
+
+    const { tempFilePath: _, finalFilePath: __, childProcess: ___, pollInterval: ____, ...info } = job;
     return info;
   }
 
