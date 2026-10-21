@@ -310,6 +310,7 @@ export default function SoftflowdPage() {
 
       {/* Main Content */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 focus:outline-none">
+        <div id="panel-softflowd" role="tabpanel" aria-labelledby="tab-softflowd" tabIndex={0} className="space-y-6 focus:outline-none">
         <h1 className="sr-only">pfSense NetFlow Analytics</h1>
         {/* Retention Banner */}
         <RetentionBanner onRetentionTriggered={handleRefresh} />
@@ -374,6 +375,7 @@ export default function SoftflowdPage() {
           isLoading={loadingFlows}
           onOpenLiveFeed={() => setIsNetflowFeedOpen(true)}
         />
+        </div>
       </main>
 
       {/* Footer */}

@@ -433,7 +433,7 @@ export function LiveRequestsTable({
                             <button
                               type="button"
                               onClick={() => (onViewProfile ? onViewProfile(r.clientIp) : onSelectIp?.(r.clientIp))}
-                              className="font-semibold text-slate-100 hover:text-amber-300 hover:underline cursor-pointer"
+                              className="inline-flex items-center min-h-[24px] font-semibold text-slate-100 hover:text-amber-300 hover:underline cursor-pointer"
                             >
                               {maskEmployeeName(r.userName, isPrivacyMode)}
                             </button>
@@ -447,7 +447,7 @@ export function LiveRequestsTable({
                         <button
                           type="button"
                           onClick={() => (onViewProfile ? onViewProfile(r.clientIp) : onSelectIp?.(r.clientIp))}
-                          className="text-[11px] font-mono tabular-nums text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
+                          className="inline-flex items-center min-h-[24px] text-[11px] font-mono tabular-nums text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
                         >
                           {r.clientIp}
                         </button>

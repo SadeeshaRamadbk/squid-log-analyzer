@@ -92,7 +92,7 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        aria-label="Collector health diagnostics status"
+        aria-label={`${health.netflow.flowsPerSecond > 0 ? `${health.netflow.flowsPerSecond} f/s` : 'NetFlow Active'} - Collector Health Diagnostics`}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         className={className || "inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition-colors cursor-pointer"}

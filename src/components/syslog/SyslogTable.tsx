@@ -116,21 +116,21 @@ export function SyslogTable({
   const getAppBadge = (appName: string) => {
     const name = appName.toLowerCase();
     if (name.includes('squid')) {
-      return 'bg-blue-950/60 text-blue-300 border-blue-500/30';
+      return 'bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-500/30';
     }
     if (name.includes('filterlog')) {
-      return 'bg-purple-950/60 text-purple-300 border-purple-500/30';
+      return 'bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-500/30';
     }
     if (name.includes('dpinger')) {
-      return 'bg-amber-950/60 text-amber-300 border-amber-500/30';
+      return 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-500/30';
     }
     if (name.includes('dhcp')) {
-      return 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30';
+      return 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/30';
     }
     if (name.includes('openvpn') || name.includes('ssh')) {
-      return 'bg-cyan-950/60 text-cyan-300 border-cyan-500/30';
+      return 'bg-cyan-100 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/30';
     }
-    return 'bg-slate-800/80 text-slate-300 border-slate-700';
+    return 'bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800/80 dark:text-slate-300 dark:border-slate-700';
   };
 
   const formatTimestamp = (ts: number) => {
@@ -162,6 +162,7 @@ export function SyslogTable({
               type="button"
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1 || isLoading}
+              aria-label="Previous page"
               className="p-1 rounded bg-slate-950 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -170,6 +171,7 @@ export function SyslogTable({
               type="button"
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages || isLoading}
+              aria-label="Next page"
               className="p-1 rounded bg-slate-950 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />

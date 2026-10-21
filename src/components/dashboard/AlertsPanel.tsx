@@ -163,9 +163,9 @@ export function AlertsPanel({ onSelectIp }: AlertsPanelProps) {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-slate-100">
+              <h2 className="text-sm font-bold text-slate-100">
                 Security Alerts & Anomalies
-              </h3>
+              </h2>
               <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 text-[11px] font-mono">
                 {activeAlerts.length} active ({criticalCount} critical)
               </span>

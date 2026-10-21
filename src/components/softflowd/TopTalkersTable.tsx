@@ -113,7 +113,7 @@ export function TopTalkersTable({
                           <button
                             type="button"
                             onClick={() => (onViewProfile ? onViewProfile(item.srcIp) : onSelectIp?.(item.srcIp))}
-                            className="font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
+                            className="inline-flex items-center min-h-[24px] font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
                           >
                             {maskEmployeeName(item.userName, isPrivacyMode)}
                           </button>
@@ -129,7 +129,7 @@ export function TopTalkersTable({
                           type="button"
                           onClick={() => (onViewProfile ? onViewProfile(item.srcIp) : onSelectIp?.(item.srcIp))}
                           title={`Inspect Dossier for ${item.srcIp}`}
-                          className="font-mono text-[11px] font-medium text-indigo-300 hover:text-indigo-200 hover:underline cursor-pointer"
+                          className="inline-flex items-center min-h-[24px] font-mono text-[11px] font-medium text-indigo-300 hover:text-indigo-200 hover:underline cursor-pointer"
                         >
                           {item.srcIp}
                         </button>

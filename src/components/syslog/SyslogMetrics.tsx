@@ -54,7 +54,7 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
           <div className="text-[28px] font-extrabold font-mono text-rose-400 mt-1.5 leading-none tabular-nums">
             {firewallBlocks.toLocaleString()}
           </div>
-          <span className="text-xs text-rose-400/90 mt-1 block">
+          <span className="text-xs text-rose-300 font-medium mt-1 block">
             {totalEvents > 0 ? ((firewallBlocks / totalEvents) * 100).toFixed(1) : 0}% security blocks
           </span>
         </div>
@@ -72,7 +72,7 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
           <div className="text-[28px] font-extrabold font-mono text-red-400 mt-1.5 leading-none tabular-nums">
             {criticalErrors.toLocaleString()}
           </div>
-          <span className="text-xs text-red-400/90 mt-1 block">
+          <span className="text-xs text-red-300 font-medium mt-1 block">
             {totalEvents > 0 ? ((criticalErrors / totalEvents) * 100).toFixed(1) : 0}% of all events
           </span>
         </div>
@@ -90,7 +90,7 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
           <div className="text-[28px] font-extrabold font-mono text-amber-400 mt-1.5 leading-none tabular-nums">
             {warnings.toLocaleString()}
           </div>
-          <span className="text-xs text-amber-400/90 mt-1 block">
+          <span className="text-xs text-amber-300 font-medium mt-1 block">
             Security blocks &amp; warnings
           </span>
         </div>
@@ -108,7 +108,7 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
           <div className="text-[28px] font-extrabold font-mono text-cyan-300 mt-1.5 leading-none tabular-nums">
             {(notices + info).toLocaleString()}
           </div>
-          <span className="text-xs text-cyan-400/90 mt-1 block">
+          <span className="text-xs text-cyan-300 font-medium mt-1 block">
             Operational activity &amp; leases
           </span>
         </div>

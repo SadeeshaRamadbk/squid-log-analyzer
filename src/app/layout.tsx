@@ -22,7 +22,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100">
+      <body className="min-h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 overflow-x-clip">
         <a href="#main-content" className="skip-to-content">
           Skip to main content
         </a>

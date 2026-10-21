@@ -99,7 +99,7 @@ export function AppHeader({
         {/* ============================================================== */}
         {/* LEVEL 1: Brand, Nav Tabs, Quick Search (Ctrl+K), & User/Theme */}
         {/* ============================================================== */}
-        <div className="py-2.5 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
+        <div className="py-2.5 flex flex-wrap 2xl:flex-nowrap items-center justify-between gap-2">
           
           {/* Brand Identity & Environment */}
           <Link
@@ -150,7 +150,7 @@ export function AppHeader({
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'squid'
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Network className="w-3.5 h-3.5" />
@@ -169,7 +169,7 @@ export function AppHeader({
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'softflowd'
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
@@ -185,10 +185,10 @@ export function AppHeader({
                   aria-controls="panel-split"
                   onClick={() => onViewChange('split')}
                   onKeyDown={(e) => handleTabKeyDown(e, 'split')}
-                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-7 px-3 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'split'
-                      ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/30'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                   title="Dual Panel Multitask NOC View"
                 >
@@ -207,7 +207,7 @@ export function AppHeader({
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'syslog'
                       ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -227,7 +227,7 @@ export function AppHeader({
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'squid'
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Network className="w-3.5 h-3.5" />
@@ -245,7 +245,7 @@ export function AppHeader({
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'softflowd'
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
@@ -263,7 +263,7 @@ export function AppHeader({
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'syslog'
                       ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -278,10 +278,10 @@ export function AppHeader({
                   tabIndex={currentView === 'split' ? 0 : -1}
                   aria-controls="panel-split"
                   onKeyDown={(e) => handleTabKeyDown(e, 'split')}
-                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                  className={`h-7 px-3 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
                     currentView === 'split'
-                      ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/30'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Columns2 className="w-3.5 h-3.5" />
@@ -303,7 +303,7 @@ export function AppHeader({
           </div>
 
           {/* Right: Collector Status, Privacy, Density, Theme & User Session */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto lg:ml-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto 2xl:ml-0">
             {/* Collector Health Indicator */}
             <CollectorHealthBadge className="h-8 inline-flex items-center gap-2 px-2.5 rounded-lg bg-slate-950/80 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition-colors cursor-pointer shadow-sm" />
 

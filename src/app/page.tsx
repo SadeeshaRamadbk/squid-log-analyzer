@@ -782,7 +782,14 @@ function DashboardContent() {
 
       {/* Main Content Area */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 focus:outline-none">
-        <h1 className="sr-only">
+        <div
+          id={activeView === 'squid' ? 'panel-squid' : activeView === 'softflowd' ? 'panel-softflowd' : 'panel-split'}
+          role="tabpanel"
+          aria-labelledby={`tab-${activeView}`}
+          tabIndex={0}
+          className="space-y-6 focus:outline-none"
+        >
+          <h1 className="sr-only">
           {activeView === 'squid'
             ? 'Squid Web Proxy Analytics'
             : activeView === 'softflowd'
@@ -1129,6 +1136,7 @@ function DashboardContent() {
             </div>
           </div>
         )}
+        </div>
       </main>
 
       {/* Footer */}

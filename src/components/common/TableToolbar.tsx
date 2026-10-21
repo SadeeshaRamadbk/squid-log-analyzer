@@ -72,7 +72,7 @@ export function TableToolbar({
             <button
               type="button"
               onClick={() => setColMenuOpen((prev) => !prev)}
-              aria-label="Toggle column visibility"
+              aria-label="Columns - Toggle column visibility"
               aria-haspopup="menu"
               aria-expanded={colMenuOpen}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 transition-colors cursor-pointer text-xs"
@@ -121,7 +121,7 @@ export function TableToolbar({
           <button
             type="button"
             onClick={onExportCsv}
-            aria-label="Export table to CSV"
+            aria-label="Export CSV - Download filtered records as CSV spreadsheet"
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors font-medium cursor-pointer text-xs"
             title="Download filtered records as CSV spreadsheet"
           >

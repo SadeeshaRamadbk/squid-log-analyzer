@@ -90,7 +90,7 @@ export function TopDestinationsTable({
                 ]
               )
             }
-            aria-label="Export destinations to CSV"
+            aria-label="Export CSV - Export destinations to CSV"
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer self-start sm:self-auto"
             title="Export to CSV"
           >

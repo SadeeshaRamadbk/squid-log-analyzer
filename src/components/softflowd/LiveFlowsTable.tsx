@@ -406,7 +406,7 @@ export function LiveFlowsTable({
                             <button
                               type="button"
                               onClick={() => onViewProfile?.(r.srcIp)}
-                              className="font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
+                              className="inline-flex items-center min-h-[24px] font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
                             >
                               {r.srcUserName}
                             </button>
@@ -421,7 +421,7 @@ export function LiveFlowsTable({
                           <button
                             type="button"
                             onClick={() => onViewProfile?.(r.srcIp)}
-                            className="text-indigo-300 text-[11px] font-medium hover:underline hover:text-indigo-200 cursor-pointer text-left truncate"
+                            className="inline-flex items-center min-h-[24px] text-indigo-300 text-[11px] font-medium hover:underline hover:text-indigo-200 cursor-pointer text-left truncate"
                             title={`Inspect Profile for ${r.srcIp}`}
                           >
                             {r.srcIp}
@@ -460,7 +460,7 @@ export function LiveFlowsTable({
                             <button
                               type="button"
                               onClick={() => onViewProfile?.(r.dstIp)}
-                              className="font-semibold text-slate-100 hover:text-cyan-300 hover:underline cursor-pointer truncate max-w-[140px]"
+                              className="inline-flex items-center min-h-[24px] font-semibold text-slate-100 hover:text-cyan-300 hover:underline cursor-pointer truncate max-w-[140px]"
                             >
                               {r.dstUserName}
                             </button>
@@ -475,7 +475,7 @@ export function LiveFlowsTable({
                           <button
                             type="button"
                             onClick={() => onViewProfile?.(r.dstIp)}
-                            className="text-cyan-300 hover:underline hover:text-cyan-200 cursor-pointer text-left truncate text-[11px]"
+                            className="inline-flex items-center min-h-[24px] text-cyan-300 hover:underline hover:text-cyan-200 cursor-pointer text-left truncate text-[11px]"
                             title={`Inspect Profile for ${r.dstIp}`}
                           >
                             {r.dstIp}

@@ -46,9 +46,9 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
         <div className="flex items-center justify-between pb-3 border-b border-slate-800/60 mb-2">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-indigo-400" />
-            <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
+            <h2 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
               Event Severity Over Time
-            </h3>
+            </h2>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-400 hidden sm:inline">Hourly activity distribution</span>
@@ -186,9 +186,9 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
         <div className="flex items-center justify-between pb-3 border-b border-slate-800/60 mb-2">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
+            <h2 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
               Top Services &amp; Daemons
-            </h3>
+            </h2>
           </div>
           <span className="text-[11px] text-slate-400">By volume</span>
         </div>
@@ -207,7 +207,6 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
                     type="button"
                     onClick={() => onSelectApp && onSelectApp(isSelected ? '' : app.app_name)}
                     aria-pressed={isSelected}
-                    aria-label={`Filter by service ${app.app_name}, ${app.count} logs`}
                     className={`w-full p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between text-left ${
                       isSelected
                         ? 'bg-indigo-600/20 border-indigo-500/40 text-white'

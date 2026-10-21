@@ -66,7 +66,7 @@ export function TopClientsTable({
           <button
             type="button"
             onClick={handleExportCsv}
-            aria-label="Export top clients to CSV"
+            aria-label="Export CSV - Export top clients to CSV"
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer"
             title="Export to CSV"
           >
@@ -116,7 +116,7 @@ export function TopClientsTable({
                             <button
                               type="button"
                               onClick={() => (onViewProfile ? onViewProfile(item.clientIp) : onSelectIp?.(item.clientIp))}
-                              className="font-semibold text-slate-100 hover:text-amber-300 hover:underline cursor-pointer truncate max-w-[140px]"
+                              className="inline-flex items-center min-h-[24px] font-semibold text-slate-100 hover:text-amber-300 hover:underline cursor-pointer truncate max-w-[140px]"
                             >
                               {maskEmployeeName(item.userName, isPrivacyMode)}
                             </button>
@@ -132,7 +132,7 @@ export function TopClientsTable({
                             type="button"
                             onClick={() => (onViewProfile ? onViewProfile(item.clientIp) : onSelectIp?.(item.clientIp))}
                             title={`Inspect Dossier for ${item.clientIp}`}
-                            className="font-mono text-[11px] font-medium text-amber-300 hover:text-amber-200 hover:underline cursor-pointer"
+                            className="inline-flex items-center min-h-[24px] font-mono text-[11px] font-medium text-amber-300 hover:text-amber-200 hover:underline cursor-pointer"
                           >
                             {item.clientIp}
                           </button>

@@ -114,6 +114,7 @@ export function SyslogFilters({
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            aria-label="Search syslog messages, IP addresses, keywords"
             placeholder="Search syslog messages, IP addresses, keywords..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -124,6 +125,7 @@ export function SyslogFilters({
         {/* Application / Daemon Filter */}
         <div className="flex items-center gap-1.5">
           <select
+            aria-label="Filter by service or daemon"
             value={selectedApp}
             onChange={(e) => onAppChange(e.target.value)}
             className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
@@ -142,13 +144,15 @@ export function SyslogFilters({
           <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
           <input
             type="date"
+            aria-label="Start date"
             value={startDate}
             onChange={(e) => onDateChange(e.target.value, endDate)}
             className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
           />
-          <span className="text-slate-600">to</span>
+          <span className="text-slate-400 font-medium">to</span>
           <input
             type="date"
+            aria-label="End date"
             value={endDate}
             onChange={(e) => onDateChange(startDate, e.target.value)}
             className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
@@ -278,7 +282,7 @@ export function SyslogFilters({
               onClick={() => onActionChange('all')}
               className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
                 actionFilter === 'all'
-                  ? 'bg-slate-700 text-white'
+                  ? 'bg-slate-200 text-slate-900 font-semibold'
                   : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >

@@ -112,7 +112,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
             type="button"
             onClick={() => setViewAsTable((prev) => !prev)}
             aria-pressed={viewAsTable}
-            aria-label={viewAsTable ? 'Switch to interactive chart view' : 'Switch to accessible data table view'}
+            aria-label={viewAsTable ? 'View Chart - Switch to interactive chart view' : 'View as Table - Switch to accessible data table view'}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors cursor-pointer"
           >
             {viewAsTable ? (

@@ -116,7 +116,7 @@ export function FailedRequestsCard({
             <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
             <span>Policy Blocks (403):</span>
             <strong className="text-rose-200">{data.policyBlockedRate}%</strong>
-            <span className="text-[10px] text-rose-400/80">({formatNumber(data.policyBlockedCount)})</span>
+            <span className="text-[11px] font-semibold text-rose-300">({formatNumber(data.policyBlockedCount)})</span>
           </div>
 
           {/* Upstream/Tunnel Resets KPI */}
@@ -124,7 +124,7 @@ export function FailedRequestsCard({
             <WifiOff className="w-3.5 h-3.5 text-amber-400" />
             <span>Tunnel/503s:</span>
             <strong className="text-amber-200">{data.tunnelFailureRate}%</strong>
-            <span className="text-[10px] text-amber-400/80">({formatNumber(data.tunnelFailureCount)})</span>
+            <span className="text-[11px] font-semibold text-amber-300">({formatNumber(data.tunnelFailureCount)})</span>
           </div>
 
           {/* Toggle Button to Exclude CONNECT 503s */}

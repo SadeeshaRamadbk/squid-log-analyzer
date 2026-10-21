@@ -395,6 +395,7 @@ export function SoftflowdFilters({
         <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1">
           <Server className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <select
+            aria-label="Filter by internal source IP"
             value={srcIp || ''}
             onChange={(e) =>
               onFilterChange({
@@ -433,6 +434,7 @@ export function SoftflowdFilters({
         <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1">
           <Network className="w-3.5 h-3.5 text-blue-400 shrink-0" />
           <select
+            aria-label="Filter by protocol"
             value={protocol || ''}
             onChange={(e) =>
               onFilterChange({
@@ -465,6 +467,7 @@ export function SoftflowdFilters({
         <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1">
           <Tag className="w-3.5 h-3.5 text-purple-400 shrink-0" />
           <select
+            aria-label="Filter by service name"
             value={serviceName || ''}
             onChange={(e) =>
               onFilterChange({

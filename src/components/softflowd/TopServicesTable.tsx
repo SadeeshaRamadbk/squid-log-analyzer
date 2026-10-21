@@ -51,7 +51,7 @@ export function TopServicesTable({
           <button
             type="button"
             onClick={handleExportCsv}
-            aria-label="Export top services to CSV"
+            aria-label="Export CSV - Export top services to CSV"
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition-colors cursor-pointer"
             title="Export to CSV"
           >
