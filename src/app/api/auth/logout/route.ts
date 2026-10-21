@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteSession, getSessionTokenFromRequest } from '@/lib/auth';
+import { deleteSession, getSessionTokenFromRequest, getUserFromRequest } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = getUserFromRequest(request);
     const token = getSessionTokenFromRequest(request);
     if (token) {
       deleteSession(token);
+    }
+
+    if (user) {
+      recordAuditLog({
+        actor: user.username,
+        action: 'logout',
+        status: 'success',
+        ip_address: request.headers.get('x-forwarded-for') || undefined,
+      });
     }
 
     const response = NextResponse.json({

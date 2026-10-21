@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIpMappings, upsertIpMapping, deleteIpMapping, getUnassignedIps } from '@/lib/db/queries';
 import { getUserFromRequest } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/audit';
 
 export async function GET() {
   try {
@@ -36,6 +37,16 @@ export async function POST(request: NextRequest) {
     }
 
     upsertIpMapping(clientIp, userName, department, notes);
+
+    recordAuditLog({
+      actor: user?.username || 'admin',
+      action: 'alias_edit',
+      target: `${clientIp} (${userName})`,
+      details: { userName, department, notes },
+      status: 'success',
+      ip_address: request.headers.get('x-forwarded-for') || undefined,
+    });
+
     return NextResponse.json({ success: true, message: 'IP mapping saved successfully' });
   } catch (error: any) {
     return NextResponse.json(
@@ -66,6 +77,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     const deleted = deleteIpMapping(clientIp);
+
+    recordAuditLog({
+      actor: user?.username || 'admin',
+      action: 'alias_delete',
+      target: clientIp,
+      status: 'success',
+      ip_address: request.headers.get('x-forwarded-for') || undefined,
+    });
+
     return NextResponse.json({ success: true, deleted });
   } catch (error: any) {
     return NextResponse.json(

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 }
 
 import { getUserFromRequest } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,12 +53,44 @@ export async function POST(request: NextRequest) {
 
     if (action === 'block_domain') {
       syncResult = blockDomain(target, operator, reason);
+      recordAuditLog({
+        actor: operator,
+        action: 'block_rule',
+        target,
+        details: { reason, sync: syncResult },
+        status: 'success',
+        ip_address: request.headers.get('x-forwarded-for') || undefined,
+      });
     } else if (action === 'unblock_domain') {
       syncResult = unblockDomain(target, operator, reason);
+      recordAuditLog({
+        actor: operator,
+        action: 'unblock_rule',
+        target,
+        details: { reason, sync: syncResult },
+        status: 'success',
+        ip_address: request.headers.get('x-forwarded-for') || undefined,
+      });
     } else if (action === 'grant_full_access') {
       grantFullAccessIp(target, operator, reason);
+      recordAuditLog({
+        actor: operator,
+        action: 'block_rule',
+        target,
+        details: { action: 'grant_full_access', reason },
+        status: 'success',
+        ip_address: request.headers.get('x-forwarded-for') || undefined,
+      });
     } else if (action === 'revoke_full_access') {
       revokeFullAccessIp(target, operator, reason);
+      recordAuditLog({
+        actor: operator,
+        action: 'unblock_rule',
+        target,
+        details: { action: 'revoke_full_access', reason },
+        status: 'success',
+        ip_address: request.headers.get('x-forwarded-for') || undefined,
+      });
     } else {
       return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
     }

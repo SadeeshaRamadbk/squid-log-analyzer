@@ -21,11 +21,14 @@ import {
   Layers,
   Terminal,
   Tags,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { GlobalIpSearch } from './GlobalIpSearch';
 import { CollectorHealthBadge } from './CollectorHealthBadge';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface AppHeaderProps {
   activeView?: 'squid' | 'softflowd' | 'syslog' | 'split';
@@ -67,8 +70,17 @@ export function AppHeader({
   const pathname = usePathname();
   const currentView = activeView || (pathname.startsWith('/syslog') ? 'syslog' : pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
   const { user, isAdmin, logout } = useAuth();
+  const isPrivacyMode = usePrivacyMode();
   const [setupMenuOpen, setSetupMenuOpen] = useState(false);
   const setupMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleTogglePrivacy = () => {
+    const next = !isPrivacyMode;
+    try {
+      localStorage.setItem('privacy_mode', String(next));
+      window.dispatchEvent(new Event('privacy-mode-change'));
+    } catch {}
+  };
 
   // Close setup dropdown on outside click
   useEffect(() => {
@@ -257,6 +269,21 @@ export function AppHeader({
 
             {/* Vertical Divider */}
             <div className="h-5 w-px bg-slate-800/80 mx-0.5" />
+
+            {/* Privacy Mode Toggle */}
+            <button
+              type="button"
+              onClick={handleTogglePrivacy}
+              className={`h-8 px-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                isPrivacyMode
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/80'
+              }`}
+              title={isPrivacyMode ? 'Privacy Mode is ACTIVE (Employee names masked)' : 'Privacy Mode is OFF (Click to mask employee names)'}
+            >
+              {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+              <span className="hidden md:inline font-sans">{isPrivacyMode ? 'Privacy ON' : 'Privacy'}</span>
+            </button>
 
             {/* Theme Toggle */}
             <ThemeToggle className="h-8 w-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700/80 flex items-center justify-center shrink-0 shadow-sm" />

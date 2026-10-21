@@ -7,6 +7,8 @@ import type { LiveRequestRecord } from '@/lib/db/queries';
 import { TableToolbar, ColumnDef } from '../common/TableToolbar';
 import { SkeletonTable } from '../common/SkeletonTable';
 import { exportToCsv } from '@/lib/exportCsv';
+import { maskEmployeeName } from '@/lib/privacy';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface LiveRequestsTableProps {
   records: LiveRequestRecord[];
@@ -37,6 +39,7 @@ export function LiveRequestsTable({
   onViewDomain,
   onOpenLiveFeed,
 }: LiveRequestsTableProps) {
+  const isPrivacyMode = usePrivacyMode();
   const [sortKey, setSortKey] = useState<keyof LiveRequestRecord>('timestamp');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [jumpPage, setJumpPage] = useState<string>(String(page));
@@ -376,7 +379,7 @@ export function LiveRequestsTable({
                               onClick={() => (onViewProfile ? onViewProfile(r.clientIp) : onSelectIp?.(r.clientIp))}
                               className="font-semibold text-slate-100 hover:text-amber-300 hover:underline cursor-pointer"
                             >
-                              {r.userName}
+                              {maskEmployeeName(r.userName, isPrivacyMode)}
                             </button>
                             {r.department && (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">

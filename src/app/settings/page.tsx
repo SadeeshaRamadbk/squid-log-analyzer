@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { formatNumber } from '@/lib/formatters';
+import { AuditLogTable } from '@/components/settings/AuditLogTable';
 
 interface UserItem {
   id: number;
@@ -79,9 +80,9 @@ function SettingsContent() {
   const searchParams = useSearchParams();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
 
-  // Active Tab: 'users' | 'password' | 'retention' | 'network' | 'alerts'
+  // Active Tab: 'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit'
   const initialTab = (searchParams.get('tab') as any) || 'users';
-  const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network' | 'alerts'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit'>(initialTab);
 
   // User Accounts State
   const [usersList, setUsersList] = useState<UserItem[]>([]);
@@ -737,6 +738,19 @@ function SettingsContent() {
           >
             <Bell className="w-3.5 h-3.5" />
             <span>Alerts & Notifications</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('audit')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'audit'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 border border-purple-500'
+                : 'bg-slate-900/60 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>System Audit Log</span>
           </button>
         </div>
 
@@ -2007,6 +2021,13 @@ function SettingsContent() {
               )}
             </form>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: SYSTEM AUDIT LOG */}
+        {/* ========================================================================= */}
+        {activeTab === 'audit' && (
+          <AuditLogTable />
         )}
       </main>
     </div>

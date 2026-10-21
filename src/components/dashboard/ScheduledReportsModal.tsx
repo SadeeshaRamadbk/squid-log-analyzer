@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Download, X, Calendar, Sparkles, Activity } from 'lucide-react';
+import { FileText, Download, X, Calendar, Sparkles, Activity, Mail, CheckCircle2 } from 'lucide-react';
 import type { GeneratedReportResult } from '@/lib/reports';
 
 interface ScheduledReportsModalProps {
@@ -10,8 +10,11 @@ interface ScheduledReportsModalProps {
 }
 
 export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModalProps) {
-  const [reportType, setReportType] = useState<'daily' | 'weekly'>('daily');
+  const [reportType, setReportType] = useState<'daily' | 'weekly'>('weekly');
   const [loading, setLoading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const [recipient, setRecipient] = useState('');
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [reportData, setReportData] = useState<GeneratedReportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,6 +24,7 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
     try {
       setLoading(true);
       setError(null);
+      setEmailStatus(null);
       const res = await fetch(`/api/reports?type=${reportType}`);
       const json = await res.json();
       if (json.success) {
@@ -32,6 +36,29 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
       setError(err.message || 'Error executing report');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    try {
+      setEmailing(true);
+      setEmailStatus(null);
+      setError(null);
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: reportType, recipient: recipient.trim() || undefined }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setEmailStatus(json.message || 'Report successfully emailed via SMTP');
+      } else {
+        setError(json.error || 'Failed to email report');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error sending email');
+    } finally {
+      setEmailing(false);
     }
   };
 
@@ -127,6 +154,40 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
             {error}
           </div>
         )}
+
+        {/* Email Dispatch Section */}
+        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+              <Mail className="w-3.5 h-3.5 text-blue-400" />
+              <span>Email Weekly Report via SMTP:</span>
+            </div>
+            {emailStatus && (
+              <span className="text-emerald-400 text-xs inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {emailStatus}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="email"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="Override recipient email (or uses Settings default)"
+              className="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+            />
+            <button
+              type="button"
+              onClick={handleSendEmail}
+              disabled={emailing}
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>{emailing ? 'Sending...' : 'Email Report'}</span>
+            </button>
+          </div>
+        </div>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-800">

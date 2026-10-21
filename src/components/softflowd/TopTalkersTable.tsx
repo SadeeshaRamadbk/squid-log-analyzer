@@ -4,6 +4,8 @@ import React from 'react';
 import { Server, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import { exportToCsv } from '@/lib/exportCsv';
+import { maskEmployeeName } from '@/lib/privacy';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface TopTalkersTableProps {
   talkers: Array<{
@@ -32,6 +34,7 @@ export function TopTalkersTable({
   correlatedIp,
   onHoverIp,
 }: TopTalkersTableProps) {
+  const isPrivacyMode = usePrivacyMode();
   const handleExportCsv = () => {
     exportToCsv('top_softflowd_talkers', talkers, [
       { key: 'srcIp', header: 'Source IP' },
@@ -111,7 +114,7 @@ export function TopTalkersTable({
                             onClick={() => (onViewProfile ? onViewProfile(item.srcIp) : onSelectIp?.(item.srcIp))}
                             className="font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
                           >
-                            {item.userName}
+                            {maskEmployeeName(item.userName, isPrivacyMode)}
                           </button>
                           {item.department && (
                             <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">

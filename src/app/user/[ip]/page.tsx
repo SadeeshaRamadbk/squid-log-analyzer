@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import type { IpProfileData } from '@/lib/db/profile-queries';
+import { maskEmployeeName } from '@/lib/privacy';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 export default function UserDetailPage({ params }: { params: Promise<{ ip: string }> }) {
   const resolvedParams = use(params);
@@ -24,6 +26,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'squid' | 'flows' | 'syslog'>('all');
+  const isPrivacyMode = usePrivacyMode();
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -239,7 +242,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
             </Link>
             <div>
               <h1 className="text-base font-bold text-white flex items-center gap-2">
-                User Telemetry Dossier: {profile.mapping.userName || profile.clientIp}
+                User Telemetry Dossier: {profile.mapping.userName ? maskEmployeeName(profile.mapping.userName, isPrivacyMode) : profile.clientIp}
               </h1>
               <p className="text-xs text-slate-400 font-mono">{profile.clientIp}</p>
             </div>
@@ -266,7 +269,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-100">
-                {profile.mapping.userName || 'Unassigned Host'}
+                {profile.mapping.userName ? maskEmployeeName(profile.mapping.userName, isPrivacyMode) : 'Unassigned Host'}
               </h2>
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1">
                 <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-indigo-300">

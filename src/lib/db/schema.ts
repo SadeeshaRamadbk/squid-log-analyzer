@@ -283,6 +283,21 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(token);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
 
+    -- Security & Operations: System Audit Log
+    CREATE TABLE IF NOT EXISTS system_audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      actor TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT,
+      details TEXT,
+      status TEXT NOT NULL DEFAULT 'success',
+      ip_address TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_ts ON system_audit_logs(timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON system_audit_logs(actor, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON system_audit_logs(action, timestamp DESC);
+
     -- Syslog Infrastructure & Operational Events (pfSense, Squid, daemons, firewall)
     CREATE TABLE IF NOT EXISTS syslog_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

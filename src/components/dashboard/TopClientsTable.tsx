@@ -4,6 +4,8 @@ import React from 'react';
 import { Monitor, ShieldAlert, Download } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import { exportToCsv } from '@/lib/exportCsv';
+import { maskEmployeeName } from '@/lib/privacy';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface TopClientsTableProps {
   clients: Array<{
@@ -32,6 +34,7 @@ export function TopClientsTable({
   correlatedIp,
   onHoverIp,
 }: TopClientsTableProps) {
+  const isPrivacyMode = usePrivacyMode();
   const handleExportCsv = () => {
     exportToCsv('top_squid_clients', clients, [
       { key: 'clientIp', header: 'Client IP' },
@@ -114,7 +117,7 @@ export function TopClientsTable({
                               onClick={() => (onViewProfile ? onViewProfile(item.clientIp) : onSelectIp?.(item.clientIp))}
                               className="font-semibold text-slate-100 hover:text-amber-300 hover:underline cursor-pointer truncate max-w-[140px]"
                             >
-                              {item.userName}
+                              {maskEmployeeName(item.userName, isPrivacyMode)}
                             </button>
                             {item.department && (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">

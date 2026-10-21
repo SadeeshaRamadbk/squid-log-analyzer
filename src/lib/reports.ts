@@ -1,6 +1,9 @@
 import { getDatabase } from './db';
 import { formatBytes, formatNumber } from './formatters';
 import { getDomainCategory } from './categories';
+import { getSystemSettings } from './settings';
+import { sendSmtpEmail } from './smtp';
+import { recordAuditLog } from './audit';
 
 export interface GeneratedReportResult {
   title: string;
@@ -237,4 +240,61 @@ export async function generateScheduledReport(type: 'daily' | 'weekly' = 'daily'
     aiSummary,
     docHtml,
   };
+}
+
+/**
+ * Dispatch scheduled Word/HTML reports by email via SMTP
+ */
+export async function sendScheduledReportEmail(
+  type: 'daily' | 'weekly' = 'weekly',
+  customRecipient?: string
+): Promise<{ success: boolean; message: string; messageId?: string }> {
+  const settings = getSystemSettings();
+  const recipient = customRecipient || settings.smtpTo;
+
+  if (!recipient) {
+    return { success: false, message: 'No recipient email configured in settings' };
+  }
+
+  if (!settings.smtpHost || !settings.smtpFrom) {
+    return { success: false, message: 'SMTP Host and Sender (From) must be configured in Settings.' };
+  }
+
+  const report = await generateScheduledReport(type);
+  const subject = `[Nippon BPO] ${type.toUpperCase()} Network & Security Telemetry Report - ${new Date().toLocaleDateString('en-US')}`;
+
+  try {
+    const emailResult = await sendSmtpEmail({
+      host: settings.smtpHost,
+      port: Number(settings.smtpPort || 587),
+      secure: Boolean(settings.smtpSecure),
+      user: settings.smtpUser,
+      pass: settings.smtpPass,
+      from: settings.smtpFrom,
+      to: recipient,
+      subject,
+      html: report.docHtml,
+    });
+
+    if (emailResult.success) {
+      recordAuditLog({
+        actor: 'system',
+        action: 'report_email',
+        target: recipient,
+        details: { type, title: report.title },
+        status: 'success',
+      });
+    }
+
+    return {
+      success: emailResult.success,
+      message: emailResult.success ? `Report successfully sent to ${recipient}` : 'Failed to send report email',
+      messageId: emailResult.messageId,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'SMTP transmission error',
+    };
+  }
 }
