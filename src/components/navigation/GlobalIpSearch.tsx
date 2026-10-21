@@ -92,8 +92,15 @@ export function GlobalIpSearch({ onSelectProfile, onSelectDomain, onSelectPort }
         <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
         <input
           ref={inputRef}
+          id="global-ip-search-input"
           type="text"
           value={query}
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-controls="global-ip-search-results"
+          aria-label="Unified Search across IP, User, Domain, and Port"
+          aria-keyshortcuts="Control+K Meta+K"
           onFocus={() => setIsOpen(true)}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -103,7 +110,7 @@ export function GlobalIpSearch({ onSelectProfile, onSelectDomain, onSelectPort }
             if (e.key === 'Escape') setIsOpen(false);
           }}
           placeholder="Search IP, User, Domain, Port (Ctrl+K)"
-          className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner"
+          className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner"
         />
         {query && (
           <button
@@ -112,7 +119,8 @@ export function GlobalIpSearch({ onSelectProfile, onSelectDomain, onSelectPort }
               setQuery('');
               inputRef.current?.focus();
             }}
-            className="absolute right-2.5 p-0.5 text-slate-400 hover:text-white"
+            aria-label="Clear search query"
+            className="absolute right-2.5 p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-3 h-3" />
           </button>
@@ -121,7 +129,12 @@ export function GlobalIpSearch({ onSelectProfile, onSelectDomain, onSelectPort }
 
       {/* Dropdown Suggestions */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto overflow-x-hidden animate-in fade-in slide-in-from-top-1 divide-y divide-slate-800/60">
+        <div
+          id="global-ip-search-results"
+          role="listbox"
+          aria-label="Search suggestions"
+          className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto overflow-x-hidden animate-in fade-in slide-in-from-top-1 divide-y divide-slate-800/60"
+        >
           <div className="p-2 bg-slate-950/40 text-[10px] text-slate-400 flex items-center justify-between font-semibold uppercase tracking-wider">
             <span>Unified Search &bull; {totalResults} found</span>
             {loading && <Activity className="w-3 h-3 animate-spin text-indigo-400" />}

@@ -47,8 +47,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
   }, [userIp]);
 
   useEffect(() => {
+    document.title = `${userIp} - Device Profile - Squid Analyzer`;
     fetchProfile();
-  }, [fetchProfile]);
+  }, [userIp, fetchProfile]);
 
   // Export User Dossier to Microsoft Word (.doc)
   const handleExportWordDoc = () => {
@@ -260,7 +261,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ ip: strin
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main id="main-content" tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 focus:outline-none">
         {/* User Card */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">

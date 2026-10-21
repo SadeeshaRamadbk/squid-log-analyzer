@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tag, X, Activity, Server } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface PortDetailModalProps {
   port: number | null;
@@ -54,11 +55,22 @@ export function PortDetailModal({
     };
   }, [isOpen, port, protocol]);
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
+
   if (!isOpen || !port) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="port-detail-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden focus:outline-none"
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
           <div className="flex items-center gap-2.5">
@@ -67,9 +79,9 @@ export function PortDetailModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white font-mono">
+                <h2 id="port-detail-title" className="text-base font-bold text-white font-mono">
                   {data?.serviceName || `Port ${port}`}
-                </h3>
+                </h2>
                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-purple-300 border border-slate-700 font-mono">
                   Port {port} {protocol ? `(${protocol})` : ''}
                 </span>
@@ -80,6 +92,7 @@ export function PortDetailModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close port detail dialog"
             className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
           >
             <X className="w-5 h-5" />

@@ -39,6 +39,7 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
   const [health, setHealth] = useState<HealthData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   const fetchHealth = async () => {
     try {
@@ -88,13 +89,16 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        aria-label="Collector health status"
+        aria-label="Collector health diagnostics status"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         className={className || "inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition-colors cursor-pointer"}
-        title="View NetFlow & Squid Collector Health Status"
+        title="View NetFlow, Squid & Syslog Collector Health Status"
       >
-        <span className="relative flex h-2 w-2">
+        <span className="relative flex h-2 w-2" aria-hidden="true">
           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${dotColor} opacity-75`} />
           <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`} />
         </span>
@@ -106,8 +110,25 @@ export function CollectorHealthBadge({ className }: CollectorHealthBadgeProps = 
       {/* Popover Details Drawer */}
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl p-4 z-50 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150">
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => {
+              setIsOpen(false);
+              triggerRef.current?.focus();
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Collector Health Diagnostics"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsOpen(false);
+                triggerRef.current?.focus();
+              }
+            }}
+            className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl p-4 z-50 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-semibold text-slate-100 flex items-center gap-1.5">
                 <Activity className="w-4 h-4 text-indigo-400" />

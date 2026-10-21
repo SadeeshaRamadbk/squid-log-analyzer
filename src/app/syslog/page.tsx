@@ -17,6 +17,10 @@ import type { SyslogEventRow, SyslogOverviewStats, FirewallBlocksOverview } from
 export default function SyslogPage() {
   const todayStr = new Date().toISOString().split('T')[0];
 
+  useEffect(() => {
+    document.title = 'pfSense Syslog - Squid Analyzer';
+  }, []);
+
   // Filters State (default to Today)
   const [activeTab, setActiveTab] = useState<'stream' | 'blocks'>('stream');
   const [suppressNoise, setSuppressNoise] = useState(true);
@@ -226,7 +230,8 @@ export default function SyslogPage() {
       />
 
       {/* Main Body */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main id="main-content" tabIndex={-1} className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 focus:outline-none">
+        <h1 className="sr-only">pfSense Syslog &amp; Security Events</h1>
         {/* Metric Cards */}
         <SyslogMetrics stats={stats} isLoading={loadingStats} />
 

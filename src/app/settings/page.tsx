@@ -84,6 +84,10 @@ function SettingsContent() {
   const initialTab = (searchParams.get('tab') as any) || 'users';
   const [activeTab, setActiveTab] = useState<'users' | 'password' | 'retention' | 'network' | 'alerts' | 'audit'>(initialTab);
 
+  useEffect(() => {
+    document.title = 'Settings & Access Control - Squid Analyzer';
+  }, []);
+
   // User Accounts State
   const [usersList, setUsersList] = useState<UserItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -666,7 +670,7 @@ function SettingsContent() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1">
+      <main id="main-content" tabIndex={-1} className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 focus:outline-none">
         
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3 flex-wrap">

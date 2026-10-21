@@ -209,106 +209,152 @@ export function LiveFlowsTable({
           </div>
         ) : (
           <table className="w-full min-w-[1020px] text-left text-xs">
+            <caption className="sr-only">pfSense Live NetFlow Telemetry Sessions</caption>
             <thead className="sticky top-0 bg-slate-900/95 backdrop-blur z-10 shadow-sm">
-              <tr className="border-b border-slate-800 text-slate-400 font-medium">
+              <tr className="border-b border-slate-800 text-slate-300 font-semibold">
                 {isVisible('timestamp') && (
                   <th
-                    className="py-2.5 pl-2 w-40 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('timestamp')}
+                    scope="col"
+                    aria-sort={sortKey === 'timestamp' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 pl-2 w-40"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('timestamp')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Time</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('direction') && (
                   <th
-                    className="py-2.5 w-24 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('direction')}
+                    scope="col"
+                    aria-sort={sortKey === 'direction' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 w-24"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('direction')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Direction</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('srcIp') && (
                   <th
-                    className="py-2.5 w-48 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('srcIp')}
+                    scope="col"
+                    aria-sort={sortKey === 'srcIp' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 w-48"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('srcIp')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Source Host / User</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('srcPort') && (
                   <th
-                    className="py-2.5 w-24 text-right px-3 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('srcPort')}
+                    scope="col"
+                    aria-sort={sortKey === 'srcPort' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 w-24 text-right px-3"
                   >
-                    <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('srcPort')}
+                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                    >
                       <span>Src Port</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('dstIp') && (
                   <th
-                    className="py-2.5 w-48 pl-3 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('dstIp')}
+                    scope="col"
+                    aria-sort={sortKey === 'dstIp' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 w-48 pl-3"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('dstIp')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Destination Host</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('serviceName') && (
                   <th
-                    className="py-2.5 w-36 px-2 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('serviceName')}
+                    scope="col"
+                    aria-sort={sortKey === 'serviceName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 w-36 px-2"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('serviceName')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Service / Dst Port</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('protocol') && (
                   <th
-                    className="py-2.5 w-16 px-2 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('protocol')}
+                    scope="col"
+                    aria-sort={sortKey === 'protocol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 w-16 px-2"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('protocol')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Proto</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
-                {isVisible('tcpFlags') && <th className="py-2.5 w-20 px-2">Flags</th>}
+                {isVisible('tcpFlags') && <th scope="col" className="py-2.5 w-20 px-2 font-semibold text-slate-300">Flags</th>}
                 {isVisible('bytes') && (
                   <th
-                    className="py-2.5 text-right px-2 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('bytes')}
+                    scope="col"
+                    aria-sort={sortKey === 'bytes' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 text-right px-2"
                   >
-                    <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('bytes')}
+                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                    >
                       <span>Volume</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('packets') && (
                   <th
-                    className="py-2.5 text-right pr-2 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('packets')}
+                    scope="col"
+                    aria-sort={sortKey === 'packets' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="py-2.5 text-right pr-2"
                   >
-                    <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('packets')}
+                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                    >
                       <span>Packets</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
               </tr>

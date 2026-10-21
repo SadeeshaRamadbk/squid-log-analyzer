@@ -754,6 +754,17 @@ function DashboardContent() {
     window.history.replaceState(null, '', url.pathname + url.search);
   }, [activeView, squidFilters, softflowdFilters, squidLogTab, liveReqPageSize]);
 
+  // Dynamic Document Title based on active tab view
+  useEffect(() => {
+    if (activeView === 'squid') {
+      document.title = 'Squid Dashboard - Squid Analyzer';
+    } else if (activeView === 'softflowd') {
+      document.title = 'pfSense Flows - Squid Analyzer';
+    } else if (activeView === 'split') {
+      document.title = 'Split View - Squid Analyzer';
+    }
+  }, [activeView]);
+
   const handleOpenIpAliasModal = (ip?: string) => {
     setTargetIpForModal(ip);
     setIsIpModalOpen(true);
@@ -779,7 +790,15 @@ function DashboardContent() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main id="main-content" tabIndex={-1} className="flex-1 max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 focus:outline-none">
+        <h1 className="sr-only">
+          {activeView === 'squid'
+            ? 'Squid Web Proxy Analytics'
+            : activeView === 'softflowd'
+            ? 'pfSense NetFlow Analytics'
+            : 'Split View Telemetry Correlation'}
+        </h1>
+
         {/* Retention & DB Status Banner */}
         <RetentionBanner onRetentionTriggered={handleRefresh} />
 

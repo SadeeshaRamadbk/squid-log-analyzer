@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, X, ExternalLink, Users, Activity } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface DomainDetailModalProps {
   domain: string | null;
@@ -53,11 +54,22 @@ export function DomainDetailModal({
     };
   }, [isOpen, domain]);
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
+
   if (!isOpen || !domain) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="domain-detail-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden focus:outline-none"
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
           <div className="flex items-center gap-2.5">
@@ -66,7 +78,7 @@ export function DomainDetailModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white font-mono">{domain}</h3>
+                <h2 id="domain-detail-title" className="text-base font-bold text-white font-mono">{domain}</h2>
                 <a
                   href={`https://${domain}`}
                   target="_blank"
@@ -77,7 +89,7 @@ export function DomainDetailModal({
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
-              <p className="text-xs text-slate-400">Domain Drill-Down & Audit Telemetry</p>
+              <p className="text-xs text-slate-400">Domain Drill-Down &amp; Audit Telemetry</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -96,9 +108,10 @@ export function DomainDetailModal({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close domain details dialog"
               className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

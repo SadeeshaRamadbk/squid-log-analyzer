@@ -20,6 +20,7 @@ import {
 import { formatNumber, formatBytes } from '@/lib/formatters';
 import type { DomainCategory, DepartmentCategoryBreakdown } from '@/lib/categories';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface DomainCategoriesModalProps {
   isOpen: boolean;
@@ -155,9 +156,22 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
     }
   };
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="domain-cat-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[88vh] overflow-hidden focus:outline-none"
+      >
         {/* Header */}
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -165,8 +179,8 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
               <Tags className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <span>Domain Categories & Department Usage</span>
+              <h2 id="domain-cat-title" className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <span>Domain Categories &amp; Department Usage</span>
               </h2>
               <p className="text-xs text-slate-400">
                 Classify web traffic into Work, Streaming, Social, Ads/Telemetry/CDN, and Other
@@ -177,6 +191,7 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close domain categories dialog"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -351,10 +366,11 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
                   className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-end gap-3"
                 >
                   <div className="flex-1 space-y-1">
-                    <label className="text-[11px] font-semibold text-slate-300">
+                    <label htmlFor="new-domain-input" className="text-[11px] font-semibold text-slate-300">
                       Domain Name (e.g. reddit.com or *.subdomain)
                     </label>
                     <input
+                      id="new-domain-input"
                       type="text"
                       placeholder="e.g. example.com"
                       value={newDomain}
@@ -364,8 +380,9 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
                   </div>
 
                   <div className="w-full sm:w-48 space-y-1">
-                    <label className="text-[11px] font-semibold text-slate-300">Category</label>
+                    <label htmlFor="new-cat-select" className="text-[11px] font-semibold text-slate-300">Category</label>
                     <select
+                      id="new-cat-select"
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value as DomainCategory)}
                       className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs focus:outline-none focus:border-purple-500 cursor-pointer"
@@ -391,8 +408,10 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
 
               {/* Search Bar */}
               <div className="relative">
+                <label htmlFor="search-domain-rules" className="sr-only">Search categorized domains</label>
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                 <input
+                  id="search-domain-rules"
                   type="text"
                   placeholder="Search categorized domains or categories..."
                   value={search}
@@ -404,11 +423,12 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
               {/* Rules List */}
               <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60 max-h-72 overflow-y-auto">
                 <table className="w-full text-left text-xs">
+                  <caption className="sr-only">Domain category classification rules</caption>
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-semibold sticky top-0 z-10">
-                      <th className="py-2.5 px-3">Domain</th>
-                      <th className="py-2.5 px-3">Canonical Category</th>
-                      {isAdmin && <th className="py-2.5 px-3 text-right">Action</th>}
+                      <th scope="col" className="py-2.5 px-3">Domain</th>
+                      <th scope="col" className="py-2.5 px-3">Canonical Category</th>
+                      {isAdmin && <th scope="col" className="py-2.5 px-3 text-right">Action</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-slate-300">

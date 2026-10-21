@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { formatBytes, formatNumber } from '@/lib/formatters';
 import type { IpProfileData } from '@/lib/db/profile-queries';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface IpProfileModalProps {
   ip: string | null;
@@ -184,9 +185,20 @@ export function IpProfileModal({
     ? 'pointer-events-auto fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[500px] lg:w-[560px] bg-slate-900/95 border-l border-slate-800 shadow-2xl flex flex-col backdrop-blur-xl animate-in slide-in-from-right duration-200 h-screen'
     : 'bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden';
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen: isOpen && !isMinimized, onClose });
+
   return (
-    <div className={wrapperClass}>
-      <div className={modalClass}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ip-profile-title"
+      className={wrapperClass}
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className={`${modalClass} focus:outline-none`}
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -195,9 +207,9 @@ export function IpProfileModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-base font-bold text-white tracking-wide">
+                <h2 id="ip-profile-title" className="font-mono text-base font-bold text-white tracking-wide">
                   {ip}
-                </span>
+                </h2>
                 {profile?.mapping.userName ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                     <User className="w-3 h-3" /> {profile.mapping.userName}
@@ -255,6 +267,7 @@ export function IpProfileModal({
             <button
               type="button"
               onClick={() => setIsDocked((prev) => !prev)}
+              aria-label={isDocked ? 'Expand to Centered Modal' : 'Dock to Right (Multitask Mode)'}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               title={isDocked ? 'Expand to Centered Modal' : 'Dock to Right (Multitask Mode)'}
             >
@@ -264,6 +277,7 @@ export function IpProfileModal({
             <button
               type="button"
               onClick={() => setIsMinimized(true)}
+              aria-label="Minimize Dossier (Float to Corner)"
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               title="Minimize Dossier (Float to Corner)"
             >
@@ -273,6 +287,7 @@ export function IpProfileModal({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close host dossier dialog"
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               title="Close Dossier"
             >

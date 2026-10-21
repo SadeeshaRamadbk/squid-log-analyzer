@@ -193,19 +193,25 @@ export function SavedViewsDropdown({
                     {customViews.map((c) => (
                       <div
                         key={c.id}
-                        onClick={() => handleSelectView(c)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer group ${
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors group ${
                           activeViewId === c.id
                             ? 'bg-indigo-600/20 text-indigo-300 font-semibold border border-indigo-500/30'
                             : 'hover:bg-slate-800 text-slate-300 hover:text-white'
                         }`}
                       >
-                        <span className="truncate">{c.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectView(c)}
+                          className="flex-1 text-left truncate cursor-pointer bg-transparent border-0 p-0 text-inherit focus:outline-none"
+                        >
+                          <span className="truncate">{c.name}</span>
+                        </button>
                         <div className="flex items-center gap-1.5">
                           {activeViewId === c.id && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
                           <button
                             type="button"
                             onClick={(e) => deleteCustomView(c.id, e)}
+                            aria-label={`Delete saved view ${c.name}`}
                             className="text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 p-0.5 transition-opacity cursor-pointer"
                             title="Delete this saved view"
                           >

@@ -73,6 +73,36 @@ export function AppHeader({
   const isPrivacyMode = usePrivacyMode();
   const [setupMenuOpen, setSetupMenuOpen] = useState(false);
   const setupMenuRef = useRef<HTMLDivElement>(null);
+  const setupButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLElement>, viewName: 'squid' | 'softflowd' | 'split' | 'syslog') => {
+    const tabs: ('squid' | 'softflowd' | 'split' | 'syslog')[] = ['squid', 'softflowd', 'split', 'syslog'];
+    const currentIndex = tabs.indexOf(viewName);
+    let targetIndex = -1;
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      targetIndex = (currentIndex + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      targetIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      targetIndex = 0;
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      targetIndex = tabs.length - 1;
+    }
+
+    if (targetIndex !== -1) {
+      const nextView = tabs[targetIndex];
+      const targetEl = document.getElementById(`tab-${nextView}`);
+      targetEl?.focus();
+      if (onViewChange && nextView !== 'syslog') {
+        onViewChange(nextView as any);
+      }
+    }
+  };
 
   const handleTogglePrivacy = () => {
     const next = !isPrivacyMode;
@@ -82,16 +112,26 @@ export function AppHeader({
     } catch {}
   };
 
-  // Close setup dropdown on outside click
+  // Close setup dropdown on outside click or Escape key
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (setupMenuRef.current && !setupMenuRef.current.contains(event.target as Node)) {
         setSetupMenuOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && setupMenuOpen) {
+        setSetupMenuOpen(false);
+        setupButtonRef.current?.focus();
+      }
+    }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setupMenuOpen]);
 
   const hasSetupOptions = !!(onOpenSquidConfig || onOpenConfigModal || onOpenSyslogConfig);
 
@@ -143,9 +183,13 @@ export function AppHeader({
               <>
                 <button
                   type="button"
+                  id="tab-squid"
                   role="tab"
                   aria-selected={currentView === 'squid'}
+                  tabIndex={currentView === 'squid' ? 0 : -1}
+                  aria-controls="panel-squid"
                   onClick={() => onViewChange('squid')}
+                  onKeyDown={(e) => handleTabKeyDown(e, 'squid')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'squid'
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
@@ -158,9 +202,13 @@ export function AppHeader({
 
                 <button
                   type="button"
+                  id="tab-softflowd"
                   role="tab"
                   aria-selected={currentView === 'softflowd'}
+                  tabIndex={currentView === 'softflowd' ? 0 : -1}
+                  aria-controls="panel-softflowd"
                   onClick={() => onViewChange('softflowd')}
+                  onKeyDown={(e) => handleTabKeyDown(e, 'softflowd')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'softflowd'
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
@@ -173,9 +221,13 @@ export function AppHeader({
 
                 <button
                   type="button"
+                  id="tab-split"
                   role="tab"
                   aria-selected={currentView === 'split'}
+                  tabIndex={currentView === 'split' ? 0 : -1}
+                  aria-controls="panel-split"
                   onClick={() => onViewChange('split')}
+                  onKeyDown={(e) => handleTabKeyDown(e, 'split')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                     currentView === 'split'
                       ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/30'
@@ -189,8 +241,12 @@ export function AppHeader({
 
                 <Link
                   href="/syslog"
+                  id="tab-syslog"
                   role="tab"
                   aria-selected={currentView === 'syslog'}
+                  tabIndex={currentView === 'syslog' ? 0 : -1}
+                  aria-controls="panel-syslog"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'syslog')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'syslog'
                       ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/30'
@@ -205,8 +261,12 @@ export function AppHeader({
               <>
                 <Link
                   href="/"
+                  id="tab-squid"
                   role="tab"
                   aria-selected={currentView === 'squid'}
+                  tabIndex={currentView === 'squid' ? 0 : -1}
+                  aria-controls="panel-squid"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'squid')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'squid'
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
@@ -219,8 +279,12 @@ export function AppHeader({
 
                 <Link
                   href="/softflowd"
+                  id="tab-softflowd"
                   role="tab"
                   aria-selected={currentView === 'softflowd'}
+                  tabIndex={currentView === 'softflowd' ? 0 : -1}
+                  aria-controls="panel-softflowd"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'softflowd')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'softflowd'
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
@@ -233,8 +297,12 @@ export function AppHeader({
 
                 <Link
                   href="/syslog"
+                  id="tab-syslog"
                   role="tab"
                   aria-selected={currentView === 'syslog'}
+                  tabIndex={currentView === 'syslog' ? 0 : -1}
+                  aria-controls="panel-syslog"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'syslog')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'syslog'
                       ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/30'
@@ -247,8 +315,12 @@ export function AppHeader({
 
                 <Link
                   href="/?view=split"
+                  id="tab-split"
                   role="tab"
                   aria-selected={currentView === 'split'}
+                  tabIndex={currentView === 'split' ? 0 : -1}
+                  aria-controls="panel-split"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'split')}
                   className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
                     currentView === 'split'
                       ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/30'

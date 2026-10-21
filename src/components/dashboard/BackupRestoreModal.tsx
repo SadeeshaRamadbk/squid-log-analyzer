@@ -20,6 +20,7 @@ import {
 import { formatBytes } from '@/lib/formatters';
 import { useAuth } from '../auth/AuthContext';
 import type { BackupProgressInfo } from '@/lib/db/backup-manager';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 export interface RestoreProgressInfo {
   stage: 'idle' | 'uploading' | 'validating' | 'closing' | 'replacing' | 'reopening' | 'completed' | 'error';
@@ -386,10 +387,22 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
   };
 
   const currentStep = getRestoreStepIndex(restoreProgress?.stage);
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose: handleClose });
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="backup-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh] focus:outline-none"
+      >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
           <div className="flex items-center gap-2.5">
@@ -397,15 +410,16 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Database Backup & Migration</h2>
+              <h2 id="backup-modal-title" className="text-base font-semibold text-white">Database Backup &amp; Migration</h2>
               <p className="text-xs text-slate-400">
-                Large file streaming dump & restore for databases up to 20+ GB
+                Large file streaming dump &amp; restore for databases up to 20+ GB
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
+            aria-label="Close database backup and migration dialog"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />

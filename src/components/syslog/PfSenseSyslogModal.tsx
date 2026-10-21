@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Shield, Check, Copy, Terminal, ExternalLink, AlertTriangle, Network, Info } from 'lucide-react';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface PfSenseSyslogModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface PfSenseSyslogModalProps {
 
 export function PfSenseSyslogModal({ isOpen, onClose }: PfSenseSyslogModalProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -24,8 +27,17 @@ export function PfSenseSyslogModal({ isOpen, onClose }: PfSenseSyslogModalProps)
   const squidSyslogLine = 'access_log syslog:local0.info';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pfsense-syslog-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh] focus:outline-none"
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
           <div className="flex items-center gap-2.5">
@@ -33,7 +45,7 @@ export function PfSenseSyslogModal({ isOpen, onClose }: PfSenseSyslogModalProps)
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">
+              <h2 id="pfsense-syslog-modal-title" className="text-base font-semibold text-white">
                 pfSense Syslog Forwarding Setup Guide
               </h2>
               <p className="text-xs text-slate-400">
@@ -44,6 +56,7 @@ export function PfSenseSyslogModal({ isOpen, onClose }: PfSenseSyslogModalProps)
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close pfSense syslog setup guide dialog"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />

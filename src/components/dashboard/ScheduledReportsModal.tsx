@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { FileText, Download, X, Calendar, Sparkles, Activity, Mail, CheckCircle2 } from 'lucide-react';
 import type { GeneratedReportResult } from '@/lib/reports';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface ScheduledReportsModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [reportData, setReportData] = useState<GeneratedReportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -76,15 +78,24 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-5">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reports-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-5 focus:outline-none"
+      >
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5 text-blue-400">
             <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-100">Scheduled Reports & AI Summary</h3>
+              <h2 id="reports-modal-title" className="text-base font-bold text-slate-100">Scheduled Reports &amp; AI Summary</h2>
               <p className="text-xs text-slate-400">
                 Generate executive Word documents (.doc) with NVIDIA NIM AI analysis
               </p>
@@ -93,6 +104,7 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close scheduled reports dialog"
             className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -170,7 +182,9 @@ export function ScheduledReportsModal({ isOpen, onClose }: ScheduledReportsModal
             )}
           </div>
           <div className="flex items-center gap-2">
+            <label htmlFor="report-recipient-email" className="sr-only">Recipient email address</label>
             <input
+              id="report-recipient-email"
               type="email"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}

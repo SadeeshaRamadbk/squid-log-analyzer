@@ -266,94 +266,135 @@ export function LiveRequestsTable({
           </div>
         ) : (
           <table className="w-full text-left text-xs min-w-[780px]">
+            <caption className="sr-only">Live HTTP/S Proxy Stream Records</caption>
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-medium">
+              <tr className="border-b border-slate-800 text-slate-300 font-semibold">
                 {isVisible('timestamp') && (
                   <th
-                    className="pb-2.5 pl-1 cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('timestamp')}
+                    scope="col"
+                    aria-sort={sortKey === 'timestamp' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5 pl-1"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('timestamp')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Time</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('clientIp') && (
                   <th
-                    className="pb-2.5 cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('clientIp')}
+                    scope="col"
+                    aria-sort={sortKey === 'clientIp' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('clientIp')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Client Host / Employee</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('method') && (
                   <th
-                    className="pb-2.5 cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('method')}
+                    scope="col"
+                    aria-sort={sortKey === 'method' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('method')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Method</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('domain') && (
                   <th
-                    className="pb-2.5 cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('domain')}
+                    scope="col"
+                    aria-sort={sortKey === 'domain' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('domain')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Destination Domain</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('resultCode') && (
                   <th
-                    className="pb-2.5 cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('resultCode')}
+                    scope="col"
+                    aria-sort={sortKey === 'resultCode' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5"
                   >
-                    <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('resultCode')}
+                      className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                    >
                       <span>Result Code</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('downloadBytes') && (
                   <th
-                    className="pb-2.5 text-right text-emerald-400 cursor-pointer hover:text-emerald-300"
-                    onClick={() => handleSort('downloadBytes')}
+                    scope="col"
+                    aria-sort={sortKey === 'downloadBytes' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5 text-right text-emerald-400"
                   >
-                    <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('downloadBytes')}
+                      className="flex items-center justify-end gap-1 hover:text-emerald-300 transition-colors cursor-pointer w-full"
+                    >
                       <span>Download ⬇</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('uploadBytes') && (
                   <th
-                    className="pb-2.5 text-right text-purple-400 cursor-pointer hover:text-purple-300"
-                    onClick={() => handleSort('uploadBytes')}
+                    scope="col"
+                    aria-sort={sortKey === 'uploadBytes' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5 text-right text-purple-400"
                   >
-                    <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('uploadBytes')}
+                      className="flex items-center justify-end gap-1 hover:text-purple-300 transition-colors cursor-pointer w-full"
+                    >
                       <span>Upload ⬆</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
                 {isVisible('bytes') && (
                   <th
-                    className="pb-2.5 text-right pr-1 cursor-pointer hover:text-white"
-                    onClick={() => handleSort('bytes')}
+                    scope="col"
+                    aria-sort={sortKey === 'bytes' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="pb-2.5 text-right pr-1"
                   >
-                    <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('bytes')}
+                      className="flex items-center justify-end gap-1 hover:text-white transition-colors cursor-pointer w-full"
+                    >
                       <span>Total</span>
                       <ArrowUpDown className="w-3 h-3 opacity-60" />
-                    </div>
+                    </button>
                   </th>
                 )}
               </tr>
@@ -410,6 +451,7 @@ export function LiveRequestsTable({
                       <button
                         type="button"
                         onClick={() => onViewDomain?.(r.domain)}
+                        aria-label={`View domain details for ${r.domain}`}
                         className="flex items-center gap-1 hover:text-cyan-300 hover:underline cursor-pointer truncate"
                       >
                         <Globe className="w-3 h-3 text-cyan-400 shrink-0" />

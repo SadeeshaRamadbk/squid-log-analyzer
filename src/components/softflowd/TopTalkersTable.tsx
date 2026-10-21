@@ -83,14 +83,15 @@ export function TopTalkersTable({
           </div>
         ) : (
           <table className="w-full text-left text-xs">
+            <caption className="sr-only">Top Talkers and Host Bandwidth Breakdown</caption>
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-medium">
-                <th className="pb-2.5 pl-1">Host / Employee</th>
-                <th className="pb-2.5 text-right text-emerald-400 hidden lg:table-cell">Download ⬇</th>
-                <th className="pb-2.5 text-right text-purple-400 hidden lg:table-cell">Upload ⬆</th>
-                <th className="pb-2.5 text-right text-blue-300">Volume</th>
-                <th className="pb-2.5 text-right">Flows</th>
-                <th className="pb-2.5 pl-2 w-20">Share</th>
+              <tr className="border-b border-slate-800 text-slate-300 font-semibold">
+                <th scope="col" className="pb-2.5 pl-1">Host / Employee</th>
+                <th scope="col" className="pb-2.5 text-right text-emerald-400 hidden lg:table-cell">Download ⬇</th>
+                <th scope="col" className="pb-2.5 text-right text-purple-400 hidden lg:table-cell">Upload ⬆</th>
+                <th scope="col" className="pb-2.5 text-right text-blue-300">Volume</th>
+                <th scope="col" className="pb-2.5 text-right">Flows</th>
+                <th scope="col" className="pb-2.5 pl-2 w-20">Share</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">

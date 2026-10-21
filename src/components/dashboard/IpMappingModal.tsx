@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Edit2, Check, User, Search, AlertCircle, ArrowRight } from 'lucide-react';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 export interface IpMappingItem {
   clientIp: string;
@@ -166,11 +167,22 @@ export function IpMappingModal({
     u.clientIp.toLowerCase().includes(search.toLowerCase())
   );
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ip-mapping-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden focus:outline-none"
+      >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
           <div className="flex items-center gap-2.5">
@@ -178,7 +190,7 @@ export function IpMappingModal({
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">IP User Name Mappings</h2>
+              <h2 id="ip-mapping-modal-title" className="text-base font-semibold text-white">IP User Name Mappings</h2>
               <p className="text-xs text-slate-400">
                 Assign internal usernames and departments to nipponbpo.local IP addresses
               </p>
@@ -187,6 +199,7 @@ export function IpMappingModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close IP user name mappings dialog"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -234,10 +247,11 @@ export function IpMappingModal({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label htmlFor="client-ip-field" className="block text-[11px] font-medium text-slate-400 mb-1">
                   Internal Client IP *
                 </label>
                 <input
+                  id="client-ip-field"
                   type="text"
                   placeholder="e.g. 192.168.0.40"
                   value={clientIp}
@@ -249,10 +263,11 @@ export function IpMappingModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label htmlFor="employee-name-field" className="block text-[11px] font-medium text-slate-400 mb-1">
                   Employee / User Name *
                 </label>
                 <input
+                  id="employee-name-field"
                   type="text"
                   placeholder="e.g. Kenji Sato"
                   value={userName}
@@ -263,10 +278,11 @@ export function IpMappingModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label htmlFor="department-field" className="block text-[11px] font-medium text-slate-400 mb-1">
                   Department
                 </label>
                 <input
+                  id="department-field"
                   type="text"
                   placeholder="e.g. Finance & Billing"
                   value={department}
@@ -276,10 +292,11 @@ export function IpMappingModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label htmlFor="notes-field" className="block text-[11px] font-medium text-slate-400 mb-1">
                   Notes / Location
                 </label>
                 <input
+                  id="notes-field"
                   type="text"
                   placeholder="e.g. Floor 3, Desk 12"
                   value={notes}
@@ -331,8 +348,10 @@ export function IpMappingModal({
             </div>
 
             <div className="relative w-56">
+              <label htmlFor="search-ip-mappings-input" className="sr-only">Search IP mappings</label>
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
+                id="search-ip-mappings-input"
                 type="text"
                 placeholder="Search..."
                 value={search}
@@ -355,13 +374,14 @@ export function IpMappingModal({
                 </div>
               ) : (
                 <table className="w-full text-left text-xs">
+                  <caption className="sr-only">Configured IP Host and User Mappings</caption>
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/60 font-medium">
-                      <th className="py-2.5 px-3">Client IP</th>
-                      <th className="py-2.5 px-3">User Name</th>
-                      <th className="py-2.5 px-3">Department</th>
-                      <th className="py-2.5 px-3">Notes</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
+                      <th scope="col" className="py-2.5 px-3">Client IP</th>
+                      <th scope="col" className="py-2.5 px-3">User Name</th>
+                      <th scope="col" className="py-2.5 px-3">Department</th>
+                      <th scope="col" className="py-2.5 px-3">Notes</th>
+                      <th scope="col" className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-slate-300">
@@ -421,12 +441,13 @@ export function IpMappingModal({
                 </div>
               ) : (
                 <table className="w-full text-left text-xs">
+                  <caption className="sr-only">Unassigned Active Internal Workstations</caption>
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/60 font-medium">
-                      <th className="py-2.5 px-3">Unassigned Internal IP</th>
-                      <th className="py-2.5 px-3">Traffic Source</th>
-                      <th className="py-2.5 px-3">Last Active</th>
-                      <th className="py-2.5 px-3 text-right">Action</th>
+                      <th scope="col" className="py-2.5 px-3">Unassigned Internal IP</th>
+                      <th scope="col" className="py-2.5 px-3">Traffic Source</th>
+                      <th scope="col" className="py-2.5 px-3">Last Active</th>
+                      <th scope="col" className="py-2.5 px-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-slate-300">

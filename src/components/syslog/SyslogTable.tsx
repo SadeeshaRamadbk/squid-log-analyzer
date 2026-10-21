@@ -66,12 +66,14 @@ export function SyslogTable({
       case 5:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold font-mono uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+            <Info className="w-3 h-3 text-cyan-400 shrink-0" />
             {label}
           </span>
         );
       case 6:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold font-mono uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            <Info className="w-3 h-3 text-blue-400 shrink-0" />
             {label}
           </span>
         );
@@ -152,14 +154,15 @@ export function SyslogTable({
       {/* Main Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
+          <caption className="sr-only">pfSense and Squid Syslog Events Stream</caption>
           <thead>
-            <tr className="border-b border-slate-800 text-[10px] text-slate-400 uppercase tracking-wider bg-slate-950/40">
-              <th className="py-2.5 px-3 w-40 font-semibold">Timestamp</th>
-              <th className="py-2.5 px-3 w-28 font-semibold">Severity</th>
-              <th className="py-2.5 px-3 w-32 font-semibold">Service</th>
-              <th className="py-2.5 px-3 w-36 font-semibold">Source Host</th>
-              <th className="py-2.5 px-3 font-semibold">Message Body</th>
-              <th className="py-2.5 px-3 w-16 text-center font-semibold">Action</th>
+            <tr className="border-b border-slate-800 text-[10px] text-slate-300 uppercase tracking-wider bg-slate-950/40">
+              <th scope="col" className="py-2.5 px-3 w-40 font-semibold">Timestamp</th>
+              <th scope="col" className="py-2.5 px-3 w-28 font-semibold">Severity</th>
+              <th scope="col" className="py-2.5 px-3 w-32 font-semibold">Service</th>
+              <th scope="col" className="py-2.5 px-3 w-36 font-semibold">Source Host</th>
+              <th scope="col" className="py-2.5 px-3 font-semibold">Message Body</th>
+              <th scope="col" className="py-2.5 px-3 w-16 text-center font-semibold">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 font-mono">

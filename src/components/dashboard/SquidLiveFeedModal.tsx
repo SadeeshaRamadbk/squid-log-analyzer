@@ -18,6 +18,7 @@ import { formatBytes, formatNumber, formatTime } from '@/lib/formatters';
 import type { LiveRequestRecord } from '@/lib/db/queries';
 import { DateRangeSelector } from '../common/DateRangeSelector';
 import { exportToCsv } from '@/lib/exportCsv';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 
 interface SquidLiveFeedModalProps {
   isOpen: boolean;
@@ -191,9 +192,20 @@ export function SquidLiveFeedModal({
     search || method || resultFilter !== 'all' || clientIp || timeWindow !== '30m' || startDate || endDate
   );
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="relative w-full max-w-[1500px] h-[92vh] flex flex-col bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="squid-live-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="relative w-full max-w-[1500px] h-[92vh] flex flex-col bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden focus:outline-none"
+      >
         
         {/* ============================================================== */}
         {/* Header Bar */}
@@ -205,7 +217,7 @@ export function SquidLiveFeedModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-tight">
+                <h2 id="squid-live-title" className="text-base font-bold text-white tracking-tight">
                   Squid Proxy Live Stream
                 </h2>
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -288,6 +300,7 @@ export function SquidLiveFeedModal({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close Squid live stream dialog"
               className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer ml-1"
               title="Close modal (Esc)"
             >
