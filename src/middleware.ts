@@ -13,10 +13,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow auth routes and login page
+  // Allow auth routes, login page, and large streaming restore endpoint
+  // (api/restore has its own internal admin auth check and streams up to 20+ GB without middleware body buffering)
   if (
     pathname === '/login' ||
-    pathname.startsWith('/api/auth/')
+    pathname.startsWith('/api/auth/') ||
+    pathname === '/api/restore'
   ) {
     return NextResponse.next();
   }
@@ -49,7 +51,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - api/restore (multi-gigabyte streaming restore endpoint to avoid middleware body clone limits)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/restore).*)',
   ],
 };

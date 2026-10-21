@@ -14,10 +14,32 @@ import {
   Gauge,
   Clock,
   FileCheck,
+  Layers,
+  ShieldCheck,
 } from 'lucide-react';
 import { formatBytes } from '@/lib/formatters';
 import { useAuth } from '../auth/AuthContext';
 import type { BackupProgressInfo } from '@/lib/db/backup-manager';
+
+export interface RestoreProgressInfo {
+  stage: 'idle' | 'uploading' | 'validating' | 'closing' | 'replacing' | 'reopening' | 'completed' | 'error';
+  uploadPercent: number;
+  uploadedBytes: number;
+  totalBytes: number;
+  uploadSpeedBytesPerSec: number;
+  uploadEtaSeconds: number;
+  serverStageMessage: string;
+  serverPercent: number;
+  overallPercent: number;
+  stats?: {
+    rawLogs: number;
+    dailySummaries: number;
+    ipMappings: number;
+    netflowLogs?: number;
+  };
+  fileSizeBytes?: number;
+  error?: string;
+}
 
 interface BackupRestoreModalProps {
   isOpen: boolean;
@@ -30,19 +52,28 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
   const [downloadState, setDownloadState] = useState<'idle' | 'preparing' | 'ready' | 'error'>('idle');
   const [progress, setProgress] = useState<BackupProgressInfo | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+
+  // Restore States
   const [restoring, setRestoring] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState<RestoreProgressInfo | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeXhrRef = useRef<XMLHttpRequest | null>(null);
 
-  // Clear polling on unmount or close
+  // Clear polling and cancel XHR on unmount or close
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
+      }
+      if (activeXhrRef.current) {
+        activeXhrRef.current.abort();
+        activeXhrRef.current = null;
       }
     };
   }, []);
@@ -128,6 +159,7 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
     if (file) {
       setSelectedFile(file);
       setError(null);
+      setRestoreProgress(null);
     }
   };
 
@@ -142,7 +174,11 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
       return;
     }
 
-    if (!confirm('Are you sure you want to restore this database? The current database will be replaced with the contents of the backup.')) {
+    if (
+      !confirm(
+        `Are you sure you want to restore "${selectedFile.name}" (${formatBytes(selectedFile.size)})? The current database will be replaced with this snapshot.`
+      )
+    ) {
       return;
     }
 
@@ -150,31 +186,206 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
     setError(null);
     setSuccess(null);
 
-    const formData = new FormData();
-    formData.append('backupFile', selectedFile);
+    const initialInfo: RestoreProgressInfo = {
+      stage: 'uploading',
+      uploadPercent: 0,
+      uploadedBytes: 0,
+      totalBytes: selectedFile.size,
+      uploadSpeedBytesPerSec: 0,
+      uploadEtaSeconds: 0,
+      serverStageMessage: 'Streaming backup data to server...',
+      serverPercent: 0,
+      overallPercent: 0,
+    };
+    setRestoreProgress(initialInfo);
 
-    try {
-      const res = await fetch('/api/restore', {
-        method: 'POST',
-        body: formData,
-      });
+    const xhr = new XMLHttpRequest();
+    activeXhrRef.current = xhr;
+    xhr.open('POST', '/api/restore');
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('x-filename', encodeURIComponent(selectedFile.name));
+    xhr.withCredentials = true;
 
-      const json = await res.json();
-      if (json.success) {
-        setSuccess(
-          `Database successfully restored! (Raw Logs: ${json.stats.rawLogs}, Summaries: ${json.stats.dailySummaries}, IP Mappings: ${json.stats.ipMappings})`
-        );
-        setSelectedFile(null);
-        onRestored();
-      } else {
-        setError(json.error || 'Failed to restore database');
+    let lastTime = Date.now();
+    let lastBytes = 0;
+    let smoothSpeed = 0;
+
+    // Real-time network upload progress
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        const now = Date.now();
+        const elapsedSec = (now - lastTime) / 1000;
+        const currentBytes = event.loaded;
+        const total = event.total;
+
+        if (elapsedSec >= 0.25) {
+          const deltaBytes = currentBytes - lastBytes;
+          const instantSpeed = deltaBytes / elapsedSec;
+          smoothSpeed = smoothSpeed === 0 ? instantSpeed : smoothSpeed * 0.7 + instantSpeed * 0.3;
+          lastTime = now;
+          lastBytes = currentBytes;
+        }
+
+        const remainingBytes = Math.max(0, total - currentBytes);
+        const eta = smoothSpeed > 0 ? Math.max(0, Math.round(remainingBytes / smoothSpeed)) : 0;
+        const uploadPercent = Math.min(100, Math.round((currentBytes / total) * 100));
+
+        // Upload phase maps to 0% - 70% of the overall workflow
+        const overallPercent = Math.min(70, Math.round((currentBytes / total) * 70));
+
+        setRestoreProgress({
+          stage: 'uploading',
+          uploadPercent,
+          uploadedBytes: currentBytes,
+          totalBytes: total,
+          uploadSpeedBytesPerSec: Math.round(smoothSpeed),
+          uploadEtaSeconds: eta,
+          serverStageMessage:
+            uploadPercent === 100
+              ? 'Upload complete. Initializing server verification...'
+              : 'Streaming backup snapshot to server...',
+          serverPercent: 0,
+          overallPercent,
+        });
       }
-    } catch (err: any) {
-      setError(err.message || 'Error uploading and restoring backup');
-    } finally {
+    };
+
+    xhr.upload.onload = () => {
+      setRestoreProgress((prev) => ({
+        stage: 'validating',
+        uploadPercent: 100,
+        uploadedBytes: selectedFile.size,
+        totalBytes: selectedFile.size,
+        uploadSpeedBytesPerSec: 0,
+        uploadEtaSeconds: 0,
+        serverStageMessage: 'Upload completed. Verifying SQLite 3 format & integrity...',
+        serverPercent: 75,
+        overallPercent: 75,
+      }));
+    };
+
+    let seenLength = 0;
+
+    const parseServerStream = (responseText: string) => {
+      if (!responseText || responseText.length <= seenLength) return;
+      const newChunk = responseText.substring(seenLength);
+      seenLength = responseText.length;
+
+      const lines = newChunk.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const data = JSON.parse(trimmed);
+
+          if (data.stage === 'error') {
+            setError(data.error || 'Restore failed during server processing');
+            setRestoring(false);
+            setRestoreProgress((prev) => (prev ? { ...prev, stage: 'error', error: data.error } : null));
+            return;
+          }
+
+          if (data.stage === 'completed' && data.success) {
+            setRestoring(false);
+            setSuccess(data.message || 'Database successfully restored!');
+            setRestoreProgress({
+              stage: 'completed',
+              uploadPercent: 100,
+              uploadedBytes: selectedFile.size,
+              totalBytes: selectedFile.size,
+              uploadSpeedBytesPerSec: 0,
+              uploadEtaSeconds: 0,
+              serverStageMessage: data.message || 'Database restored successfully!',
+              serverPercent: 100,
+              overallPercent: 100,
+              stats: data.stats,
+              fileSizeBytes: data.fileSizeBytes,
+            });
+            onRestored();
+            return;
+          }
+
+          // Intermediate server stages: 'validating' (75%), 'closing' (85%), 'replacing' (92%), 'reopening' (97%)
+          setRestoreProgress({
+            stage: data.stage || 'validating',
+            uploadPercent: 100,
+            uploadedBytes: selectedFile.size,
+            totalBytes: selectedFile.size,
+            uploadSpeedBytesPerSec: 0,
+            uploadEtaSeconds: 0,
+            serverStageMessage: data.message || 'Restoring database snapshot...',
+            serverPercent: data.percent || 75,
+            overallPercent: data.percent || 75,
+          });
+        } catch {}
+      }
+    };
+
+    xhr.onprogress = () => {
+      parseServerStream(xhr.responseText);
+    };
+
+    xhr.onload = () => {
+      parseServerStream(xhr.responseText);
+      if (xhr.status >= 400) {
+        let errText = 'Server error during restore';
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed.error) errText = parsed.error;
+        } catch {}
+        setError(errText);
+        setRestoring(false);
+      }
+    };
+
+    xhr.onerror = () => {
+      setError('Network communication failed during database upload & restore');
       setRestoring(false);
+    };
+
+    xhr.send(selectedFile);
+  };
+
+  const handleClose = () => {
+    if (restoring) {
+      if (
+        !confirm(
+          'A database restore is currently in progress. Closing this modal will not stop the background restore. Are you sure you want to close?'
+        )
+      ) {
+        return;
+      }
+    }
+    onClose();
+  };
+
+  const resetRestoreState = () => {
+    setRestoreProgress(null);
+    setSelectedFile(null);
+    setRestoring(false);
+    setError(null);
+  };
+
+  // Determine active step index for the visual stepper
+  const getRestoreStepIndex = (stage?: string) => {
+    switch (stage) {
+      case 'uploading':
+        return 1;
+      case 'validating':
+        return 2;
+      case 'closing':
+      case 'replacing':
+        return 3;
+      case 'reopening':
+        return 4;
+      case 'completed':
+        return 5;
+      default:
+        return 0;
     }
   };
+
+  const currentStep = getRestoreStepIndex(restoreProgress?.stage);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
@@ -194,7 +405,7 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -342,7 +553,7 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
               <button
                 type="button"
                 onClick={handleStartBackup}
-                disabled={!isAdmin}
+                disabled={!isAdmin || restoring}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium text-xs transition-colors cursor-pointer"
               >
                 <Download className="w-4 h-4" />
@@ -352,74 +563,263 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
           </div>
 
           {/* Section 2: Restore from Backup */}
-          <form onSubmit={handleRestoreSubmit} className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3">
+          <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3.5">
             <div>
               <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Upload className="w-3.5 h-3.5 text-amber-400" />
                 2. Restore Database onto this Machine
               </h3>
               <p className="text-[11px] text-slate-400 mt-1">
-                Move your database to another machine by uploading the exported backup file. Uploads stream directly to disk without memory limits.
+                Upload a verified backup snapshot. Uploads stream directly to disk with live byte tracking, structural integrity verification, and atomic database handover.
               </p>
             </div>
 
-            <div className="border-2 border-dashed border-slate-800 hover:border-slate-700 rounded-xl p-4 text-center">
-              <input
-                type="file"
-                id="backup-upload"
-                accept=".db,.sqlite,.sqlite3"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <label
-                htmlFor="backup-upload"
-                className="cursor-pointer flex flex-col items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-200"
-              >
-                <HardDrive className="w-6 h-6 text-slate-500 mb-1" />
-                {selectedFile ? (
-                  <span className="font-mono text-amber-300 font-medium">
-                    {selectedFile.name} ({formatBytes(selectedFile.size)})
+            {/* In-Progress Real-Time Restore Box */}
+            {restoring && restoreProgress && restoreProgress.stage !== 'completed' && (
+              <div className="p-3.5 rounded-xl bg-amber-950/25 border border-amber-500/30 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-amber-300 flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    {restoreProgress.stage === 'uploading'
+                      ? 'Streaming Backup to Server...'
+                      : 'Validating & Applying Database Update...'}
                   </span>
-                ) : (
-                  <span>Click to select or drop backup file (.db)</span>
-                )}
-                <span className="text-[10px] text-slate-500">Supports standard SQLite .db files up to 20+ GB</span>
-              </label>
-            </div>
+                  <span className="font-mono font-bold text-amber-200">
+                    {restoreProgress.stage === 'uploading'
+                      ? `${restoreProgress.uploadPercent}% Uploaded`
+                      : `${restoreProgress.overallPercent}% Complete`}
+                  </span>
+                </div>
 
-            {selectedFile && (
-              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>Restoring will overwrite current logs with the contents of this file.</span>
+                {/* Main Progress Bar */}
+                <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${Math.max(3, restoreProgress.overallPercent)}%` }}
+                  />
+                </div>
+
+                {/* Stepper Timeline */}
+                <div className="grid grid-cols-4 gap-1.5 pt-1 text-[10px]">
+                  <div
+                    className={`flex items-center gap-1 p-1.5 rounded-lg ${
+                      currentStep >= 1
+                        ? currentStep === 1
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium'
+                          : 'bg-emerald-500/10 text-emerald-300 font-medium'
+                        : 'bg-slate-900/60 text-slate-500'
+                    }`}
+                  >
+                    <Upload className="w-3 h-3 shrink-0" />
+                    <span className="truncate">1. Stream</span>
+                  </div>
+                  <div
+                    className={`flex items-center gap-1 p-1.5 rounded-lg ${
+                      currentStep >= 2
+                        ? currentStep === 2
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium'
+                          : 'bg-emerald-500/10 text-emerald-300 font-medium'
+                        : 'bg-slate-900/60 text-slate-500'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3 h-3 shrink-0" />
+                    <span className="truncate">2. Verify</span>
+                  </div>
+                  <div
+                    className={`flex items-center gap-1 p-1.5 rounded-lg ${
+                      currentStep >= 3
+                        ? currentStep === 3
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium'
+                          : 'bg-emerald-500/10 text-emerald-300 font-medium'
+                        : 'bg-slate-900/60 text-slate-500'
+                    }`}
+                  >
+                    <HardDrive className="w-3 h-3 shrink-0" />
+                    <span className="truncate">3. Swap</span>
+                  </div>
+                  <div
+                    className={`flex items-center gap-1 p-1.5 rounded-lg ${
+                      currentStep >= 4
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium'
+                        : 'bg-slate-900/60 text-slate-500'
+                    }`}
+                  >
+                    <Database className="w-3 h-3 shrink-0" />
+                    <span className="truncate">4. Reopen</span>
+                  </div>
+                </div>
+
+                {/* Metrics Breakdown (Live Speed, ETA, Processed) */}
+                {restoreProgress.stage === 'uploading' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px] text-slate-300">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">Transferred</span>
+                      <span className="font-mono text-slate-200 font-medium">
+                        {formatBytes(restoreProgress.uploadedBytes)} / {formatBytes(restoreProgress.totalBytes)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <Gauge className="w-3 h-3 text-cyan-400" /> Speed
+                      </span>
+                      <span className="font-mono text-cyan-300 font-medium">
+                        {restoreProgress.uploadSpeedBytesPerSec > 0
+                          ? `${formatBytes(restoreProgress.uploadSpeedBytesPerSec)}/s`
+                          : 'Calculating...'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col col-span-2 sm:col-span-1">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-400" /> Remaining
+                      </span>
+                      <span className="font-mono text-amber-300 font-medium">
+                        {restoreProgress.uploadEtaSeconds > 0 ? `~${restoreProgress.uploadEtaSeconds}s` : 'Finalizing...'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 text-[11px] text-slate-300 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">Current Operation</span>
+                      <span className="font-mono text-cyan-300 font-medium">{restoreProgress.serverStageMessage}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span>Snapshot Size</span>
+                      <span className="font-mono text-slate-200">{formatBytes(restoreProgress.totalBytes)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-slate-400 italic">
+                  Note: Safe atomic handover is in progress. Do not close this modal or refresh the browser.
+                </p>
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={!selectedFile || restoring || !isAdmin}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              {restoring ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Streaming, Verifying & Restoring Database...
-                </>
-              ) : (
-                <>
+            {/* Success Completion Box */}
+            {restoreProgress && restoreProgress.stage === 'completed' && (
+              <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Database Snapshot Restored Successfully
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-medium">100% Complete</span>
+                </div>
+
+                <p className="text-[11px] text-slate-300">
+                  The active SQLite database has been replaced with the validated snapshot. All indexes and performance pragmas were verified.
+                </p>
+
+                {/* Restored Tables Stats Grid */}
+                {restoreProgress.stats && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
+                      <div className="text-[10px] text-slate-400 uppercase tracking-wider">Raw Logs</div>
+                      <div className="font-mono text-sm font-bold text-emerald-300 mt-0.5">
+                        {restoreProgress.stats.rawLogs.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
+                      <div className="text-[10px] text-slate-400 uppercase tracking-wider">Summaries</div>
+                      <div className="font-mono text-sm font-bold text-cyan-300 mt-0.5">
+                        {restoreProgress.stats.dailySummaries.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
+                      <div className="text-[10px] text-slate-400 uppercase tracking-wider">IP Mappings</div>
+                      <div className="font-mono text-sm font-bold text-amber-300 mt-0.5">
+                        {restoreProgress.stats.ipMappings.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
+                      <div className="text-[10px] text-slate-400 uppercase tracking-wider">Flow Logs</div>
+                      <div className="font-mono text-sm font-bold text-purple-300 mt-0.5">
+                        {(restoreProgress.stats.netflowLogs || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Done & View Refreshed Dashboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetRestoreState}
+                    className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer"
+                  >
+                    Restore Another
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Standard File Upload Form (Shown when idle) */}
+            {(!restoreProgress || restoreProgress.stage === 'error') && (
+              <form onSubmit={handleRestoreSubmit} className="space-y-3">
+                <div className="border-2 border-dashed border-slate-800 hover:border-slate-700 rounded-xl p-4 text-center transition-colors">
+                  <input
+                    type="file"
+                    id="backup-upload"
+                    accept=".db,.sqlite,.sqlite3,.tmp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={restoring}
+                  />
+                  <label
+                    htmlFor="backup-upload"
+                    className="cursor-pointer flex flex-col items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-200"
+                  >
+                    <HardDrive className="w-6 h-6 text-slate-500 mb-1" />
+                    {selectedFile ? (
+                      <span className="font-mono text-amber-300 font-medium">
+                        {selectedFile.name} ({formatBytes(selectedFile.size)})
+                      </span>
+                    ) : (
+                      <span>Click to select or drop backup snapshot file (.db)</span>
+                    )}
+                    <span className="text-[10px] text-slate-500">
+                      Supports direct streaming upload for databases up to 20+ GB
+                    </span>
+                  </label>
+                </div>
+
+                {selectedFile && (
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>
+                      Restoring will overwrite the current live database with the contents of this snapshot.
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!selectedFile || restoring || !isAdmin}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-semibold text-xs transition-colors cursor-pointer"
+                >
                   <Upload className="w-4 h-4" />
                   Restore Selected Backup File
-                </>
-              )}
-            </button>
-          </form>
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
         {/* Modal Footer */}
         <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/60 flex justify-end">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
+            onClick={handleClose}
+            disabled={restoring}
+            className="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 transition-colors cursor-pointer"
           >
             Close
           </button>
