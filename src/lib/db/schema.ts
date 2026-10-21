@@ -273,7 +273,16 @@ export function initializeDatabase(db: Database.Database): void {
       app_name TEXT NOT NULL,                -- e.g. 'squid', 'filterlog', 'dhcpd', 'openvpn', 'dpinger'
       proc_id TEXT,                          -- PID or process identifier
       message TEXT NOT NULL,                 -- Parsed message body
-      raw_message TEXT                       -- Raw syslog line received
+      raw_message TEXT,                      -- Raw syslog line received
+      action TEXT,                           -- 'block', 'pass', 'reject' (pfSense filterlog)
+      interface TEXT,                        -- e.g. 'em0', 'igb0'
+      direction TEXT,                        -- 'in', 'out'
+      protocol TEXT,                         -- 'TCP', 'UDP', 'ICMP'
+      src_ip TEXT,                           -- source IP address
+      dst_ip TEXT,                           -- destination IP address
+      src_port INTEGER,                      -- source port
+      dst_port INTEGER,                      -- destination port
+      tcp_flags TEXT                         -- e.g. 'SYN', 'ACK', 'FIN'
     );
 
     CREATE INDEX IF NOT EXISTS idx_syslog_timestamp ON syslog_events(timestamp DESC);
@@ -281,7 +290,37 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_syslog_app_ts ON syslog_events(app_name, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_syslog_facility_ts ON syslog_events(facility_label, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_syslog_host_app_ts ON syslog_events(hostname, app_name, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
   `);
+
+  // Migration for existing databases that don't have structured filterlog columns in syslog_events
+  try {
+    const syslogCols = db.pragma('table_info(syslog_events)') as any[];
+    const hasAction = syslogCols.some((c: any) => c.name === 'action');
+    if (!hasAction) {
+      db.exec(`
+        ALTER TABLE syslog_events ADD COLUMN action TEXT;
+        ALTER TABLE syslog_events ADD COLUMN interface TEXT;
+        ALTER TABLE syslog_events ADD COLUMN direction TEXT;
+        ALTER TABLE syslog_events ADD COLUMN protocol TEXT;
+        ALTER TABLE syslog_events ADD COLUMN src_ip TEXT;
+        ALTER TABLE syslog_events ADD COLUMN dst_ip TEXT;
+        ALTER TABLE syslog_events ADD COLUMN src_port INTEGER;
+        ALTER TABLE syslog_events ADD COLUMN dst_port INTEGER;
+        ALTER TABLE syslog_events ADD COLUMN tcp_flags TEXT;
+
+        CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
+      `);
+    }
+  } catch (err) {
+    console.warn('[Schema] syslog_events column migration note:', err);
+  }
 
   // Backfill minute and hourly rollups from existing raw logs if empty
   try {

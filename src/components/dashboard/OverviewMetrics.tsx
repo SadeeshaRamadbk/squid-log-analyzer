@@ -35,6 +35,7 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       bgColor: 'bg-blue-500/10',
       borderColor: 'border-blue-500/30',
       subtitle: 'Combined HTTP/S data transfer',
+      tooltip: 'Total bytes transferred through the Squid caching proxy for both allowed and blocked requests',
     },
     {
       title: 'Download (Inbound)',
@@ -44,6 +45,7 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/30',
       subtitle: 'Payload delivered to LAN clients',
+      tooltip: 'Estimated web content downloaded by workstations from external web servers (GET, HEAD, and 85% of CONNECT tunnels)',
     },
     {
       title: 'Upload (Outbound)',
@@ -53,6 +55,7 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       bgColor: 'bg-purple-500/10',
       borderColor: 'border-purple-500/30',
       subtitle: 'POST, headers & tunnels to WAN',
+      tooltip: 'Data sent from LAN workstations to web servers (POST/PUT payloads and SSL tunnel initiation handshakes)',
     },
     {
       title: 'Total Requests',
@@ -62,6 +65,7 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       bgColor: 'bg-indigo-500/10',
       borderColor: 'border-indigo-500/30',
       subtitle: 'HTTP methods & CONNECT tunnels',
+      tooltip: 'Total number of HTTP/HTTPS proxy transactions processed by Squid in the active time window',
     },
     {
       title: 'Blocked Requests',
@@ -71,6 +75,7 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       bgColor: 'bg-rose-500/10',
       borderColor: 'border-rose-500/30',
       subtitle: `${blockedRate}% of total traffic`,
+      tooltip: 'Requests denied by Squid ACL access control lists (HTTP 403 Forbidden or TCP_DENIED)',
     },
     {
       title: 'Unique Domains',
@@ -80,6 +85,7 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       bgColor: 'bg-cyan-500/10',
       borderColor: 'border-cyan-500/30',
       subtitle: `${metrics.uniqueClients} active client IPs`,
+      tooltip: 'Distinct Fully Qualified Domain Names (FQDNs) contacted, accessed by distinct internal workstation IPs',
     },
   ];
 
@@ -90,7 +96,8 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
         return (
           <div
             key={card.title}
-            className={`rounded-xl border p-4 bg-slate-900/80 backdrop-blur-sm ${card.borderColor} shadow-sm transition-all hover:bg-slate-800/80`}
+            className={`rounded-xl border p-4 bg-slate-900/80 backdrop-blur-sm ${card.borderColor} shadow-sm transition-all hover:bg-slate-800/80 cursor-help`}
+            title={card.tooltip}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-400 tracking-wide uppercase">

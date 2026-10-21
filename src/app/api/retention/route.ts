@@ -1,27 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runRetentionJob } from '@/lib/db/retention';
 import { getDatabase, getDatabasePath } from '@/lib/db';
-import { formatBytes } from '@/lib/formatters';
 import { getSystemSettings } from '@/lib/settings';
+import { formatBytes } from '@/lib/formatters';
+import { runRetentionJob } from '@/lib/db/retention';
+import { getUserFromRequest } from '@/lib/auth';
 import fs from 'fs';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
   try {
     const db = getDatabase();
     const settings = getSystemSettings();
     const meta = db.prepare("SELECT value, updated_at FROM system_meta WHERE key = 'last_retention_run'").get() as any;
-    
-    // Squid counts
+
     const squidRaw = db.prepare('SELECT count(*) as count FROM raw_logs').get() as any;
     const squidSummary = db.prepare('SELECT count(*) as count FROM daily_summaries').get() as any;
-
-    // pfSense NetFlow counts
     const flowRaw = db.prepare('SELECT count(*) as count FROM netflow_logs').get() as any;
     const flowMin = db.prepare('SELECT count(*) as count FROM netflow_minute_rollups').get() as any;
     const flowHr = db.prepare('SELECT count(*) as count FROM netflow_hourly_rollups').get() as any;
     const flowSummary = db.prepare('SELECT count(*) as count FROM netflow_daily_summaries').get() as any;
 
-    // Database file size on disk
     let dbSizeBytes = 0;
     try {
       const dbPath = getDatabasePath();
@@ -62,8 +61,6 @@ export async function GET() {
   }
 }
 
-import { getUserFromRequest } from '@/lib/auth';
-
 export async function POST(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
@@ -86,6 +83,7 @@ export async function POST(request: NextRequest) {
       result,
     });
   } catch (error: any) {
+    console.error('[API Retention] GET Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

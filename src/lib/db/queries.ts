@@ -11,6 +11,7 @@ export interface DashboardFilters {
   method?: string;
   isBlocked?: boolean;
   resultCode?: string;
+  excludeConnect503?: boolean;
 }
 
 export interface SummaryMetric {
@@ -630,28 +631,9 @@ export function getLiveRequests(
     params.push(`%${filters.resultCode.trim()}%`);
   }
 
-  let total = 0;
-  if (conditions.length === 0) {
-    // Fast path: Unfiltered total count from sqlite sequence table (0.01ms vs full table scan)
-    try {
-      const seqRow = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'raw_logs'").get() as any;
-      if (seqRow && seqRow.seq) {
-        total = Number(seqRow.seq);
-      } else {
-        const countRow = db.prepare('SELECT COUNT(*) as total FROM raw_logs').get() as any;
-        total = Number(countRow?.total || 0);
-      }
-    } catch {
-      const countRow = db.prepare('SELECT COUNT(*) as total FROM raw_logs').get() as any;
-      total = Number(countRow?.total || 0);
-    }
-  } else {
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${where}`).get(...params) as any;
-    total = Number(totalRow?.total || 0);
-  }
-
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const totalRow = db.prepare(`SELECT COUNT(*) as total FROM raw_logs r ${where}`).get(...params) as any;
+  const total = Number(totalRow?.total || 0);
 
   const query = `
     SELECT
@@ -707,6 +689,11 @@ export interface FailedRequestSummary {
   totalFailed: number;
   totalRequests: number;
   failureRate: number;
+  policyBlockedCount: number;
+  policyBlockedRate: number;
+  tunnelFailureCount: number;
+  tunnelFailureRate: number;
+  excludeConnect503: boolean;
   byResultCode: Array<{
     resultCode: string;
     count: number;
@@ -729,16 +716,35 @@ export function getFailedRequestsSummary(filters: DashboardFilters = {}): Failed
   const db = getDatabase();
   const { conditions, params } = buildRawLogsFilterClause(filters);
 
-  // Failed codes: 503, 403, 407, 504, DENIED
-  const failClause = `(result_code LIKE '%/503%' OR result_code LIKE '%/403%' OR result_code LIKE '%/407%' OR result_code LIKE '%/504%' OR result_code LIKE '%DENIED%')`;
-
   const baseWhere = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const failedWhere = conditions.length > 0
-    ? `WHERE ${conditions.join(' AND ')} AND ${failClause}`
-    : `WHERE ${failClause}`;
+
+  // Calculate separate policy blocks (403/DENIED) vs tunnel failures (503/504)
+  const policyClause = `(is_blocked = 1 OR result_code LIKE '%/403%' OR result_code LIKE '%/407%' OR result_code LIKE '%DENIED%')`;
+  const tunnelClause = `(result_code LIKE '%/503%' OR result_code LIKE '%/504%' OR result_code LIKE '%/502%')`;
+
+  const policyWhere = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')} AND ${policyClause}` : `WHERE ${policyClause}`;
+  const tunnelWhere = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')} AND ${tunnelClause}` : `WHERE ${tunnelClause}`;
 
   const totalReqRow = db.prepare(`SELECT COUNT(*) as cnt FROM raw_logs ${baseWhere}`).get(...params) as any;
   const totalRequests = Number(totalReqRow?.cnt || 0);
+
+  const policyRow = db.prepare(`SELECT COUNT(*) as cnt FROM raw_logs ${policyWhere}`).get(...params) as any;
+  const policyBlockedCount = Number(policyRow?.cnt || 0);
+  const policyBlockedRate = totalRequests > 0 ? Number(((policyBlockedCount / totalRequests) * 100).toFixed(2)) : 0;
+
+  const tunnelRow = db.prepare(`SELECT COUNT(*) as cnt FROM raw_logs ${tunnelWhere}`).get(...params) as any;
+  const tunnelFailureCount = Number(tunnelRow?.cnt || 0);
+  const tunnelFailureRate = totalRequests > 0 ? Number(((tunnelFailureCount / totalRequests) * 100).toFixed(2)) : 0;
+
+  // Active failure clause based on whether CONNECT 503s are excluded
+  let failClause = `(result_code LIKE '%/503%' OR result_code LIKE '%/403%' OR result_code LIKE '%/407%' OR result_code LIKE '%/504%' OR result_code LIKE '%DENIED%')`;
+  if (filters.excludeConnect503) {
+    failClause = `(result_code LIKE '%/403%' OR result_code LIKE '%/407%' OR result_code LIKE '%/504%' OR result_code LIKE '%DENIED%' OR (result_code LIKE '%/503%' AND method != 'CONNECT'))`;
+  }
+
+  const failedWhere = conditions.length > 0
+    ? `WHERE ${conditions.join(' AND ')} AND ${failClause}`
+    : `WHERE ${failClause}`;
 
   const totalFailRow = db.prepare(`SELECT COUNT(*) as cnt FROM raw_logs ${failedWhere}`).get(...params) as any;
   const totalFailed = Number(totalFailRow?.cnt || 0);
@@ -798,6 +804,11 @@ export function getFailedRequestsSummary(filters: DashboardFilters = {}): Failed
     totalFailed,
     totalRequests,
     failureRate,
+    policyBlockedCount,
+    policyBlockedRate,
+    tunnelFailureCount,
+    tunnelFailureRate,
+    excludeConnect503: Boolean(filters.excludeConnect503),
     byResultCode,
     topFailedDomains,
     topFailedClients,

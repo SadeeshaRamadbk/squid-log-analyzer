@@ -12,6 +12,15 @@ export interface SyslogEventRow {
   proc_id?: string | null;
   message: string;
   raw_message?: string;
+  action?: string | null;
+  interface?: string | null;
+  direction?: string | null;
+  protocol?: string | null;
+  src_ip?: string | null;
+  dst_ip?: string | null;
+  src_port?: number | null;
+  dst_port?: number | null;
+  tcp_flags?: string | null;
 }
 
 export interface SyslogQueryParams {
@@ -19,6 +28,7 @@ export interface SyslogQueryParams {
   limit?: number;
   severity?: number | number[];
   severityLevel?: 'all' | 'errors' | 'warnings' | 'notices' | 'info';
+  action?: string;
   facility?: string | number;
   appName?: string;
   hostname?: string;
@@ -59,6 +69,7 @@ export interface SyslogOverviewStats {
   notices: number;
   info: number;
   debug: number;
+  firewallBlocks: number;
   topApps: SyslogAppStat[];
   timeline: SyslogTimelineBucket[];
 }
@@ -138,6 +149,11 @@ export function getSyslogEvents(params: SyslogQueryParams = {}): SyslogQueryResu
     }
   }
 
+  if (params.action) {
+    conditions.push('action = ?');
+    queryParams.push(params.action.toLowerCase().trim());
+  }
+
   if (params.appName) {
     conditions.push('app_name = ?');
     queryParams.push(params.appName.toLowerCase().trim());
@@ -174,7 +190,8 @@ export function getSyslogEvents(params: SyslogQueryParams = {}): SyslogQueryResu
   // Query events
   const dataStmt = db.prepare(`
     SELECT id, timestamp, facility, facility_label, severity, severity_label,
-           hostname, app_name, proc_id, message, raw_message
+           hostname, app_name, proc_id, message, raw_message,
+           action, interface, direction, protocol, src_ip, dst_ip, src_port, dst_port, tcp_flags
     FROM syslog_events
     ${whereClause}
     ORDER BY timestamp DESC
@@ -221,7 +238,8 @@ export function getSyslogStats(params: { startDate?: string; endDate?: string; t
       SUM(CASE WHEN severity = 4 THEN 1 ELSE 0 END) AS warnings,
       SUM(CASE WHEN severity = 5 THEN 1 ELSE 0 END) AS notices,
       SUM(CASE WHEN severity = 6 THEN 1 ELSE 0 END) AS info,
-      SUM(CASE WHEN severity = 7 THEN 1 ELSE 0 END) AS debug
+      SUM(CASE WHEN severity = 7 THEN 1 ELSE 0 END) AS debug,
+      SUM(CASE WHEN action IN ('block', 'reject') OR (app_name = 'filterlog' AND message LIKE '%BLOCK%') THEN 1 ELSE 0 END) AS firewall_blocks
     FROM syslog_events
     ${whereClause}
   `);
@@ -291,6 +309,7 @@ export function getSyslogStats(params: { startDate?: string; endDate?: string; t
     notices: countsRow?.notices || 0,
     info: countsRow?.info || 0,
     debug: countsRow?.debug || 0,
+    firewallBlocks: countsRow?.firewall_blocks || 0,
     topApps,
     timeline,
   };

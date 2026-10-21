@@ -25,6 +25,8 @@ export interface NetflowSummaryMetrics {
   totalPackets: number;
   uniqueSrcIps: number;
   uniqueDstIps: number;
+  internalTalkers?: number;
+  remoteEndpoints?: number;
   topProtocol: string;
 }
 
@@ -72,11 +74,16 @@ export interface NetflowFlowRecord {
   timestamp: number;
   formattedTime: string;
   srcIp: string;
+  srcUserName?: string | null;
+  srcDepartment?: string | null;
   userName?: string | null;
   department?: string | null;
   dstIp: string;
+  dstUserName?: string | null;
+  dstDepartment?: string | null;
   srcPort: number;
   dstPort: number;
+  serverPort?: number;
   protocol: string;
   serviceName: string;
   bytes: number;
@@ -224,7 +231,9 @@ export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryM
       COALESCE(SUM(${downloadCase}), 0) AS downloadBytes,
       COALESCE(SUM(packets), 0) AS totalPackets,
       COUNT(DISTINCT src_ip) AS uniqueSrcIps,
-      COUNT(DISTINCT dst_ip) AS uniqueDstIps
+      COUNT(DISTINCT dst_ip) AS uniqueDstIps,
+      COUNT(DISTINCT CASE WHEN ${IS_SRC_INTERNAL} THEN src_ip WHEN ${IS_DST_INTERNAL} THEN dst_ip END) AS internalTalkers,
+      COUNT(DISTINCT CASE WHEN NOT ${IS_SRC_INTERNAL} THEN src_ip WHEN NOT ${IS_DST_INTERNAL} THEN dst_ip END) AS remoteEndpoints
     FROM ${table}
     ${where}
   `;
@@ -240,6 +249,8 @@ export function getNetflowMetrics(filters: NetflowFilters = {}): NetflowSummaryM
     totalPackets: Number(row?.totalPackets || 0),
     uniqueSrcIps: Number(row?.uniqueSrcIps || 0),
     uniqueDstIps: Number(row?.uniqueDstIps || 0),
+    internalTalkers: Number(row?.internalTalkers || 0),
+    remoteEndpoints: Number(row?.remoteEndpoints || 0),
     topProtocol: protoRow?.protocol || 'TCP',
   };
 }
@@ -472,13 +483,29 @@ export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopSer
 
   const query = `
     SELECT
-      CASE 
-        WHEN dst_port >= 49152 THEN 49152 
-        ELSE dst_port 
+      CASE
+        WHEN service_name IS NOT NULL AND service_name NOT LIKE '%Ephemeral%' AND service_name NOT LIKE '%Dynamic%' THEN
+          CASE
+            WHEN service_name LIKE '%HTTPS%' THEN 443
+            WHEN service_name LIKE '%HTTP%' THEN 80
+            WHEN service_name LIKE '%DNS%' THEN 53
+            WHEN service_name LIKE '%SSH%' THEN 22
+            WHEN service_name LIKE '%Squid%' THEN 3128
+            WHEN service_name LIKE '%SMB%' THEN 445
+            WHEN service_name LIKE '%RDP%' THEN 3389
+            WHEN service_name LIKE '%NTP%' THEN 123
+            WHEN service_name LIKE '%NetFlow%' THEN 2055
+            WHEN service_name LIKE '%Google FCM%' THEN 5228
+            WHEN service_name LIKE '%WireGuard%' THEN 51820
+            WHEN service_name LIKE '%OpenVPN%' THEN 1194
+            WHEN dst_port < 49152 THEN dst_port
+            ELSE 443
+          END
+        ELSE 49152
       END AS dstPort,
       CASE 
-        WHEN dst_port >= 49152 THEN 'Ephemeral / Other (49152+)' 
-        ELSE service_name 
+        WHEN service_name IS NOT NULL AND service_name NOT LIKE '%Ephemeral%' AND service_name NOT LIKE '%Dynamic%' THEN service_name 
+        ELSE 'Ephemeral / Other (49152+)' 
       END AS serviceName,
       protocol,
       COALESCE(SUM(flow_count), 0) AS flowCount,
@@ -486,7 +513,7 @@ export function getTopServices(filters: NetflowFilters = {}, limit = 10): TopSer
     FROM ${table}
     ${where}
     GROUP BY 
-      CASE WHEN dst_port >= 49152 THEN 49152 ELSE dst_port END,
+      serviceName,
       protocol
     ORDER BY bytes DESC
     LIMIT ?
@@ -546,9 +573,11 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
       r.id,
       r.timestamp,
       r.src_ip AS srcIp,
-      COALESCE(m_src.user_name, m_dst.user_name) AS userName,
-      COALESCE(m_src.department, m_dst.department) AS department,
+      m_src.user_name AS srcUserName,
+      m_src.department AS srcDepartment,
       r.dst_ip AS dstIp,
+      m_dst.user_name AS dstUserName,
+      m_dst.department AS dstDepartment,
       r.src_port AS srcPort,
       r.dst_port AS dstPort,
       r.protocol,
@@ -574,18 +603,29 @@ export function getRecentFlows(filters: NetflowFilters = {}, limit = 50, offset 
     if (isSrcInt && !isDstInt) direction = 'upload';
     else if (!isSrcInt && isDstInt) direction = 'download';
 
+    // Canonical server port (avoid showing client ephemeral port)
+    let serverPort = r.dstPort;
+    if (r.srcPort < 1024 || (r.srcPort < 49152 && r.dstPort >= 49152)) {
+      serverPort = r.srcPort;
+    }
+
     return {
       id: r.id,
       timestamp: r.timestamp,
       formattedTime: formatTimestamp(r.timestamp, tz),
       srcIp: r.srcIp,
-      userName: r.userName || null,
-      department: r.department || null,
+      srcUserName: r.srcUserName || null,
+      srcDepartment: r.srcDepartment || null,
+      userName: r.srcUserName || null,
+      department: r.srcDepartment || null,
       dstIp: r.dstIp,
+      dstUserName: r.dstUserName || null,
+      dstDepartment: r.dstDepartment || null,
       srcPort: r.srcPort,
       dstPort: r.dstPort,
+      serverPort,
       protocol: r.protocol,
-      serviceName: r.serviceName || (r.dstPort >= 49152 ? 'Ephemeral / Other' : `Port ${r.dstPort}`),
+      serviceName: r.serviceName || (serverPort >= 49152 ? 'Ephemeral / Other' : `Port ${serverPort}`),
       bytes: Number(r.bytes),
       direction,
       packets: Number(r.packets),

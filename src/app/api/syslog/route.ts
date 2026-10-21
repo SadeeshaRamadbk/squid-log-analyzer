@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const facility = searchParams.get('facility') || undefined;
     const search = searchParams.get('search') || undefined;
     const severityLevel = (searchParams.get('severityLevel') as any) || undefined;
+    const action = searchParams.get('action') || undefined;
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
     const timeWindow = (searchParams.get('timeWindow') as any) || undefined;
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
       facility,
       search,
       severityLevel,
+      action,
       startDate,
       endDate,
       timeWindow,

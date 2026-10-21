@@ -77,12 +77,20 @@ export const PROTOCOL_NAMES: Record<number, string> = {
  * Determine the server-side listening port and its service name
  * Avoids misclassifying ephemeral client source ports (e.g. 59429, 63910)
  */
-export function classifyService(srcPort: number, dstPort: number): { port: number; serviceName: string } {
+export function classifyService(srcPort: number, dstPort: number, protocol = 'TCP'): { port: number; serviceName: string } {
+  const isUdp = protocol.toUpperCase() === 'UDP';
+
+  // Helper to format service name considering UDP/QUIC
+  const getPortName = (p: number) => {
+    if (p === 443 && isUdp) return 'QUIC / HTTP3';
+    return WELL_KNOWN_PORTS[p] || `Port ${p}`;
+  };
+
   // If destination port is known or < 1024, it's typically the server port
   if (WELL_KNOWN_PORTS[dstPort] || dstPort < 1024) {
     return {
       port: dstPort,
-      serviceName: WELL_KNOWN_PORTS[dstPort] || `Port ${dstPort}`,
+      serviceName: getPortName(dstPort),
     };
   }
 
@@ -90,7 +98,7 @@ export function classifyService(srcPort: number, dstPort: number): { port: numbe
   if (WELL_KNOWN_PORTS[srcPort] || srcPort < 1024) {
     return {
       port: srcPort,
-      serviceName: WELL_KNOWN_PORTS[srcPort] || `Port ${srcPort}`,
+      serviceName: getPortName(srcPort),
     };
   }
 
@@ -113,7 +121,7 @@ export function classifyService(srcPort: number, dstPort: number): { port: numbe
 
   return {
     port: serverPort,
-    serviceName: WELL_KNOWN_PORTS[serverPort] || `Port ${serverPort}`,
+    serviceName: getPortName(serverPort),
   };
 }
 

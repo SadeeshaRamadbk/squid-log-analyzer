@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertOctagon, Globe, User } from 'lucide-react';
+import { AlertOctagon, Globe, User, ShieldAlert, WifiOff, Check } from 'lucide-react';
 import { formatNumber } from '@/lib/formatters';
 import type { FailedRequestSummary } from '@/lib/db/queries';
 
@@ -24,6 +24,7 @@ export function FailedRequestsCard({
 }: FailedRequestsCardProps) {
   const [data, setData] = useState<FailedRequestSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [excludeConnect503, setExcludeConnect503] = useState(true);
 
   const fetchErrors = useCallback(async () => {
     try {
@@ -33,6 +34,7 @@ export function FailedRequestsCard({
       if (endDate) params.append('endDate', endDate);
       if (clientIp) params.append('clientIp', clientIp);
       if (timeWindow) params.append('timeWindow', timeWindow);
+      if (excludeConnect503) params.append('excludeConnect503', 'true');
 
       const res = await fetch(`/api/squid/errors?${params.toString()}`);
       const json = await res.json();
@@ -44,7 +46,7 @@ export function FailedRequestsCard({
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, clientIp, timeWindow]);
+  }, [startDate, endDate, clientIp, timeWindow, excludeConnect503]);
 
   useEffect(() => {
     fetchErrors();
@@ -59,7 +61,7 @@ export function FailedRequestsCard({
     );
   }
 
-  if (!data || data.totalFailed === 0) {
+  if (!data || (data.totalFailed === 0 && data.policyBlockedCount === 0)) {
     return (
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center gap-2">
@@ -72,36 +74,79 @@ export function FailedRequestsCard({
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+      {/* Top Header: Failure Rates Breakdown & Toggle */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div className="flex items-start gap-2.5">
+          <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 mt-0.5">
             <AlertOctagon className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              Failed Requests & Error Rates
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-100">
+                Failed Requests & Error Rates
+              </h3>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-950/60 text-rose-300 border border-rose-800/40">
-                {data.failureRate}% failure rate
+                {data.failureRate}% active failure rate
               </span>
-            </h3>
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">
               {formatNumber(data.totalFailed)} failed out of {formatNumber(data.totalRequests)} total requests
             </p>
           </div>
         </div>
 
-        {/* By Result Code Badges */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {data.byResultCode.map((c) => (
-            <span
-              key={c.resultCode}
-              className="text-[11px] font-mono px-2 py-1 rounded bg-slate-800 border border-slate-700/60 text-slate-200"
-              title={`${c.percentage}% of failures`}
-            >
-              <strong className="text-rose-400">{c.resultCode}</strong>: {formatNumber(c.count)}
-            </span>
-          ))}
+        {/* Separate Rates: Policy Blocks vs Tunnel Upstream Resets */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Policy Blocks KPI */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+            <span>Policy Blocks (403):</span>
+            <strong className="text-rose-200">{data.policyBlockedRate}%</strong>
+            <span className="text-[10px] text-rose-400/80">({formatNumber(data.policyBlockedCount)})</span>
+          </div>
+
+          {/* Upstream/Tunnel Resets KPI */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
+            <WifiOff className="w-3.5 h-3.5 text-amber-400" />
+            <span>Tunnel/503s:</span>
+            <strong className="text-amber-200">{data.tunnelFailureRate}%</strong>
+            <span className="text-[10px] text-amber-400/80">({formatNumber(data.tunnelFailureCount)})</span>
+          </div>
+
+          {/* Toggle Button to Exclude CONNECT 503s */}
+          <button
+            type="button"
+            onClick={() => setExcludeConnect503(!excludeConnect503)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+              excludeConnect503
+                ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40'
+                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+            }`}
+            title="When active, client-initiated SSL tunnel resets (CONNECT 503) are excluded from the main failure rate calculation"
+          >
+            <div className={`w-3 h-3 rounded flex items-center justify-center border ${excludeConnect503 ? 'bg-indigo-600 border-indigo-400' : 'border-slate-600'}`}>
+              {excludeConnect503 && <Check className="w-2.5 h-2.5 text-white" />}
+            </div>
+            <span>Exclude CONNECT 503s</span>
+          </button>
         </div>
+      </div>
+
+      {/* Result Code Badges */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mr-1">Error Codes:</span>
+        {data.byResultCode.map((c) => (
+          <span
+            key={c.resultCode}
+            className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-200"
+            title={`${c.percentage}% of failure results`}
+          >
+            <strong className={c.resultCode.includes('403') || c.resultCode.includes('DENIED') ? 'text-rose-400' : 'text-amber-400'}>
+              {c.resultCode}
+            </strong>
+            : {formatNumber(c.count)}
+          </span>
+        ))}
       </div>
 
       {/* Grid: Top Failed Domains vs Top Responsible Clients */}

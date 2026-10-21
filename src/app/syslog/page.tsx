@@ -17,6 +17,7 @@ export default function SyslogPage() {
   // Filters State (default to Today)
   const [search, setSearch] = useState('');
   const [severityLevel, setSeverityLevel] = useState<'all' | 'errors' | 'warnings' | 'notices' | 'info'>('all');
+  const [actionFilter, setActionFilter] = useState<'all' | 'block' | 'pass'>('all');
   const [selectedApp, setSelectedApp] = useState('');
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(todayStr);
@@ -52,6 +53,7 @@ export default function SyslogPage() {
 
         if (search.trim()) params.set('search', search.trim());
         if (severityLevel !== 'all') params.set('severityLevel', severityLevel);
+        if (actionFilter !== 'all') params.set('action', actionFilter);
         if (selectedApp) params.set('appName', selectedApp);
         if (startDate) params.set('startDate', startDate);
         if (endDate) params.set('endDate', endDate);
@@ -75,7 +77,7 @@ export default function SyslogPage() {
         if (!isSilent) setLoadingEvents(false);
       }
     },
-    [page, search, severityLevel, selectedApp, startDate, endDate]
+    [page, search, severityLevel, actionFilter, selectedApp, startDate, endDate]
   );
 
   // 2. Fetch statistics & timeline
@@ -210,6 +212,11 @@ export default function SyslogPage() {
           onSearchChange={handleSearchChange}
           severityLevel={severityLevel}
           onSeverityChange={handleSeverityChange}
+          actionFilter={actionFilter}
+          onActionChange={(act) => {
+            setActionFilter(act);
+            setPage(1);
+          }}
           selectedApp={selectedApp}
           onAppChange={handleAppChange}
           availableApps={availableApps}

@@ -74,7 +74,7 @@ export function parseNetFlowV5Packet(buffer: Buffer): DecodedNetFlow[] {
     const srcIp = uint32ToIp(srcIpNum);
     const dstIp = uint32ToIp(dstIpNum);
     const protocol = resolveProtocolName(protoNum);
-    const { serviceName } = classifyService(srcPort, dstPort);
+    const { serviceName } = classifyService(srcPort, dstPort, protocol);
     const tcpFlags = protocol === 'TCP' ? decodeTcpFlags(flagsByte) : '-';
 
     const flowDurationMs = Math.max(0, lastUptime - firstUptime);

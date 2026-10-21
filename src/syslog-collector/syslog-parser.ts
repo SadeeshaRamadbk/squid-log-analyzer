@@ -1,3 +1,5 @@
+import { parseFilterlogCsv, ParsedFilterlog } from './filterlog-parser';
+
 export interface ParsedSyslogEvent {
   timestamp: number;
   facility: number;
@@ -9,6 +11,15 @@ export interface ParsedSyslogEvent {
   proc_id?: string | null;
   message: string;
   raw_message: string;
+  action?: string | null;
+  interface?: string | null;
+  direction?: string | null;
+  protocol?: string | null;
+  src_ip?: string | null;
+  dst_ip?: string | null;
+  src_port?: number | null;
+  dst_port?: number | null;
+  tcp_flags?: string | null;
 }
 
 export const FACILITY_LABELS: Record<number, string> = {
@@ -118,9 +129,9 @@ export function parseSyslogMessage(rawInput: string, remoteAddress?: string): Pa
   }
 
   const facility = Math.min(23, Math.max(0, Math.floor(pri / 8)));
-  const severity = Math.min(7, Math.max(0, pri % 8));
+  let severity = Math.min(7, Math.max(0, pri % 8));
   const facility_label = FACILITY_LABELS[facility] || 'daemon';
-  const severity_label = SEVERITY_LABELS[severity] || 'info';
+  let severity_label = SEVERITY_LABELS[severity] || 'info';
 
   let timestamp = Date.now();
   let hostname = remoteAddress || 'pfsense';
@@ -169,18 +180,29 @@ export function parseSyslogMessage(rawInput: string, remoteAddress?: string): Pa
           app_name = tag;
         }
       } else {
-        // Tag + message without timestamp (e.g. "squid[1234]: message")
-        const tagOnly = payload.match(/^([^:]+):\s*([\s\S]*)$/);
-        if (tagOnly) {
-          const tag = tagOnly[1].trim();
-          message = tagOnly[2]?.trim() || '';
+        // Check if payload starts with filterlog: or has filterlog CSV pattern
+        const filterlogPrefixMatch = payload.match(/^filterlog(?:\[\d+\])?:?\s*([\s\S]*)$/i);
+        if (filterlogPrefixMatch) {
+          app_name = 'filterlog';
+          message = filterlogPrefixMatch[1].trim();
+        } else if (/^\d+,,,[0-9a-zA-Z]*,[a-zA-Z0-9_\-]+,match,(?:block|pass|reject)/i.test(payload)) {
+          // Direct pfSense filterlog CSV line without BSD header
+          app_name = 'filterlog';
+          message = payload.trim();
+        } else {
+          // Tag + message without timestamp (e.g. "squid[1234]: message")
+          const tagOnly = payload.match(/^([^:]+):\s*([\s\S]*)$/);
+          if (tagOnly) {
+            const tag = tagOnly[1].trim();
+            message = tagOnly[2]?.trim() || '';
 
-          const pidMatch = tag.match(/^([a-zA-Z0-9_\-\.]+)(?:\[(\d+)\])?$/);
-          if (pidMatch) {
-            app_name = pidMatch[1];
-            proc_id = pidMatch[2] || null;
-          } else {
-            app_name = tag;
+            const pidMatch = tag.match(/^([a-zA-Z0-9_\-\.]+)(?:\[(\d+)\])?$/);
+            if (pidMatch) {
+              app_name = pidMatch[1];
+              proc_id = pidMatch[2] || null;
+            } else {
+              app_name = tag;
+            }
           }
         }
       }
@@ -190,6 +212,46 @@ export function parseSyslogMessage(rawInput: string, remoteAddress?: string): Pa
   // Clean app_name
   app_name = app_name.toLowerCase().replace(/[^a-z0-9_\-\.]/g, '');
   if (!app_name) app_name = 'system';
+
+  // 5. Special pfSense filterlog handling & parsing
+  let action: string | null = null;
+  let iface: string | null = null;
+  let direction: string | null = null;
+  let protocol: string | null = null;
+  let src_ip: string | null = null;
+  let dst_ip: string | null = null;
+  let src_port: number | null = null;
+  let dst_port: number | null = null;
+  let tcp_flags: string | null = null;
+
+  if (app_name === 'filterlog' || message.includes(',match,') || /^\d+,,,/.test(message)) {
+    app_name = 'filterlog';
+    const parsedFilter = parseFilterlogCsv(message);
+    if (parsedFilter) {
+      action = parsedFilter.action;
+      iface = parsedFilter.interface;
+      direction = parsedFilter.direction;
+      protocol = parsedFilter.protocol;
+      src_ip = parsedFilter.srcIp;
+      dst_ip = parsedFilter.dstIp;
+      src_port = parsedFilter.srcPort ?? null;
+      dst_port = parsedFilter.dstPort ?? null;
+      tcp_flags = parsedFilter.tcpFlags ?? null;
+
+      // Classify filterlog "block" and "reject" events as Warning (4) and security-relevant
+      if (action === 'block' || action === 'reject') {
+        severity = 4; // Warning
+        severity_label = 'warning';
+      }
+
+      // Format clean, readable message for UI display
+      const protoStr = protocol || 'IP';
+      const srcStr = src_port ? `${src_ip}:${src_port}` : (src_ip || 'unknown');
+      const dstStr = dst_port ? `${dst_ip}:${dst_port}` : (dst_ip || 'unknown');
+      const flagStr = tcp_flags && tcp_flags !== '-' ? ` [${tcp_flags}]` : '';
+      message = `${action.toUpperCase()} ${direction} on ${iface}: ${protoStr} ${srcStr} -> ${dstStr}${flagStr}`;
+    }
+  }
 
   return {
     timestamp,
@@ -202,5 +264,14 @@ export function parseSyslogMessage(rawInput: string, remoteAddress?: string): Pa
     proc_id,
     message: message || payload,
     raw_message: raw,
+    action,
+    interface: iface,
+    direction,
+    protocol,
+    src_ip,
+    dst_ip,
+    src_port,
+    dst_port,
+    tcp_flags,
   };
 }

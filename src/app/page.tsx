@@ -280,6 +280,13 @@ function DashboardContent() {
       const json = await res.json();
       if (json.success) {
         setSquidStats(json.data);
+        if (json.data?.overview?.blockedRequests !== undefined) {
+          setBlockedData((prev) => ({
+            ...prev,
+            total: json.data.overview.blockedRequests,
+            totalPages: Math.ceil(json.data.overview.blockedRequests / 25) || 1,
+          }));
+        }
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -774,7 +781,7 @@ function DashboardContent() {
                   }`}
                 >
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-300" />
-                  Blocked Requests Audit ({blockedData.total.toLocaleString()})
+                  Blocked Requests Audit ({(squidStats?.overview?.blockedRequests ?? blockedData.total).toLocaleString()})
                 </button>
               </div>
 

@@ -55,8 +55,9 @@ export class BatchSyslogInserter extends EventEmitter {
       const insertStmt = db.prepare(`
         INSERT INTO syslog_events (
           timestamp, facility, facility_label, severity, severity_label,
-          hostname, app_name, proc_id, message, raw_message
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          hostname, app_name, proc_id, message, raw_message,
+          action, interface, direction, protocol, src_ip, dst_ip, src_port, dst_port, tcp_flags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const insertMany = db.transaction((records: ParsedSyslogEvent[]) => {
@@ -71,7 +72,16 @@ export class BatchSyslogInserter extends EventEmitter {
             item.app_name,
             item.proc_id || null,
             item.message,
-            item.raw_message
+            item.raw_message,
+            item.action || null,
+            item.interface || null,
+            item.direction || null,
+            item.protocol || null,
+            item.src_ip || null,
+            item.dst_ip || null,
+            item.src_port || null,
+            item.dst_port || null,
+            item.tcp_flags || null
           );
         }
       });

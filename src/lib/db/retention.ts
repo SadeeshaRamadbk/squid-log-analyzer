@@ -1,7 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
-dotenv.config();
-
 import { getDatabase } from './index';
 
 export interface RetentionResult {
@@ -145,7 +141,7 @@ export function runRetentionJob(options: RetentionOptions | number = {}): Retent
 }
 
 // Allow direct execution via CLI `npm run retention`
-if (require.main === module || (typeof process !== 'undefined' && process.argv[1]?.endsWith('retention.ts'))) {
+if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
   try {
     const result = runRetentionJob();
     console.log('[Retention Job] Result:', result);

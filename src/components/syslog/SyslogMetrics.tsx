@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Terminal, AlertOctagon, AlertTriangle, Layers, Info } from 'lucide-react';
+import { Terminal, AlertOctagon, AlertTriangle, Layers, ShieldAlert } from 'lucide-react';
 import type { SyslogOverviewStats } from '@/lib/db/syslog-queries';
 
 interface SyslogMetricsProps {
@@ -12,20 +12,20 @@ interface SyslogMetricsProps {
 export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
   if (isLoading || !stats) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="h-24 bg-slate-900/60 border border-slate-800 rounded-xl animate-pulse" />
         ))}
       </div>
     );
   }
 
-  const { totalEvents, criticalErrors, warnings, notices, info, topApps } = stats;
+  const { totalEvents, criticalErrors, warnings, notices, info, firewallBlocks, topApps } = stats;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       {/* 1. Total Syslog Events */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between" title="Total raw syslog events ingested across all services">
         <div>
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
             Total Syslog Events
@@ -42,29 +42,47 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
         </div>
       </div>
 
-      {/* 2. Critical & Errors */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-rose-500/30 flex items-center justify-between relative overflow-hidden">
-        {criticalErrors > 0 && (
+      {/* 2. Firewall Blocks (Security Relevant) */}
+      <div className="p-4 rounded-xl bg-slate-900/80 border border-rose-500/40 bg-gradient-to-br from-rose-950/20 to-slate-900 flex items-center justify-between relative overflow-hidden" title="pfSense filterlog block and reject actions">
+        {firewallBlocks > 0 && (
           <div className="absolute top-0 right-0 w-2 h-2 rounded-full bg-rose-500 m-2 animate-ping" />
         )}
         <div>
-          <span className="text-[11px] font-semibold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-            Errors & Critical
+          <span className="text-[11px] font-semibold text-rose-300 uppercase tracking-wider flex items-center gap-1">
+            Firewall Blocks
           </span>
           <div className="text-2xl font-bold font-mono text-rose-400 mt-1">
-            {criticalErrors.toLocaleString()}
+            {firewallBlocks.toLocaleString()}
           </div>
           <span className="text-[10px] text-rose-400/80">
+            {totalEvents > 0 ? ((firewallBlocks / totalEvents) * 100).toFixed(1) : 0}% security blocks
+          </span>
+        </div>
+        <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40">
+          <ShieldAlert className="w-5 h-5" />
+        </div>
+      </div>
+
+      {/* 3. Critical & Errors */}
+      <div className="p-4 rounded-xl bg-slate-900/80 border border-red-500/30 flex items-center justify-between" title="Syslog severity 0-3 (Emergency, Alert, Critical, Error)">
+        <div>
+          <span className="text-[11px] font-semibold text-red-300 uppercase tracking-wider flex items-center gap-1.5">
+            Errors & Critical
+          </span>
+          <div className="text-2xl font-bold font-mono text-red-400 mt-1">
+            {criticalErrors.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-red-400/80">
             {totalEvents > 0 ? ((criticalErrors / totalEvents) * 100).toFixed(1) : 0}% of all events
           </span>
         </div>
-        <div className="p-2.5 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30">
+        <div className="p-2.5 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30">
           <AlertOctagon className="w-5 h-5" />
         </div>
       </div>
 
-      {/* 3. Warnings */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-amber-500/30 flex items-center justify-between">
+      {/* 4. Warnings */}
+      <div className="p-4 rounded-xl bg-slate-900/80 border border-amber-500/30 flex items-center justify-between" title="Syslog severity 4 (Warning conditions, including security blocks)">
         <div>
           <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">
             Warnings
@@ -73,7 +91,7 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
             {warnings.toLocaleString()}
           </div>
           <span className="text-[10px] text-amber-400/80">
-            Cache, gateway & DNS warnings
+            Security blocks & warnings
           </span>
         </div>
         <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
@@ -81,11 +99,11 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
         </div>
       </div>
 
-      {/* 4. Active Applications */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+      {/* 5. Notices & Informational */}
+      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between" title="Syslog severity 5-7 (Notices, Informational, Debug)">
         <div>
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Notices & Informational
+            Notices & Info
           </span>
           <div className="text-2xl font-bold font-mono text-cyan-300 mt-1">
             {(notices + info).toLocaleString()}

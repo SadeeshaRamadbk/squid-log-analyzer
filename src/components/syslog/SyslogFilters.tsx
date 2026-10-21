@@ -8,6 +8,8 @@ interface SyslogFiltersProps {
   onSearchChange: (search: string) => void;
   severityLevel: 'all' | 'errors' | 'warnings' | 'notices' | 'info';
   onSeverityChange: (level: 'all' | 'errors' | 'warnings' | 'notices' | 'info') => void;
+  actionFilter?: 'all' | 'block' | 'pass';
+  onActionChange?: (action: 'all' | 'block' | 'pass') => void;
   selectedApp: string;
   onAppChange: (app: string) => void;
   availableApps: string[];
@@ -25,6 +27,8 @@ export function SyslogFilters({
   onSearchChange,
   severityLevel,
   onSeverityChange,
+  actionFilter = 'all',
+  onActionChange,
   selectedApp,
   onAppChange,
   availableApps,
@@ -209,6 +213,45 @@ export function SyslogFilters({
         >
           Informational (6)
         </button>
+
+        {onActionChange && (
+          <div className="flex items-center gap-1 ml-auto">
+            <span className="text-[11px] font-medium text-slate-500 mr-1">Firewall:</span>
+            <button
+              type="button"
+              onClick={() => onActionChange('all')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                actionFilter === 'all'
+                  ? 'bg-slate-700 text-white'
+                  : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => onActionChange('block')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                actionFilter === 'block'
+                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-500/30 font-semibold'
+                  : 'bg-slate-950 text-rose-400 hover:bg-rose-500/10 border border-rose-500/30'
+              }`}
+            >
+              Blocks
+            </button>
+            <button
+              type="button"
+              onClick={() => onActionChange('pass')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                actionFilter === 'pass'
+                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30 font-semibold'
+                  : 'bg-slate-950 text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/30'
+              }`}
+            >
+              Passes
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

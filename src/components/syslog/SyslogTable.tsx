@@ -191,9 +191,22 @@ export function SyslogTable({
                       {formatTimestamp(event.timestamp)}
                     </td>
 
-                    {/* Severity Badge */}
+                    {/* Severity & Action Badge */}
                     <td className="py-2 px-3 whitespace-nowrap">
-                      {getSeverityBadge(event.severity, event.severity_label)}
+                      <div className="flex items-center gap-1.5">
+                        {getSeverityBadge(event.severity, event.severity_label)}
+                        {event.action && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase font-mono border ${
+                              event.action === 'block' || event.action === 'reject'
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            }`}
+                          >
+                            {event.action}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Service/App Badge */}
@@ -305,6 +318,48 @@ export function SyslogTable({
                   <span className="text-slate-200">{new Date(selectedEvent.timestamp).toISOString()}</span>
                 </div>
               </div>
+
+              {/* Structured Firewall Details if filterlog */}
+              {selectedEvent.action && (
+                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">
+                    Structured pfSense Firewall Packet
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Action</span>
+                      <span className={selectedEvent.action === 'block' ? 'text-rose-400 font-bold uppercase' : 'text-emerald-400 font-bold uppercase'}>
+                        {selectedEvent.action} ({selectedEvent.direction || 'in'})
+                      </span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Interface</span>
+                      <span className="text-cyan-300 font-medium">{selectedEvent.interface || 'unknown'}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Protocol</span>
+                      <span className="text-purple-300 font-medium">{selectedEvent.protocol || 'IP'}</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">TCP Flags</span>
+                      <span className="text-amber-300 font-medium">{selectedEvent.tcp_flags || '-'}</span>
+                    </div>
+                  </div>
+                  {(selectedEvent.src_ip || selectedEvent.dst_ip) && (
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono">
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">Source</span>
+                        <span className="text-indigo-300">{selectedEvent.src_ip}{selectedEvent.src_port ? `:${selectedEvent.src_port}` : ''}</span>
+                      </div>
+                      <span className="text-slate-600 font-bold">→</span>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block text-right">Destination</span>
+                        <span className="text-cyan-300">{selectedEvent.dst_ip}{selectedEvent.dst_port ? `:${selectedEvent.dst_port}` : ''}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Message Payload */}
               <div className="space-y-1">

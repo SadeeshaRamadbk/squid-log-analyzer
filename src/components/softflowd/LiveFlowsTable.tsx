@@ -12,11 +12,16 @@ export interface FlowRecord {
   timestamp: number;
   formattedTime: string;
   srcIp: string;
+  srcUserName?: string | null;
+  srcDepartment?: string | null;
   userName?: string | null;
   department?: string | null;
   dstIp: string;
+  dstUserName?: string | null;
+  dstDepartment?: string | null;
   srcPort: number;
   dstPort: number;
+  serverPort?: number;
   protocol: string;
   serviceName: string;
   bytes: number;
@@ -339,18 +344,18 @@ export function LiveFlowsTable({
                   {isVisible('srcIp') && (
                     <td className="py-2.5 font-mono">
                       <div>
-                        {r.userName ? (
+                        {r.srcUserName ? (
                           <div className="flex items-center gap-1.5 font-sans">
                             <button
                               type="button"
                               onClick={() => onViewProfile?.(r.srcIp)}
                               className="font-semibold text-slate-100 hover:text-indigo-300 hover:underline cursor-pointer truncate max-w-[140px]"
                             >
-                              {r.userName}
+                              {r.srcUserName}
                             </button>
-                            {r.department && (
+                            {r.srcDepartment && (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                                {r.department}
+                                {r.srcDepartment}
                               </span>
                             )}
                           </div>
@@ -364,7 +369,7 @@ export function LiveFlowsTable({
                           >
                             {r.srcIp}
                           </button>
-                          {!r.userName && onEditAlias && (
+                          {!r.srcUserName && onEditAlias && (
                             <button
                               type="button"
                               onClick={() => onEditAlias(r.srcIp)}
@@ -392,25 +397,55 @@ export function LiveFlowsTable({
                   )}
                   {isVisible('dstIp') && (
                     <td className="py-2.5 pl-3 font-mono">
-                      <button
-                        type="button"
-                        onClick={() => onViewProfile?.(r.dstIp)}
-                        className="text-cyan-300 hover:underline hover:text-cyan-200 cursor-pointer text-left truncate"
-                        title={`Inspect Profile for ${r.dstIp}`}
-                      >
-                        {r.dstIp}
-                      </button>
+                      <div>
+                        {r.dstUserName ? (
+                          <div className="flex items-center gap-1.5 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => onViewProfile?.(r.dstIp)}
+                              className="font-semibold text-slate-100 hover:text-cyan-300 hover:underline cursor-pointer truncate max-w-[140px]"
+                            >
+                              {r.dstUserName}
+                            </button>
+                            {r.dstDepartment && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                {r.dstDepartment}
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onViewProfile?.(r.dstIp)}
+                            className="text-cyan-300 hover:underline hover:text-cyan-200 cursor-pointer text-left truncate text-[11px]"
+                            title={`Inspect Profile for ${r.dstIp}`}
+                          >
+                            {r.dstIp}
+                          </button>
+                          {!r.dstUserName && onEditAlias && (
+                            <button
+                              type="button"
+                              onClick={() => onEditAlias(r.dstIp)}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] text-slate-500 hover:text-cyan-300 p-0.5 cursor-pointer"
+                              title="Assign User Name to this IP"
+                            >
+                              <Tag className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </td>
                   )}
                   {isVisible('serviceName') && (
                     <td className="py-2.5 px-2">
                       <button
                         type="button"
-                        onClick={() => onViewPort?.(r.dstPort, r.protocol)}
+                        onClick={() => onViewPort?.(r.serverPort || r.dstPort, r.protocol)}
                         className="hover:underline cursor-pointer text-left"
                       >
                         <span className="font-semibold text-purple-300">{r.serviceName}</span>{' '}
-                        <span className="text-[10px] text-slate-500 font-mono">({r.dstPort})</span>
+                        <span className="text-[10px] text-slate-500 font-mono">({r.serverPort || r.dstPort})</span>
                       </button>
                     </td>
                   )}
@@ -423,7 +458,28 @@ export function LiveFlowsTable({
                   )}
                   {isVisible('tcpFlags') && (
                     <td className="py-2.5 font-mono text-[11px] text-slate-400">
-                      {r.tcpFlags}
+                      {r.protocol === 'TCP' && r.tcpFlags && r.tcpFlags !== '-' ? (
+                        <div className="flex flex-wrap gap-1">
+                          {r.tcpFlags.split(',').map((f) => (
+                            <span
+                              key={f}
+                              className={`px-1 py-0.2 rounded text-[9px] font-bold ${
+                                f === 'SYN'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : f === 'RST' || f === 'FIN'
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  : f === 'ACK'
+                                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                  : 'bg-slate-800 text-slate-300 border border-slate-700'
+                              }`}
+                            >
+                              {f}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-[10px] font-mono">-</span>
+                      )}
                     </td>
                   )}
                   {isVisible('bytes') && (
