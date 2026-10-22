@@ -137,6 +137,8 @@ export function SquidLiveFeedModal({
     }
   }, [isOpen, selectedRecord, onClose]);
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   const handleCopyUrl = (urlText: string) => {
@@ -191,8 +193,6 @@ export function SquidLiveFeedModal({
   const hasActiveFilters = Boolean(
     search || method || resultFilter !== 'all' || clientIp || timeWindow !== '30m' || startDate || endDate
   );
-
-  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen, onClose });
 
   return (
     <div

@@ -81,8 +81,6 @@ export function DomainCategoriesModal({ isOpen, onClose }: DomainCategoriesModal
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSaveRule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDomain.trim()) return;

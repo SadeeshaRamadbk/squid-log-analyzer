@@ -79,8 +79,6 @@ export function BackupRestoreModal({ isOpen, onClose, onRestored }: BackupRestor
     };
   }, []);
 
-  if (!isOpen) return null;
-
   const triggerDirectBrowserDownload = (downloadUrl: string, filename?: string) => {
     const a = document.createElement('a');
     a.href = downloadUrl;

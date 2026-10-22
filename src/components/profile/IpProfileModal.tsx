@@ -97,6 +97,11 @@ export function IpProfileModal({
     };
   }, [isOpen, ip]);
 
+  const modalRef = useModalFocusTrap<HTMLDivElement>({
+    isOpen: Boolean(isOpen && ip && !isMinimized),
+    onClose,
+  });
+
   if (!isOpen || !ip) return null;
 
   const handleSaveMapping = async (e: React.FormEvent) => {
@@ -184,8 +189,6 @@ export function IpProfileModal({
   const modalClass = isDocked
     ? 'pointer-events-auto fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[500px] lg:w-[560px] bg-slate-900/95 border-l border-slate-800 shadow-2xl flex flex-col backdrop-blur-xl animate-in slide-in-from-right duration-200 h-screen'
     : 'bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden';
-
-  const modalRef = useModalFocusTrap<HTMLDivElement>({ isOpen: isOpen && !isMinimized, onClose });
 
   return (
     <div
