@@ -152,14 +152,60 @@ npm run flow-collector
 ```
 Listens for NetFlow v5 UDP packets from pfSense (defaults to port `2055`, configurable via `NETFLOW_PORT` and `NETFLOW_BIND_HOST`).
 
-### 8. Generate Synthetic NetFlow Flows (Optional)
+### 8. pfSense Syslog Collector Daemon (RFC 3164 / RFC 5424)
+
+Start the UDP Syslog collector daemon (listens by default on UDP `1514`):
 
 ```bash
-npm run seed-flows
+npm run syslog
 ```
-Inserts realistic Layer 3/4 network flows across internal talkers and common network services (HTTPS, DNS, NTP, SSH, RDP, SMB, SIP) for instant dashboard visualization.
 
-### 9. Backup and Restore Database (CLI)
+#### Firewall Rules (Allow Inbound UDP 1514)
+
+- **Windows PowerShell (Run as Administrator)**:
+  ```powershell
+  New-NetFirewallRule -DisplayName "pfSense Syslog UDP Collector" -Direction Inbound -LocalPort 1514 -Protocol UDP -Action Allow
+  ```
+
+- **Linux (UFW)**:
+  ```bash
+  sudo ufw allow 1514/udp comment "pfSense Syslog UDP Collector"
+  ```
+
+- **Linux (iptables)**:
+  ```bash
+  sudo iptables -A INPUT -p udp --dport 1514 -j ACCEPT
+  ```
+
+#### pfSense Remote Syslog Configuration
+
+1. Log in to pfSense WebGUI (e.g., `https://192.168.0.1`).
+2. Navigate to **Status > System Logs**, then click the **Settings** tab.
+3. Scroll down to **Remote Logging Options**.
+4. Check **Enable Remote Logging**.
+5. Set **Remote log servers** to `<collector-machine-ip>:1514` (e.g. `192.168.0.50:1514`).
+6. Select the log categories to forward under **Remote Syslog Contents**:
+   - **System Events** (Squid errors, daemon alerts, DNS events)
+   - **Firewall Events** (filterlog blocked and passed packets)
+   - **DHCP Service Events** (Leases, renewals, conflicts)
+   - **Gateway Monitor** (dpinger packet loss / latency stats)
+7. Click **Save**.
+8. *(Optional)* To mirror Squid access events via Syslog, go to **Services > Squid Proxy > Custom Options** and append:
+   ```text
+   access_log syslog:local0.info
+   ```
+
+### 9. Generate Synthetic NetFlow & Syslog (Optional)
+
+```bash
+# Seed demo NetFlow flows
+npm run seed-flows
+
+# Seed demo Syslog firewall & system events
+npm run seed-syslog
+```
+
+### 10. Backup and Restore Database (CLI)
 
 ```bash
 # Dump clean SQLite backup snapshot into backups/ folder

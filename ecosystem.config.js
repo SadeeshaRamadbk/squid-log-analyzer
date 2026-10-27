@@ -35,6 +35,17 @@ module.exports = {
       },
       autorestart: true,
       max_memory_restart: "500M"
+    },
+    {
+      name: "pfsense-syslog-collector",
+      script: "node_modules/tsx/dist/cli.mjs",
+      args: "src/syslog-collector/index.ts",
+      cwd: "E:/squid-log-analyzer",
+      env: {
+        NODE_ENV: "production"
+      },
+      autorestart: true,
+      max_memory_restart: "500M"
     }
   ]
 };
