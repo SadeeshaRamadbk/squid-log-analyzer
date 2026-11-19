@@ -11,6 +11,7 @@ export type AuditAction =
   | 'report_gen'
   | 'report_email'
   | 'timeline_view'
+  | 'hosts_directory_view'
   | 'privacy_toggle'
   | 'settings_update';
 

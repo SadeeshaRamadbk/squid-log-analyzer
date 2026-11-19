@@ -1,5 +1,5 @@
 import { getDatabase } from './index';
-import { formatTimestamp, getSystemSettings } from '../settings';
+import { formatTimestamp, getSystemSettings, isInternalIp } from '../settings';
 
 export interface IpProfileData {
   clientIp: string;
@@ -644,5 +644,359 @@ export function searchGlobal(term: string): GlobalSearchResult {
   }
 
   return { ips, domains, ports };
+}
+
+export interface HostSummaryItem {
+  clientIp: string;
+  userName: string | null;
+  department: string | null;
+  notes: string | null;
+  isMapped: boolean;
+
+  squid: {
+    totalRequests: number;
+    totalBytes: number;
+    blockedCount: number;
+    topDomain: string | null;
+  };
+
+  netflow: {
+    totalFlows: number;
+    totalBytes: number;
+    downloadBytes: number;
+    uploadBytes: number;
+    topService: string | null;
+  };
+
+  syslog: {
+    totalEvents: number;
+    firewallBlocks: number;
+  };
+
+  totalBandwidth: number;
+  lastActive: number | null;
+}
+
+export interface HostsOverviewOptions {
+  search?: string;
+  department?: string;
+  filter?: 'all' | 'mapped' | 'unmapped' | 'blocked' | 'firewall';
+  sort?: 'bandwidth' | 'requests' | 'blocked' | 'firewall' | 'ip' | 'name' | 'activity';
+  direction?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+export interface HostsOverviewResult {
+  hosts: HostSummaryItem[];
+  totalFiltered: number;
+  kpis: {
+    totalHosts: number;
+    mappedHosts: number;
+    unmappedHosts: number;
+    totalBandwidth: number;
+    totalDownloadBytes: number;
+    totalUploadBytes: number;
+    totalSquidRequests: number;
+    totalSquidBlocked: number;
+    totalSyslogBlocks: number;
+  };
+  departments: string[];
+}
+
+export function getAllHostsOverview(options: HostsOverviewOptions = {}): HostsOverviewResult {
+  const db = getDatabase();
+  const hostMap = new Map<string, HostSummaryItem>();
+
+  const getOrCreateHost = (ip: string): HostSummaryItem => {
+    let item = hostMap.get(ip);
+    if (!item) {
+      item = {
+        clientIp: ip,
+        userName: null,
+        department: null,
+        notes: null,
+        isMapped: false,
+        squid: { totalRequests: 0, totalBytes: 0, blockedCount: 0, topDomain: null },
+        netflow: { totalFlows: 0, totalBytes: 0, downloadBytes: 0, uploadBytes: 0, topService: null },
+        syslog: { totalEvents: 0, firewallBlocks: 0 },
+        totalBandwidth: 0,
+        lastActive: null,
+      };
+      hostMap.set(ip, item);
+    }
+    return item;
+  };
+
+  // 1. Load known IP Mappings
+  const mappingRows = db.prepare(`
+    SELECT client_ip, user_name, department, notes, updated_at
+    FROM ip_mappings
+  `).all() as any[];
+
+  for (const m of mappingRows) {
+    const host = getOrCreateHost(m.client_ip);
+    host.userName = m.user_name || null;
+    host.department = m.department || null;
+    host.notes = m.notes || null;
+    host.isMapped = true;
+    if (m.updated_at) {
+      host.lastActive = m.updated_at;
+    }
+  }
+
+  // 2. Load Squid Proxy Activity from daily_summaries
+  try {
+    const squidSummaryRows = db.prepare(`
+      SELECT
+        client_ip,
+        COALESCE(SUM(request_count), 0) AS total_requests,
+        COALESCE(SUM(bytes), 0) AS total_bytes,
+        COALESCE(SUM(blocked_count), 0) AS blocked_count
+      FROM daily_summaries
+      GROUP BY client_ip
+    `).all() as any[];
+
+    for (const r of squidSummaryRows) {
+      if (!isInternalIp(r.client_ip) && !hostMap.has(r.client_ip)) continue;
+      const host = getOrCreateHost(r.client_ip);
+      host.squid.totalRequests = Number(r.total_requests || 0);
+      host.squid.totalBytes = Number(r.total_bytes || 0);
+      host.squid.blockedCount = Number(r.blocked_count || 0);
+    }
+
+    // Top domain for each client_ip in daily_summaries
+    const topDomainRows = db.prepare(`
+      WITH ranked_domains AS (
+        SELECT client_ip, domain, SUM(request_count) as req_count,
+               ROW_NUMBER() OVER (PARTITION BY client_ip ORDER BY SUM(request_count) DESC) as rn
+        FROM daily_summaries
+        WHERE domain IS NOT NULL AND domain != ''
+        GROUP BY client_ip, domain
+      )
+      SELECT client_ip, domain FROM ranked_domains WHERE rn = 1
+    `).all() as any[];
+
+    for (const td of topDomainRows) {
+      const host = hostMap.get(td.client_ip);
+      if (host) {
+        host.squid.topDomain = td.domain;
+      }
+    }
+  } catch (err) {
+    console.warn('[Hosts] Squid summaries query note:', err);
+  }
+
+  // 3. Load NetFlow L3/L4 activity from netflow_daily_summaries (Internal LAN only)
+  try {
+    const netflowUploadRows = db.prepare(`
+      SELECT src_ip as ip,
+             COALESCE(SUM(bytes), 0) as upload_bytes,
+             COALESCE(SUM(flow_count), 0) as upload_flows
+      FROM netflow_daily_summaries
+      WHERE src_ip LIKE '192.168.%' OR src_ip LIKE '10.%' OR src_ip LIKE '172.%'
+      GROUP BY src_ip
+    `).all() as any[];
+
+    for (const u of netflowUploadRows) {
+      if (!isInternalIp(u.ip) && !hostMap.has(u.ip)) continue;
+      const host = getOrCreateHost(u.ip);
+      host.netflow.uploadBytes = Number(u.upload_bytes || 0);
+      host.netflow.totalFlows += Number(u.upload_flows || 0);
+    }
+
+    const netflowDownloadRows = db.prepare(`
+      SELECT dst_ip as ip,
+             COALESCE(SUM(bytes), 0) as download_bytes,
+             COALESCE(SUM(flow_count), 0) as download_flows
+      FROM netflow_daily_summaries
+      WHERE dst_ip LIKE '192.168.%' OR dst_ip LIKE '10.%' OR dst_ip LIKE '172.%'
+      GROUP BY dst_ip
+    `).all() as any[];
+
+    for (const d of netflowDownloadRows) {
+      if (!isInternalIp(d.ip) && !hostMap.has(d.ip)) continue;
+      const host = getOrCreateHost(d.ip);
+      host.netflow.downloadBytes = Number(d.download_bytes || 0);
+      host.netflow.totalFlows += Number(d.download_flows || 0);
+    }
+
+    // Top service for each internal IP
+    const topServiceRows = db.prepare(`
+      WITH ranked_services AS (
+        SELECT src_ip as ip, service_name, SUM(bytes) as s_bytes,
+               ROW_NUMBER() OVER (PARTITION BY src_ip ORDER BY SUM(bytes) DESC) as rn
+        FROM netflow_daily_summaries
+        WHERE (src_ip LIKE '192.168.%' OR src_ip LIKE '10.%' OR src_ip LIKE '172.%')
+          AND service_name IS NOT NULL AND service_name != ''
+        GROUP BY src_ip, service_name
+      )
+      SELECT ip, service_name FROM ranked_services WHERE rn = 1
+    `).all() as any[];
+
+    for (const ts of topServiceRows) {
+      const host = hostMap.get(ts.ip);
+      if (host) {
+        host.netflow.topService = ts.service_name;
+      }
+    }
+  } catch (err) {
+    console.warn('[Hosts] NetFlow summaries query note:', err);
+  }
+
+  // 4. Load Syslog events & firewall blocks
+  try {
+    const syslogStats = db.prepare(`
+      SELECT src_ip as ip,
+             COUNT(*) as total_events,
+             SUM(CASE WHEN action IN ('block', 'reject') OR message LIKE '%block%' THEN 1 ELSE 0 END) as firewall_blocks
+      FROM syslog_events
+      WHERE (src_ip LIKE '192.168.%' OR src_ip LIKE '10.%' OR src_ip LIKE '172.%')
+        AND src_ip IS NOT NULL AND src_ip != ''
+      GROUP BY src_ip
+    `).all() as any[];
+
+    for (const s of syslogStats) {
+      if (!isInternalIp(s.ip) && !hostMap.has(s.ip)) continue;
+      const host = getOrCreateHost(s.ip);
+      host.syslog.totalEvents = Number(s.total_events || 0);
+      host.syslog.firewallBlocks = Number(s.firewall_blocks || 0);
+    }
+  } catch (err) {
+    console.warn('[Hosts] Syslog query note:', err);
+  }
+
+  // Calculate totals and compile hosts list
+  const departmentsSet = new Set<string>();
+  let totalBandwidthSum = 0;
+  let totalDownloadSum = 0;
+  let totalUploadSum = 0;
+  let totalSquidReqsSum = 0;
+  let totalSquidBlockedSum = 0;
+  let totalSyslogBlocksSum = 0;
+  let mappedCount = 0;
+
+  const allHosts: HostSummaryItem[] = [];
+
+  for (const host of hostMap.values()) {
+    host.netflow.totalBytes = host.netflow.downloadBytes + host.netflow.uploadBytes;
+    host.totalBandwidth = host.netflow.totalBytes > 0 ? host.netflow.totalBytes : host.squid.totalBytes;
+
+    if (host.department) {
+      departmentsSet.add(host.department);
+    }
+    if (host.isMapped) {
+      mappedCount++;
+    }
+
+    totalBandwidthSum += host.totalBandwidth;
+    totalDownloadSum += host.netflow.downloadBytes;
+    totalUploadSum += host.netflow.uploadBytes;
+    totalSquidReqsSum += host.squid.totalRequests;
+    totalSquidBlockedSum += host.squid.blockedCount;
+    totalSyslogBlocksSum += host.syslog.firewallBlocks;
+
+    allHosts.push(host);
+  }
+
+  // Filtering
+  let filtered = allHosts;
+
+  // Search filter (IP, username, department, notes, top domain)
+  if (options.search && options.search.trim().length > 0) {
+    const term = options.search.trim().toLowerCase();
+    filtered = filtered.filter((h) =>
+      h.clientIp.toLowerCase().includes(term) ||
+      (h.userName && h.userName.toLowerCase().includes(term)) ||
+      (h.department && h.department.toLowerCase().includes(term)) ||
+      (h.notes && h.notes.toLowerCase().includes(term)) ||
+      (h.squid.topDomain && h.squid.topDomain.toLowerCase().includes(term)) ||
+      (h.netflow.topService && h.netflow.topService.toLowerCase().includes(term))
+    );
+  }
+
+  // Department filter
+  if (options.department && options.department !== 'all') {
+    if (options.department === 'unassigned') {
+      filtered = filtered.filter((h) => !h.department);
+    } else {
+      filtered = filtered.filter((h) => h.department?.toLowerCase() === options.department?.toLowerCase());
+    }
+  }
+
+  // Filter type
+  if (options.filter) {
+    switch (options.filter) {
+      case 'mapped':
+        filtered = filtered.filter((h) => h.isMapped);
+        break;
+      case 'unmapped':
+        filtered = filtered.filter((h) => !h.isMapped);
+        break;
+      case 'blocked':
+        filtered = filtered.filter((h) => h.squid.blockedCount > 0);
+        break;
+      case 'firewall':
+        filtered = filtered.filter((h) => h.syslog.firewallBlocks > 0);
+        break;
+    }
+  }
+
+  // Sorting
+  const sortKey = options.sort || 'bandwidth';
+  const isAsc = options.direction === 'asc';
+
+  filtered.sort((a, b) => {
+    let diff = 0;
+    switch (sortKey) {
+      case 'bandwidth':
+        diff = b.totalBandwidth - a.totalBandwidth;
+        break;
+      case 'requests':
+        diff = b.squid.totalRequests - a.squid.totalRequests;
+        break;
+      case 'blocked':
+        diff = b.squid.blockedCount - a.squid.blockedCount;
+        break;
+      case 'firewall':
+        diff = b.syslog.firewallBlocks - a.syslog.firewallBlocks;
+        break;
+      case 'name':
+        diff = (a.userName || 'zzz').localeCompare(b.userName || 'zzz');
+        break;
+      case 'ip': {
+        const numA = a.clientIp.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+        const numB = b.clientIp.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+        diff = numA - numB;
+        break;
+      }
+      default:
+        diff = b.totalBandwidth - a.totalBandwidth;
+        break;
+    }
+    return isAsc ? -diff : diff;
+  });
+
+  const totalFiltered = filtered.length;
+  const offset = options.offset || 0;
+  const limit = options.limit || 50;
+  const paginated = filtered.slice(offset, offset + limit);
+
+  return {
+    hosts: paginated,
+    totalFiltered,
+    kpis: {
+      totalHosts: allHosts.length,
+      mappedHosts: mappedCount,
+      unmappedHosts: allHosts.length - mappedCount,
+      totalBandwidth: totalBandwidthSum,
+      totalDownloadBytes: totalDownloadSum,
+      totalUploadBytes: totalUploadSum,
+      totalSquidRequests: totalSquidReqsSum,
+      totalSquidBlocked: totalSquidBlockedSum,
+      totalSyslogBlocks: totalSyslogBlocksSum,
+    },
+    departments: Array.from(departmentsSet).sort(),
+  };
 }
 

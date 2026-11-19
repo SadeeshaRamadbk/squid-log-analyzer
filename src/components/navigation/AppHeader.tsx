@@ -9,6 +9,7 @@ import {
   Columns2,
   LogOut,
   UserCheck,
+  Users,
   Settings,
   Terminal,
   Eye,
@@ -23,7 +24,7 @@ import { useAuth } from '../auth/AuthContext';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface AppHeaderProps {
-  activeView?: 'squid' | 'softflowd' | 'syslog' | 'split';
+  activeView?: 'squid' | 'softflowd' | 'syslog' | 'split' | 'hosts';
   onViewChange?: (view: 'squid' | 'softflowd' | 'split') => void;
   onOpenIpModal?: () => void;
   onOpenBackupModal?: () => void;
@@ -51,12 +52,20 @@ export function AppHeader({
   onOpenShortcuts,
 }: AppHeaderProps) {
   const pathname = usePathname();
-  const currentView = activeView || (pathname.startsWith('/syslog') ? 'syslog' : pathname.startsWith('/softflowd') ? 'softflowd' : 'squid');
+  const currentView = activeView || (
+    pathname.startsWith('/hosts') || pathname.startsWith('/user')
+      ? 'hosts'
+      : pathname.startsWith('/syslog')
+      ? 'syslog'
+      : pathname.startsWith('/softflowd')
+      ? 'softflowd'
+      : 'squid'
+  );
   const { user, isAdmin, logout } = useAuth();
   const isPrivacyMode = usePrivacyMode();
 
-  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLElement>, viewName: 'squid' | 'softflowd' | 'split' | 'syslog') => {
-    const tabs: ('squid' | 'softflowd' | 'split' | 'syslog')[] = ['squid', 'softflowd', 'split', 'syslog'];
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLElement>, viewName: 'squid' | 'softflowd' | 'split' | 'syslog' | 'hosts') => {
+    const tabs: ('squid' | 'softflowd' | 'split' | 'syslog' | 'hosts')[] = ['squid', 'softflowd', 'split', 'syslog', 'hosts'];
     const currentIndex = tabs.indexOf(viewName);
     let targetIndex = -1;
 
@@ -213,6 +222,24 @@ export function AppHeader({
                   <Terminal className="w-3.5 h-3.5" />
                   <span>Syslog (Events)</span>
                 </Link>
+
+                <Link
+                  href="/hosts"
+                  id="tab-hosts"
+                  role="tab"
+                  aria-selected={currentView === 'hosts'}
+                  tabIndex={currentView === 'hosts' ? 0 : -1}
+                  aria-controls="panel-hosts"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'hosts')}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                    currentView === 'hosts'
+                      ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Hosts & Employees</span>
+                </Link>
               </>
             ) : (
               <>
@@ -268,6 +295,24 @@ export function AppHeader({
                 >
                   <Terminal className="w-3.5 h-3.5" />
                   <span>Syslog (Events)</span>
+                </Link>
+
+                <Link
+                  href="/hosts"
+                  id="tab-hosts"
+                  role="tab"
+                  aria-selected={currentView === 'hosts'}
+                  tabIndex={currentView === 'hosts' ? 0 : -1}
+                  aria-controls="panel-hosts"
+                  onKeyDown={(e) => handleTabKeyDown(e, 'hosts')}
+                  className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                    currentView === 'hosts'
+                      ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Hosts & Employees</span>
                 </Link>
 
                 <Link
