@@ -166,8 +166,6 @@ export function initializeDatabase(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_alerts_time ON security_alerts(timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_alerts_status ON security_alerts(status);
-    CREATE INDEX IF NOT EXISTS idx_alerts_group ON security_alerts(group_key, status);
-    CREATE INDEX IF NOT EXISTS idx_alerts_snooze ON security_alerts(snoozed_until);
 
     -- Reverse DNS & GeoIP/ASN enrichment cache with TTL
     CREATE TABLE IF NOT EXISTS ip_enrichment (
@@ -332,27 +330,29 @@ export function initializeDatabase(db: Database.Database): void {
   // Migration for existing databases that don't have structured filterlog columns in syslog_events
   try {
     const syslogCols = db.pragma('table_info(syslog_events)') as any[];
-    const hasAction = syslogCols.some((c: any) => c.name === 'action');
-    if (!hasAction) {
+    if (syslogCols && syslogCols.length > 0) {
+      const colNames = syslogCols.map((c: any) => c.name);
+      if (!colNames.includes('action')) {
+        db.exec(`
+          ALTER TABLE syslog_events ADD COLUMN action TEXT;
+          ALTER TABLE syslog_events ADD COLUMN interface TEXT;
+          ALTER TABLE syslog_events ADD COLUMN direction TEXT;
+          ALTER TABLE syslog_events ADD COLUMN protocol TEXT;
+          ALTER TABLE syslog_events ADD COLUMN src_ip TEXT;
+          ALTER TABLE syslog_events ADD COLUMN dst_ip TEXT;
+          ALTER TABLE syslog_events ADD COLUMN src_port INTEGER;
+          ALTER TABLE syslog_events ADD COLUMN dst_port INTEGER;
+          ALTER TABLE syslog_events ADD COLUMN tcp_flags TEXT;
+        `);
+      }
+
       db.exec(`
-        ALTER TABLE syslog_events ADD COLUMN action TEXT;
-        ALTER TABLE syslog_events ADD COLUMN interface TEXT;
-        ALTER TABLE syslog_events ADD COLUMN direction TEXT;
-        ALTER TABLE syslog_events ADD COLUMN protocol TEXT;
-        ALTER TABLE syslog_events ADD COLUMN src_ip TEXT;
-        ALTER TABLE syslog_events ADD COLUMN dst_ip TEXT;
-        ALTER TABLE syslog_events ADD COLUMN src_port INTEGER;
-        ALTER TABLE syslog_events ADD COLUMN dst_port INTEGER;
-        ALTER TABLE syslog_events ADD COLUMN tcp_flags TEXT;
+        CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
       `);
     }
-
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_syslog_action_ts ON syslog_events(action, timestamp DESC);
-      CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
-      CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
-      CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
-    `);
   } catch (err) {
     console.warn('[Schema] syslog_events column migration note:', err);
   }
@@ -360,14 +360,22 @@ export function initializeDatabase(db: Database.Database): void {
   // Migration for existing databases that don't have snooze/grouping columns in security_alerts
   try {
     const alertCols = db.pragma('table_info(security_alerts)') as any[];
-    const hasSnooze = alertCols.some((c: any) => c.name === 'snoozed_until');
-    if (!hasSnooze) {
-      db.exec(`
-        ALTER TABLE security_alerts ADD COLUMN snoozed_until INTEGER;
-        ALTER TABLE security_alerts ADD COLUMN employee_name TEXT;
-        ALTER TABLE security_alerts ADD COLUMN group_key TEXT;
-        ALTER TABLE security_alerts ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1;
+    if (alertCols && alertCols.length > 0) {
+      const colNames = alertCols.map((c: any) => c.name);
+      if (!colNames.includes('snoozed_until')) {
+        db.exec('ALTER TABLE security_alerts ADD COLUMN snoozed_until INTEGER;');
+      }
+      if (!colNames.includes('employee_name')) {
+        db.exec('ALTER TABLE security_alerts ADD COLUMN employee_name TEXT;');
+      }
+      if (!colNames.includes('group_key')) {
+        db.exec('ALTER TABLE security_alerts ADD COLUMN group_key TEXT;');
+      }
+      if (!colNames.includes('occurrence_count')) {
+        db.exec('ALTER TABLE security_alerts ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1;');
+      }
 
+      db.exec(`
         CREATE INDEX IF NOT EXISTS idx_alerts_group ON security_alerts(group_key, status);
         CREATE INDEX IF NOT EXISTS idx_alerts_snooze ON security_alerts(snoozed_until);
       `);

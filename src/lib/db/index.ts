@@ -27,10 +27,20 @@ export function getDatabase(): Database.Database {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
-  dbInstance = new Database(dbPath);
-  initializeDatabase(dbInstance);
-
-  return dbInstance;
+  const db = new Database(dbPath);
+  try {
+    initializeDatabase(db);
+    dbInstance = db;
+    return dbInstance;
+  } catch (err) {
+    try {
+      db.close();
+    } catch {
+      // ignore close failure
+    }
+    dbInstance = null;
+    throw err;
+  }
 }
 
 export function closeDatabase(): void {
