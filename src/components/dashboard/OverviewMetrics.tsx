@@ -34,7 +34,8 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
       borderColor: 'border-blue-500/30',
-      subtitle: 'Combined HTTP/S data transfer',
+      accentGlow: 'hover:shadow-blue-500/10',
+      subtitle: 'Combined HTTP/S volume',
       tooltip: 'Total bytes transferred through the Squid caching proxy for both allowed and blocked requests',
     },
     {
@@ -44,8 +45,9 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       color: 'text-emerald-400',
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/30',
-      subtitle: 'Payload delivered to LAN clients',
-      tooltip: 'Estimated web content downloaded by workstations from external web servers (GET, HEAD, and 85% of CONNECT tunnels)',
+      accentGlow: 'hover:shadow-emerald-500/10',
+      subtitle: 'Delivered to LAN clients',
+      tooltip: 'Estimated web content downloaded by workstations from external web servers',
     },
     {
       title: 'Upload (Outbound)',
@@ -54,8 +56,9 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
       borderColor: 'border-purple-500/30',
-      subtitle: 'POST, headers & tunnels to WAN',
-      tooltip: 'Data sent from LAN workstations to web servers (POST/PUT payloads and SSL tunnel initiation handshakes)',
+      accentGlow: 'hover:shadow-purple-500/10',
+      subtitle: 'POST & tunnel egress',
+      tooltip: 'Data sent from LAN workstations to web servers (POST payloads and SSL tunnel initiation handshakes)',
     },
     {
       title: 'Total Requests',
@@ -64,7 +67,8 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       color: 'text-indigo-400',
       bgColor: 'bg-indigo-500/10',
       borderColor: 'border-indigo-500/30',
-      subtitle: 'HTTP methods & CONNECT tunnels',
+      accentGlow: 'hover:shadow-indigo-500/10',
+      subtitle: 'Processed proxy sessions',
       tooltip: 'Total number of HTTP/HTTPS proxy transactions processed by Squid in the active time window',
     },
     {
@@ -74,7 +78,8 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       color: 'text-rose-400',
       bgColor: 'bg-rose-500/10',
       borderColor: 'border-rose-500/30',
-      subtitle: `${blockedRate}% of total traffic`,
+      accentGlow: 'hover:shadow-rose-500/10',
+      subtitle: `${blockedRate}% denial rate`,
       tooltip: 'Requests denied by Squid ACL access control lists (HTTP 403 Forbidden or TCP_DENIED)',
     },
     {
@@ -84,38 +89,39 @@ export function OverviewMetrics({ metrics, isLoading }: OverviewMetricsProps) {
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-500/10',
       borderColor: 'border-cyan-500/30',
-      subtitle: `${metrics.uniqueClients} active client IPs`,
-      tooltip: 'Distinct Fully Qualified Domain Names (FQDNs) contacted, accessed by distinct internal workstation IPs',
+      accentGlow: 'hover:shadow-cyan-500/10',
+      subtitle: `${metrics.uniqueClients} active workstation IPs`,
+      tooltip: 'Distinct Fully Qualified Domain Names (FQDNs) contacted by internal workstations',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
           <div
             key={card.title}
-            className={`rounded-xl border p-4 bg-slate-900/80 backdrop-blur-sm ${card.borderColor} shadow-sm transition-all hover:bg-slate-800/80 cursor-help`}
+            className={`rounded-xl border p-4 bg-slate-900/75 backdrop-blur-md ${card.borderColor} shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${card.accentGlow} cursor-help border-t-white/10 group relative overflow-hidden`}
             title={card.tooltip}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 tracking-wide uppercase">
+              <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
                 {card.title}
               </span>
-              <div className={`p-2 rounded-lg ${card.bgColor} ${card.color}`}>
+              <div className={`p-2 rounded-lg ${card.bgColor} ${card.color} border border-white/5 transition-transform group-hover:scale-110`}>
                 <Icon className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2.5">
-              <div className="text-[28px] xl:text-[30px] font-extrabold tracking-tight text-slate-100 tabular-nums leading-none">
+            <div className="mt-3">
+              <div className="text-2xl xl:text-[26px] font-extrabold tracking-tight text-white tabular-nums leading-none font-mono">
                 {isLoading ? (
                   <span className="inline-block w-20 h-7 bg-slate-800 rounded animate-pulse" />
                 ) : (
                   card.value
                 )}
               </div>
-              <p className="mt-1.5 text-xs text-slate-400 font-medium">{card.subtitle}</p>
+              <p className="mt-1.5 text-xs text-slate-400 font-medium truncate">{card.subtitle}</p>
             </div>
           </div>
         );

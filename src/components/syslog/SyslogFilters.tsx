@@ -106,7 +106,7 @@ export function SyslogFilters({
   const hasActiveFilters = chips.length > 0;
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-sm">
+    <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-3.5 space-y-3 shadow-lg">
       {/* Top Row: Search, App Select, Date Range, Realtime & Refresh */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Search Bar */}

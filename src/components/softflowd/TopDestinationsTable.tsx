@@ -30,7 +30,7 @@ export function TopDestinationsTable({
   const items = tab === 'external' ? destinations : internalDestinations;
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col h-full">
+    <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-5 shadow-lg flex flex-col h-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <div>
           <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">

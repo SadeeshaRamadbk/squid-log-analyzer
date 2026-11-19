@@ -34,15 +34,15 @@ export function HostMetricsBar({ kpis }: HostMetricsBarProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mb-6">
       {/* 1. Total Hosts */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden group hover:border-slate-700 transition-colors">
+      <div className="group rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 p-4 shadow-lg relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-emerald-500/10">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Monitored Hosts</span>
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Monitored Hosts</span>
+          <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner group-hover:scale-105 transition-transform">
             <Laptop className="w-4 h-4" />
           </div>
         </div>
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-white tracking-tight">
+          <span className="text-2xl font-black font-mono text-white tracking-tight tabular-nums">
             {formatNumber(kpis.totalHosts)}
           </span>
           <span className="text-xs text-slate-400">active devices</span>
@@ -55,15 +55,15 @@ export function HostMetricsBar({ kpis }: HostMetricsBarProps) {
       </div>
 
       {/* 2. Total Bandwidth Consumed */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden group hover:border-slate-700 transition-colors">
+      <div className="group rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 p-4 shadow-lg relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-blue-500/10">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Total Bandwidth</span>
-          <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Total Bandwidth</span>
+          <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 shadow-inner group-hover:scale-105 transition-transform">
             <Activity className="w-4 h-4" />
           </div>
         </div>
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-white tracking-tight">
+          <span className="text-2xl font-black font-mono text-white tracking-tight tabular-nums">
             {formatBytes(kpis.totalBandwidth)}
           </span>
           <span className="text-xs text-slate-400">transferred</span>
@@ -81,15 +81,15 @@ export function HostMetricsBar({ kpis }: HostMetricsBarProps) {
       </div>
 
       {/* 3. Squid Web Proxy Activity */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden group hover:border-slate-700 transition-colors">
+      <div className="group rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 p-4 shadow-lg relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-indigo-500/10">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Squid Web Requests</span>
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Squid Web Requests</span>
+          <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shadow-inner group-hover:scale-105 transition-transform">
             <Globe className="w-4 h-4" />
           </div>
         </div>
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-white tracking-tight">
+          <span className="text-2xl font-black font-mono text-white tracking-tight tabular-nums">
             {formatNumber(kpis.totalSquidRequests)}
           </span>
           <span className="text-xs text-slate-400">HTTP/S hits</span>
@@ -102,15 +102,15 @@ export function HostMetricsBar({ kpis }: HostMetricsBarProps) {
       </div>
 
       {/* 4. Blocked Web Access */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden group hover:border-slate-700 transition-colors">
+      <div className="group rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 p-4 shadow-lg relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-rose-500/10">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Web Policy Blocks</span>
-          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Web Policy Blocks</span>
+          <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 shadow-inner group-hover:scale-105 transition-transform">
             <ShieldAlert className="w-4 h-4" />
           </div>
         </div>
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-rose-400 tracking-tight">
+          <span className="text-2xl font-black font-mono text-rose-400 tracking-tight tabular-nums">
             {formatNumber(kpis.totalSquidBlocked)}
           </span>
           <span className="text-xs text-slate-400">denied requests</span>
@@ -121,15 +121,15 @@ export function HostMetricsBar({ kpis }: HostMetricsBarProps) {
       </div>
 
       {/* 5. pfSense Firewall Drops */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden group hover:border-slate-700 transition-colors">
+      <div className="group rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 p-4 shadow-lg relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-purple-500/10">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Firewall Security Drops</span>
-          <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Firewall Security Drops</span>
+          <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-inner group-hover:scale-105 transition-transform">
             <Layers className="w-4 h-4" />
           </div>
         </div>
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-purple-400 tracking-tight">
+          <span className="text-2xl font-black font-mono text-purple-400 tracking-tight tabular-nums">
             {formatNumber(kpis.totalSyslogBlocks)}
           </span>
           <span className="text-xs text-slate-400">dropped packets</span>

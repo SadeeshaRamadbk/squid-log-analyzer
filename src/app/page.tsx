@@ -990,16 +990,16 @@ function DashboardContent() {
         {activeView === 'split' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             {/* Unified Control Bar for Multitasking */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+            <div className="p-4 rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 shadow-lg flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
                   <Columns2 className="w-5 h-5" />
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     Multitasking Split Workspace
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      Live Telemetry Active
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      Live Dual Telemetry
                     </span>
                   </h2>
                   <p className="text-xs text-slate-400">
@@ -1015,7 +1015,7 @@ function DashboardContent() {
                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                     isRealTime
                       ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                      : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
                   }`}
                 >
                   <Radio className={`w-3.5 h-3.5 ${isRealTime ? 'text-rose-400' : 'text-slate-400'}`} />
@@ -1026,7 +1026,7 @@ function DashboardContent() {
                   type="button"
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-colors cursor-pointer shadow-sm shadow-indigo-500/25"
                 >
                   {refreshing ? 'Refreshing...' : 'Refresh All'}
                 </button>
@@ -1036,8 +1036,8 @@ function DashboardContent() {
             {/* Dual Column Layout */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
               {/* Left Column: Squid Proxy */}
-              <div className="space-y-5 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="space-y-5 bg-slate-900/40 backdrop-blur-md p-5 rounded-2xl border border-slate-800/90 border-t-white/10 shadow-lg">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
                   <div className="flex items-center gap-2 text-sm font-semibold text-blue-300">
                     <Network className="w-4 h-4 text-blue-400" />
                     Squid Web Proxy Telemetry
@@ -1052,7 +1052,7 @@ function DashboardContent() {
                       <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
                       Live Feed
                     </button>
-                    <span className="text-[11px] text-slate-400 font-mono">
+                    <span className="text-[11px] text-slate-400 font-mono tabular-nums">
                       {squidStats.overview.totalRequests.toLocaleString()} requests
                     </span>
                   </div>
@@ -1088,8 +1088,8 @@ function DashboardContent() {
               </div>
 
               {/* Right Column: pfSense softflowd */}
-              <div className="space-y-5 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="space-y-5 bg-slate-900/40 backdrop-blur-md p-5 rounded-2xl border border-slate-800/90 border-t-white/10 shadow-lg">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
                   <div className="flex items-center gap-2 text-sm font-semibold text-indigo-300">
                     <Shield className="w-4 h-4 text-indigo-400" />
                     pfSense softflowd L3/L4 Telemetry
@@ -1104,7 +1104,7 @@ function DashboardContent() {
                       <Layers className="w-3 h-3 text-indigo-400" />
                       Live Feed
                     </button>
-                    <span className="text-[11px] text-slate-400 font-mono">
+                    <span className="text-[11px] text-slate-400 font-mono tabular-nums">
                       {netflowStats.overview.totalFlows.toLocaleString()} flows
                     </span>
                   </div>

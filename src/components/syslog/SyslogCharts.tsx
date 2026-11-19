@@ -37,7 +37,7 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 1. Severity Timeline Histogram (2 cols) */}
-      <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+      <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-4 shadow-lg flex flex-col justify-between">
         {/* Accessible screen reader summary */}
         <div className="sr-only" aria-live="polite">
           Syslog severity events: {summary.totalErrors} errors, {summary.totalWarnings} warnings, and {summary.totalInfo} info notices recorded across the timeline.
@@ -182,7 +182,7 @@ export function SyslogCharts({ timeline, topApps, onSelectApp, selectedApp }: Sy
       </div>
 
       {/* 2. Top Applications Distribution (1 col) */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+      <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-4 shadow-lg flex flex-col justify-between">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800/60 mb-2">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-cyan-400" />

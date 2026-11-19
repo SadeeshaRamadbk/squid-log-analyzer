@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Terminal, AlertOctagon, AlertTriangle, Layers, ShieldAlert } from 'lucide-react';
+import { Terminal, AlertOctagon, AlertTriangle, Layers, ShieldAlert, Radio } from 'lucide-react';
 import type { SyslogOverviewStats } from '@/lib/db/syslog-queries';
 
 interface SyslogMetricsProps {
@@ -12,9 +12,12 @@ interface SyslogMetricsProps {
 export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
   if (isLoading || !stats) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 bg-slate-900/60 border border-slate-800 rounded-xl animate-pulse" />
+          <div
+            key={i}
+            className="h-28 rounded-xl bg-slate-900/50 border border-slate-800/80 animate-pulse"
+          />
         ))}
       </div>
     );
@@ -22,100 +25,105 @@ export function SyslogMetrics({ stats, isLoading }: SyslogMetricsProps) {
 
   const { totalEvents, criticalErrors, warnings, notices, info, firewallBlocks, topApps } = stats;
 
+  const cards = [
+    {
+      title: 'Total Syslog Events',
+      value: totalEvents.toLocaleString(),
+      subtitle: `${topApps.length} active service daemons`,
+      icon: Terminal,
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+      borderColor: 'border-blue-500/30',
+      accentGlow: 'hover:shadow-blue-500/10',
+      tooltip: 'Total raw syslog events ingested across all services',
+    },
+    {
+      title: 'Firewall Blocks',
+      value: firewallBlocks.toLocaleString(),
+      subtitle: `${totalEvents > 0 ? ((firewallBlocks / totalEvents) * 100).toFixed(1) : '0.0'}% security drop rate`,
+      icon: ShieldAlert,
+      color: 'text-rose-400',
+      bgColor: 'bg-rose-500/10',
+      borderColor: 'border-rose-500/40',
+      accentGlow: 'hover:shadow-rose-500/10',
+      isPulsing: firewallBlocks > 0,
+      tooltip: 'pfSense filterlog block and reject actions',
+    },
+    {
+      title: 'Critical & Errors',
+      value: criticalErrors.toLocaleString(),
+      subtitle: `${totalEvents > 0 ? ((criticalErrors / totalEvents) * 100).toFixed(1) : '0.0'}% of all events`,
+      icon: AlertOctagon,
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/10',
+      borderColor: 'border-red-500/30',
+      accentGlow: 'hover:shadow-red-500/10',
+      tooltip: 'Syslog severity 0-3 (Emergency, Alert, Critical, Error)',
+    },
+    {
+      title: 'Warnings',
+      value: warnings.toLocaleString(),
+      subtitle: 'Security warnings & state issues',
+      icon: AlertTriangle,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/10',
+      borderColor: 'border-amber-500/30',
+      accentGlow: 'hover:shadow-amber-500/10',
+      tooltip: 'Syslog severity 4 (Warning conditions, including security drops)',
+    },
+    {
+      title: 'Notices & Informational',
+      value: (notices + info).toLocaleString(),
+      subtitle: 'Operational logs & DHCP activity',
+      icon: Layers,
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+      borderColor: 'border-cyan-500/30',
+      accentGlow: 'hover:shadow-cyan-500/10',
+      tooltip: 'Syslog severity 5-7 (Notices, Informational, Debug)',
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      {/* 1. Total Syslog Events */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between" title="Total raw syslog events ingested across all services">
-        <div>
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Total Syslog Events
-          </span>
-          <div className="text-[28px] font-extrabold font-mono text-white mt-1.5 leading-none tabular-nums">
-            {totalEvents.toLocaleString()}
-          </div>
-          <span className="text-xs text-slate-400 mt-1 block">
-            {topApps.length} active service daemons
-          </span>
-        </div>
-        <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          <Terminal className="w-5 h-5" />
-        </div>
-      </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div
+            key={card.title}
+            className={`group relative rounded-xl bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-lg ${card.accentGlow}`}
+            title={card.tooltip}
+          >
+            {card.isPulsing && (
+              <span className="absolute top-2.5 right-2.5 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+              </span>
+            )}
 
-      {/* 2. Firewall Blocks (Security Relevant) */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-rose-500/40 bg-gradient-to-br from-rose-950/20 to-slate-900 flex items-center justify-between relative overflow-hidden" title="pfSense filterlog block and reject actions">
-        {firewallBlocks > 0 && (
-          <div className="absolute top-0 right-0 w-2 h-2 rounded-full bg-rose-500 m-2 animate-ping" />
-        )}
-        <div>
-          <span className="text-xs font-semibold text-rose-300 uppercase tracking-wider flex items-center gap-1">
-            Firewall Blocks
-          </span>
-          <div className="text-[28px] font-extrabold font-mono text-rose-400 mt-1.5 leading-none tabular-nums">
-            {firewallBlocks.toLocaleString()}
-          </div>
-          <span className="text-xs text-rose-300 font-medium mt-1 block">
-            {totalEvents > 0 ? ((firewallBlocks / totalEvents) * 100).toFixed(1) : 0}% security blocks
-          </span>
-        </div>
-        <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40">
-          <ShieldAlert className="w-5 h-5" />
-        </div>
-      </div>
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+                  {card.title}
+                </span>
+                <div className="text-2xl font-black font-mono tracking-tight text-slate-100 tabular-nums">
+                  {card.value}
+                </div>
+              </div>
+              <div
+                className={`p-2.5 rounded-lg ${card.bgColor} ${card.color} border ${card.borderColor} shadow-inner shrink-0 group-hover:scale-105 transition-transform`}
+              >
+                <Icon className="w-5 h-5" />
+              </div>
+            </div>
 
-      {/* 3. Critical & Errors */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-red-500/30 flex items-center justify-between" title="Syslog severity 0-3 (Emergency, Alert, Critical, Error)">
-        <div>
-          <span className="text-xs font-semibold text-red-300 uppercase tracking-wider flex items-center gap-1.5">
-            Errors &amp; Critical
-          </span>
-          <div className="text-[28px] font-extrabold font-mono text-red-400 mt-1.5 leading-none tabular-nums">
-            {criticalErrors.toLocaleString()}
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-cyan-400 transition-colors" />
+              <span className="truncate">{card.subtitle}</span>
+            </div>
           </div>
-          <span className="text-xs text-red-300 font-medium mt-1 block">
-            {totalEvents > 0 ? ((criticalErrors / totalEvents) * 100).toFixed(1) : 0}% of all events
-          </span>
-        </div>
-        <div className="p-2.5 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30">
-          <AlertOctagon className="w-5 h-5" />
-        </div>
-      </div>
-
-      {/* 4. Warnings */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-amber-500/30 flex items-center justify-between" title="Syslog severity 4 (Warning conditions, including security blocks)">
-        <div>
-          <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">
-            Warnings
-          </span>
-          <div className="text-[28px] font-extrabold font-mono text-amber-400 mt-1.5 leading-none tabular-nums">
-            {warnings.toLocaleString()}
-          </div>
-          <span className="text-xs text-amber-300 font-medium mt-1 block">
-            Security blocks &amp; warnings
-          </span>
-        </div>
-        <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
-          <AlertTriangle className="w-5 h-5" />
-        </div>
-      </div>
-
-      {/* 5. Notices & Informational */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between" title="Syslog severity 5-7 (Notices, Informational, Debug)">
-        <div>
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Notices &amp; Info
-          </span>
-          <div className="text-[28px] font-extrabold font-mono text-cyan-300 mt-1.5 leading-none tabular-nums">
-            {(notices + info).toLocaleString()}
-          </div>
-          <span className="text-xs text-cyan-300 font-medium mt-1 block">
-            Operational activity &amp; leases
-          </span>
-        </div>
-        <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-          <Layers className="w-5 h-5" />
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }

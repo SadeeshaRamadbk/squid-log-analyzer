@@ -181,7 +181,7 @@ export default function HostsPage() {
         {data && <HostMetricsBar kpis={data.kpis} />}
 
         {/* Toolbar: Search, Filters, Sorters & View Switcher */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 mb-6 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-3 sm:p-4 mb-6 shadow-lg flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-[280px] max-w-xl">
             {/* Search Input */}
             <div className="relative flex-1">

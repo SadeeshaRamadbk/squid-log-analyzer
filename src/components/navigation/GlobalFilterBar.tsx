@@ -254,12 +254,12 @@ export function GlobalFilterBar({
   const getPresetClass = (isActive: boolean) =>
     `px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer select-none ${
       isActive
-        ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-500/30'
-        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+        ? 'bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold shadow-sm shadow-indigo-500/30'
+        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
     }`;
 
   return (
-    <div className="relative z-25 bg-slate-900/90 border border-slate-800 rounded-xl p-3 shadow-sm backdrop-blur-md space-y-2.5">
+    <div className="relative z-25 bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-3 shadow-lg space-y-2.5">
       {/* Row 1: Time Controls, Filter Scope Selectors, and Live Action Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left Side: Time Presets & Scope Selectors */}

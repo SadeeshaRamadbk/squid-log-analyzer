@@ -139,7 +139,7 @@ export function SyslogTable({
   };
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col">
+    <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl overflow-hidden shadow-lg flex flex-col">
       {/* Table Header Controls */}
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
         <div className="flex items-center gap-2">

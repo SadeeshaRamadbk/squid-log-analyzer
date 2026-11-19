@@ -193,7 +193,7 @@ export function HostDetailBreakdown({ ip, onClose, onUpdatedMapping }: HostDetai
     : null;
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-xl flex flex-col h-full overflow-hidden">
+    <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl shadow-2xl flex flex-col h-full overflow-hidden">
       {/* Top Header */}
       <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/60 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">

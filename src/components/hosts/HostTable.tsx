@@ -30,7 +30,7 @@ export function HostTable({ hosts, selectedIp, onSelectHost, maxBandwidth }: Hos
 
   if (hosts.length === 0) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
+      <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl p-12 text-center shadow-lg">
         <Laptop className="w-10 h-10 text-slate-600 mx-auto mb-3" />
         <h3 className="text-sm font-semibold text-slate-300">No hosts found</h3>
         <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
@@ -41,7 +41,7 @@ export function HostTable({ hosts, selectedIp, onSelectHost, maxBandwidth }: Hos
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/90 border-t-white/10 rounded-xl shadow-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider select-none">
