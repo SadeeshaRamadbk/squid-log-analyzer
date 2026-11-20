@@ -57,6 +57,8 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_daily_date_ip ON daily_summaries(date, client_ip);
     CREATE INDEX IF NOT EXISTS idx_daily_ip_date ON daily_summaries(client_ip, date);
     CREATE INDEX IF NOT EXISTS idx_daily_domain_date ON daily_summaries(domain, date);
+    CREATE INDEX IF NOT EXISTS idx_daily_client_covering ON daily_summaries(client_ip, request_count, bytes, blocked_count);
+    CREATE INDEX IF NOT EXISTS idx_daily_client_domain_req ON daily_summaries(client_ip, domain, request_count);
 
     -- Hourly rollups for Squid proxy logs (fast timeline aggregations)
     CREATE TABLE IF NOT EXISTS proxy_hourly_rollups (
@@ -137,6 +139,9 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_netflow_daily_src ON netflow_daily_summaries(src_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_daily_dst ON netflow_daily_summaries(dst_ip);
     CREATE INDEX IF NOT EXISTS idx_netflow_daily_port ON netflow_daily_summaries(dst_port);
+    CREATE INDEX IF NOT EXISTS idx_netflow_daily_src_metrics ON netflow_daily_summaries(src_ip, bytes, flow_count);
+    CREATE INDEX IF NOT EXISTS idx_netflow_daily_dst_metrics ON netflow_daily_summaries(dst_ip, bytes, flow_count);
+    CREATE INDEX IF NOT EXISTS idx_netflow_daily_src_svc_bytes ON netflow_daily_summaries(src_ip, service_name, bytes);
 
     -- Domain Categories table for URL classification & noise reduction
     CREATE TABLE IF NOT EXISTS domain_categories (
@@ -351,6 +356,7 @@ export function initializeDatabase(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_syslog_src_ip_ts ON syslog_events(src_ip, timestamp DESC);
         CREATE INDEX IF NOT EXISTS idx_syslog_dst_ip_ts ON syslog_events(dst_ip, timestamp DESC);
         CREATE INDEX IF NOT EXISTS idx_syslog_dst_port_ts ON syslog_events(dst_port, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_syslog_src_action ON syslog_events(src_ip, action);
       `);
     }
   } catch (err) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIpMappings, upsertIpMapping, deleteIpMapping, getUnassignedIps } from '@/lib/db/queries';
+import { invalidateHostsCache } from '@/lib/db/profile-queries';
 import { getUserFromRequest } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/audit';
 
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     upsertIpMapping(clientIp, userName, department, notes);
+    invalidateHostsCache();
 
     recordAuditLog({
       actor: user?.username || 'admin',
@@ -77,6 +79,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const deleted = deleteIpMapping(clientIp);
+    invalidateHostsCache();
 
     recordAuditLog({
       actor: user?.username || 'admin',

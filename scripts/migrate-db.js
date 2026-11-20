@@ -96,6 +96,18 @@ try {
     console.log('✓ security_alerts indexes verified.');
   }
 
+  // 3. Performance composite indexes for large-scale databases (multi-million rows)
+  console.log('Creating composite performance indexes...');
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_daily_client_covering ON daily_summaries(client_ip, request_count, bytes, blocked_count);
+    CREATE INDEX IF NOT EXISTS idx_daily_client_domain_req ON daily_summaries(client_ip, domain, request_count);
+    CREATE INDEX IF NOT EXISTS idx_netflow_daily_src_metrics ON netflow_daily_summaries(src_ip, bytes, flow_count);
+    CREATE INDEX IF NOT EXISTS idx_netflow_daily_dst_metrics ON netflow_daily_summaries(dst_ip, bytes, flow_count);
+    CREATE INDEX IF NOT EXISTS idx_netflow_daily_src_svc_bytes ON netflow_daily_summaries(src_ip, service_name, bytes);
+    CREATE INDEX IF NOT EXISTS idx_syslog_src_action ON syslog_events(src_ip, action);
+  `);
+  console.log('✓ Composite performance indexes verified/created.');
+
   db.close();
   console.log('\nMigration completed successfully! Ready for collector insertion.');
 } catch (err) {
